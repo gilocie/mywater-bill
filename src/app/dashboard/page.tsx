@@ -22,28 +22,78 @@ import {
   MapPin,
   Activity,
   ShieldAlert,
-  FileText
+  FileText,
+  CreditCard,
+  Smartphone,
+  CheckCircle2,
+  Calculator
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { MOCK_BILLS, User } from '@/app/lib/mock-data';
+import { Bill, User, PaymentMethod } from '@/app/lib/mock-data';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const { toast } = useToast();
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allBills, setAllBills] = useState<Bill[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
 
   useEffect(() => {
-    const usersStr = localStorage.getItem('mywater_all_users');
-    if (usersStr) {
-      setAllUsers(JSON.parse(usersStr));
-    }
+    const loadData = () => {
+      const usersStr = localStorage.getItem('mywater_all_users');
+      if (usersStr) setAllUsers(JSON.parse(usersStr));
+
+      const billsStr = localStorage.getItem('mywater_all_bills');
+      if (billsStr) setAllBills(JSON.parse(billsStr));
+
+      const methodsStr = localStorage.getItem('mywater_payment_methods');
+      if (methodsStr) setPaymentMethods(JSON.parse(methodsStr).filter((m: PaymentMethod) => m.active));
+    };
+
+    loadData();
+    window.addEventListener('storage', loadData);
+    return () => window.removeEventListener('storage', loadData);
   }, []);
 
   if (!user) return null;
 
+  const handlePayment = () => {
+    if (!selectedMethod || !user) return;
+    
+    const method = paymentMethods.find(m => m.id === selectedMethod);
+    const userBills = allBills.filter(b => b.customerId === user.id && b.status !== 'PAID');
+    const totalDue = userBills.reduce((sum, b) => sum + b.totalAmount, 0);
+
+    // Simulate payment
+    const updatedBills = allBills.map(b => 
+      (b.customerId === user.id && b.status !== 'PAID') ? { ...b, status: 'PAID' as const } : b
+    );
+    
+    localStorage.setItem('mywater_all_bills', JSON.stringify(updatedBills));
+    setAllBills(updatedBills);
+
+    // If using wallet, deduct balance
+    if (method?.type === 'WALLET') {
+      updateUser({ walletBalance: (user.walletBalance || 0) - totalDue });
+    }
+
+    setIsPayDialogOpen(false);
+    toast({
+      title: "Bill Settled",
+      description: `Payment of MK ${totalDue.toLocaleString()} via ${method?.name} successful.`,
+    });
+  };
+
   // --- SUPER ADMIN VIEW ---
   if (user.role === 'SUPER_ADMIN') {
     const totalCustomers = allUsers.filter(u => u.role === 'CUSTOMER').length;
+    const totalRevenue = allBills.filter(b => b.status === 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
+    const totalConsumption = allBills.reduce((sum, b) => sum + b.meterReadingLiters, 0);
     
     return (
       <div className="space-y-6">
@@ -59,11 +109,11 @@ export default function DashboardPage() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full -mr-12 -mt-12 blur-2xl" />
             <CardHeader className="pb-2">
               <CardDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Total Revenue</CardDescription>
-              <CardTitle className="text-4xl font-black">MK 12.4M</CardTitle>
+              <CardTitle className="text-4xl font-black">MK {(totalRevenue / 1000).toFixed(1)}K</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-xs text-green-400 flex items-center gap-1 mt-1 font-bold">
-                <ArrowUpRight className="h-3 w-3" /> 18.5% Growth YTD
+                <ArrowUpRight className="h-3 w-3" /> Real-time Data
               </div>
             </CardContent>
           </Card>
@@ -85,8 +135,8 @@ export default function DashboardPage() {
               <Droplets className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-4xl font-black text-white">28.5M L</div>
-              <Progress value={92} className="h-1.5 mt-4 bg-slate-800" />
+              <div className="text-4xl font-black text-white">{(totalConsumption / 1000).toFixed(1)}K L</div>
+              <Progress value={85} className="h-1.5 mt-4 bg-slate-800" />
             </CardContent>
           </Card>
         </div>
@@ -105,11 +155,18 @@ export default function DashboardPage() {
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader>
-              <CardTitle className="text-lg font-bold text-white">Recent Staff Logs</CardTitle>
+              <CardTitle className="text-lg font-bold text-white">Registry Metrics</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <p className="text-xs text-slate-500 italic">No recent critical operations reported.</p>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400">Staff Members</span>
+                  <span className="text-white font-bold">{allUsers.filter(u => u.role !== 'CUSTOMER').length}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400">Active Meters</span>
+                  <span className="text-white font-bold">{allUsers.filter(u => !!u.meterNumber).length}</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -145,35 +202,37 @@ export default function DashboardPage() {
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pb-2">
-              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Area Consumption</CardDescription>
-              <CardTitle className="text-3xl font-black text-white">4.2M Liters</CardTitle>
+              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Total Liters Managed</CardDescription>
+              <CardTitle className="text-3xl font-black text-white">
+                {allBills.filter(b => assignedCustomers.find(c => c.id === b.customerId)).reduce((sum, b) => sum + b.meterReadingLiters, 0).toLocaleString()} L
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-1 text-xs text-blue-400 font-bold">
-                <Droplets className="h-3 w-3" /> Month-to-date
+                <Droplets className="h-3 w-3" /> Historical Aggregate
               </div>
             </CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-accent/10 rounded-[5px]">
             <CardHeader className="pb-2">
-              <CardDescription className="text-accent/70 font-bold uppercase text-[10px]">Pending Reports</CardDescription>
+              <CardDescription className="text-accent/70 font-bold uppercase text-[10px]">Pending Invoices</CardDescription>
               <CardTitle className="text-3xl font-black text-accent flex items-center gap-2">
-                <FileText className="h-6 w-6" /> 3 New
+                <FileText className="h-6 w-6" /> {allBills.filter(b => b.status === 'PENDING' && assignedCustomers.find(c => c.id === b.customerId)).length}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-[10px] text-accent/50 font-medium">Urgent attention required</p>
+              <p className="text-[10px] text-accent/50 font-medium">Unsettled accounts in zone</p>
             </CardContent>
           </Card>
         </div>
 
         <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-white">Assigned Customers</CardTitle>
+            <CardTitle className="text-lg font-bold text-white">Assigned Registry</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {assignedCustomers.length > 0 ? assignedCustomers.map(customer => (
-              <div key={customer.id} className="flex items-center justify-between p-4 border border-white/5 rounded-[5px] hover:bg-white/5 transition-all cursor-pointer">
+              <div key={customer.id} className="flex items-center justify-between p-4 border border-white/5 rounded-[5px] hover:bg-white/5 transition-all cursor-pointer" onClick={() => window.location.href = `/dashboard/customers/${customer.id}`}>
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 bg-primary/10 rounded-[5px] flex items-center justify-center text-primary">
                     <Droplets className="h-5 w-5" />
@@ -187,7 +246,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-right">
                   <p className="font-mono text-[10px] font-bold text-primary">{customer.meterNumber}</p>
-                  <Button variant="link" size="sm" className="h-auto p-0 text-xs font-bold uppercase tracking-tighter text-primary">Issue Invoice</Button>
+                  <p className="text-[9px] text-slate-500 uppercase font-bold">Inspect Profile</p>
                 </div>
               </div>
             )) : (
@@ -204,8 +263,10 @@ export default function DashboardPage() {
 
   // --- CUSTOMER VIEW ---
   if (user.role === 'CUSTOMER') {
-    const userBills = MOCK_BILLS.filter(b => b.customerId === user.id);
-    const pendingBill = userBills.find(b => b.status === 'PENDING' || b.status === 'OVERDUE');
+    const userBills = allBills.filter(b => b.customerId === user.id);
+    const pendingBills = userBills.filter(b => b.status !== 'PAID');
+    const totalDue = pendingBills.reduce((sum, b) => sum + b.totalAmount, 0);
+    const totalUsage = userBills.reduce((sum, b) => sum + b.meterReadingLiters, 0);
 
     return (
       <div className="space-y-6">
@@ -230,36 +291,83 @@ export default function DashboardPage() {
               <CardTitle className="text-3xl font-black">MK {user.walletBalance?.toLocaleString() || '0'}</CardTitle>
             </CardHeader>
             <CardContent>
-              <Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 border-none text-white h-7 text-[10px] font-bold uppercase rounded-[5px]">Refill Balance</Button>
+              <Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 border-none text-white h-7 text-[10px] font-bold uppercase rounded-[5px]" onClick={() => window.location.href = '/dashboard/wallet'}>Refill Balance</Button>
             </CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Usage This Month</CardDescription>
+              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Total Consumption</CardDescription>
               <Droplets className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black text-white">142 L</div>
-              <Progress value={65} className="h-1 mt-3 bg-slate-800" />
+              <div className="text-3xl font-black text-white">{totalUsage.toLocaleString()} L</div>
+              <Progress value={Math.min(100, (totalUsage / 1000) * 100)} className="h-1 mt-3 bg-slate-800" />
             </CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Amount Due</CardDescription>
-              <AlertCircle className="h-4 w-4 text-destructive" />
+              <AlertCircle className={`h-4 w-4 ${totalDue > 0 ? 'text-destructive' : 'text-green-500'}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black text-destructive">MK {pendingBill ? pendingBill.totalAmount.toLocaleString() : '0'}</div>
+              <div className={`text-3xl font-black ${totalDue > 0 ? 'text-destructive' : 'text-green-500'}`}>MK {totalDue.toLocaleString()}</div>
+              {totalDue > 0 && (
+                <Dialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="mt-4 w-full h-8 bg-destructive hover:bg-destructive/90 text-[10px] font-bold uppercase rounded-[5px]">Settle Bill Now</Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px] max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle>Settle Utility Bill</DialogTitle>
+                      <DialogDescription className="text-slate-500">Total Outstanding: MK {totalDue.toLocaleString()}</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Select Payment Method</label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {paymentMethods.length > 0 ? paymentMethods.map(method => (
+                          <button 
+                            key={method.id}
+                            onClick={() => setSelectedMethod(method.id)}
+                            className={`flex items-center justify-between p-4 border rounded-[5px] transition-all ${selectedMethod === method.id ? 'bg-primary/20 border-primary' : 'bg-slate-950/50 border-white/5 hover:bg-white/5'}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : 
+                               method.type === 'BANK' ? <CreditCard className="h-4 w-4 text-primary" /> : 
+                               <Wallet className="h-4 w-4 text-primary" />}
+                              <div className="text-left">
+                                <p className="text-xs font-bold">{method.name}</p>
+                                <p className="text-[8px] text-slate-500 uppercase">{method.provider}</p>
+                              </div>
+                            </div>
+                            {selectedMethod === method.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                          </button>
+                        )) : (
+                          <p className="text-center text-xs text-slate-500 italic py-4">No payment methods configured by admin.</p>
+                        )}
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button 
+                        disabled={!selectedMethod} 
+                        onClick={handlePayment}
+                        className="w-full bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px]"
+                      >
+                        Authorize Payment
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
             </CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Billing Cycle</CardDescription>
+              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Billing Status</CardDescription>
               <Clock className="h-4 w-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black text-white">12 Days</div>
-              <p className="text-[10px] text-slate-500 font-medium mt-1">Remaining until invoice</p>
+              <div className="text-3xl font-black text-white">{pendingBills.length} Bill{pendingBills.length !== 1 ? 's' : ''}</div>
+              <p className="text-[10px] text-slate-500 font-medium mt-1">Unsettled in ledger</p>
             </CardContent>
           </Card>
         </div>

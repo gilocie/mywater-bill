@@ -37,12 +37,25 @@ export interface Transaction {
   description: string;
 }
 
+export interface PaymentMethod {
+  id: string;
+  name: string;
+  type: 'MOBILE_MONEY' | 'BANK' | 'WALLET';
+  provider: string;
+  active: boolean;
+}
+
 export const REGIONS = ['Northern', 'Central', 'Southern'];
 export const DISTRICTS = ['Blantyre', 'Lilongwe', 'Mzuzu', 'Zomba', 'Kasungu', 'Mangochi'];
 export const AREAS = ['Area 47', 'Area 18', 'Chirimba', 'Ndirande', 'Kanjedza', 'Chilomoni'];
 export const GLOBAL_WATER_RATE = 2.5; 
 
-// Start completely empty to ensure the first registrant is the Super Admin
+// Base data structures for storage keys:
+// 'mywater_all_users'
+// 'mywater_all_bills'
+// 'mywater_all_transactions'
+// 'mywater_payment_methods'
+
 export const MOCK_USERS: User[] = [];
 export const MOCK_BILLS: Bill[] = [];
 export const MOCK_TRANSACTIONS: Transaction[] = [];

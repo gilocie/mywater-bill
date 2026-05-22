@@ -45,18 +45,14 @@ export function SidebarNav() {
         { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
         { icon: Users, label: 'Customers', href: '/dashboard/customers', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF'] },
         { icon: UserCheck, label: 'Staff Registry', href: '/dashboard/staff', roles: ['SUPER_ADMIN'] },
-        { icon: Receipt, label: 'Billing & Payments', href: '/dashboard/billing', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
+        { icon: Receipt, label: 'Billing & Ledger', href: '/dashboard/billing', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
       ]
     },
     {
       label: 'Operational',
       items: [
         { icon: Wallet, label: 'My Wallet', href: '/dashboard/wallet', roles: ['CUSTOMER'] },
-        { icon: ClipboardList, label: 'Reports', href: '/dashboard/reports', roles: ['DISTRICT_STAFF'] },
-        { icon: CreditCard, label: 'Payment Methods', href: '/dashboard/payments', roles: ['SUPER_ADMIN'] },
-        { icon: Map, label: 'Regions', href: '/dashboard/regions', roles: ['SUPER_ADMIN'] },
-        { icon: Building2, label: 'Districts', href: '/dashboard/districts', roles: ['SUPER_ADMIN'] },
-        { icon: MapPin, label: 'Areas', href: '/dashboard/areas', roles: ['SUPER_ADMIN'] },
+        { icon: CreditCard, label: 'Payment Channels', href: '/dashboard/payments', roles: ['SUPER_ADMIN'] },
         { icon: BellRing, label: 'Broadcasts', href: '/dashboard/notifications', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
       ]
     }
