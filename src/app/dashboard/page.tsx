@@ -28,7 +28,10 @@ import {
   History,
   Download,
   AlertTriangle,
-  Zap
+  Zap,
+  Loader2,
+  PlusCircle,
+  ArrowDownLeft
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -36,6 +39,7 @@ import { Bill, User, PaymentMethod, Transaction } from '@/app/lib/mock-data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
@@ -45,8 +49,17 @@ export default function DashboardPage() {
   const [allBills, setAllBills] = useState<Bill[]>([]);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  
+  // Payment Dialog State
   const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  
+  // Deposit Dialog State
+  const [isDepositDialogOpen, setIsDepositDialogOpen] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [isDepositing, setIsDepositing] = useState(false);
+  const [selectedDepositMethodId, setSelectedDepositMethodId] = useState<string | null>(null);
+
   const [usageFilter, setUsageFilter] = useState<'month' | '3months' | 'year'>('month');
 
   useEffect(() => {
@@ -107,6 +120,52 @@ export default function DashboardPage() {
       title: "Bill Settled",
       description: `Payment of MK ${totalDue.toLocaleString()} via ${method?.name} successful.`,
     });
+  };
+
+  const handleDeposit = () => {
+    if (!depositAmount || isNaN(Number(depositAmount)) || !selectedDepositMethodId || !user) {
+      toast({
+        title: "Incomplete Request",
+        description: "Please enter a valid amount and select a payment channel.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsDepositing(true);
+    const amount = parseFloat(depositAmount);
+    const method = paymentMethods.find(m => m.id === selectedDepositMethodId);
+
+    // Simulate payment processing
+    setTimeout(() => {
+      const currentBalance = user.walletBalance || 0;
+      updateUser({ walletBalance: currentBalance + amount });
+
+      const newTrans: Transaction = {
+        id: `tr-${Date.now()}`,
+        userId: user.id,
+        amount: amount,
+        type: 'DEPOSIT',
+        date: new Date().toLocaleDateString('en-GB'),
+        description: `Wallet Refill via ${method?.name}`
+      };
+
+      const transStr = localStorage.getItem('mywater_all_transactions') || '[]';
+      const allTrans = JSON.parse(transStr);
+      localStorage.setItem('mywater_all_transactions', JSON.stringify([newTrans, ...allTrans]));
+      
+      setIsDepositing(false);
+      setDepositAmount('');
+      setSelectedDepositMethodId(null);
+      setIsDepositDialogOpen(false);
+
+      toast({
+        title: "Balance Updated",
+        description: `MK ${amount.toLocaleString()} successfully credited to your wallet via ${method?.name}.`,
+      });
+
+      window.dispatchEvent(new Event('storage'));
+    }, 1500);
   };
 
   // --- SUPER ADMIN VIEW ---
@@ -336,7 +395,11 @@ export default function DashboardPage() {
       const bDate = new Date(b.date);
       const now = new Date();
       if (usageFilter === 'month') return bDate.getMonth() === now.getMonth() && bDate.getFullYear() === now.getFullYear();
-      if (usageFilter === '3months') return bDate > new Date(now.setMonth(now.getMonth() - 3));
+      if (usageFilter === '3months') {
+        const d = new Date();
+        d.setMonth(d.getMonth() - 3);
+        return bDate > d;
+      }
       if (usageFilter === 'year') return bDate.getFullYear() === now.getFullYear();
       return true;
     }).reduce((sum, b) => sum + b.meterReadingLiters, 0);
@@ -376,7 +439,72 @@ export default function DashboardPage() {
               <CardTitle className="text-3xl font-black">MK {user.walletBalance?.toLocaleString() || '0'}</CardTitle>
             </CardHeader>
             <CardContent>
-              <Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 border-none text-white h-7 text-[10px] font-bold uppercase rounded-[5px]" onClick={() => window.location.href = '/dashboard/wallet'}>Refill Balance</Button>
+              <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 border-none text-white h-7 text-[10px] font-bold uppercase rounded-[5px]">Refill Balance</Button>
+                </DialogTrigger>
+                <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px] max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight">Refill Wallet</DialogTitle>
+                    <DialogDescription className="text-slate-500 text-xs">Authorize a deposit from your external payment channels.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-5 py-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-[0.2em] px-1">Deposit Amount (MK)</label>
+                      <Input 
+                        placeholder="e.g. 5000" 
+                        type="number" 
+                        value={depositAmount}
+                        onChange={(e) => setDepositAmount(e.target.value)}
+                        className="bg-slate-950 border-white/5 h-12 text-lg font-black text-white rounded-[5px] focus:border-primary transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-[0.2em] px-1">Select Channel</label>
+                      <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                        {paymentMethods.length > 0 ? paymentMethods.map(method => (
+                          <button 
+                            key={method.id}
+                            onClick={() => setSelectedDepositMethodId(method.id)}
+                            className={cn(
+                              "flex items-center justify-between p-4 border rounded-[5px] transition-all text-left",
+                              selectedDepositMethodId === method.id 
+                                ? "bg-primary/20 border-primary ring-1 ring-primary/50" 
+                                : "bg-slate-950/50 border-white/5 hover:bg-white/5"
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="bg-slate-900 p-2 rounded-[5px]">
+                                {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : 
+                                 method.type === 'BANK' ? <CreditCard className="h-4 w-4 text-primary" /> : 
+                                 <Wallet className="h-4 w-4 text-primary" />}
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-black text-white uppercase">{method.name}</p>
+                                <p className="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">{method.provider}</p>
+                              </div>
+                            </div>
+                            {selectedDepositMethodId === method.id && <CheckCircle2 className="h-4 w-4 text-primary animate-in zoom-in" />}
+                          </button>
+                        )) : (
+                          <div className="p-4 bg-slate-950/50 border border-white/5 rounded-[5px] text-center italic text-[10px] text-slate-600">
+                            No active payment channels available.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button 
+                      className="w-full bg-primary hover:bg-primary/90 font-black uppercase tracking-widest h-12 rounded-[5px] text-sm shadow-2xl" 
+                      onClick={handleDeposit} 
+                      disabled={isDepositing || !selectedDepositMethodId || !depositAmount}
+                    >
+                      {isDepositing ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : "Authorize Push Payment"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
 
@@ -398,53 +526,51 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className={`text-3xl font-black ${totalDue > 0 ? 'text-destructive' : 'text-green-500'}`}>MK {totalDue.toLocaleString()}</div>
-              {totalDue > 0 && (
-                <Dialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="mt-4 w-full h-8 bg-destructive hover:bg-destructive/90 text-[10px] font-bold uppercase rounded-[5px]">Pay Now</Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px] max-w-sm">
-                    <DialogHeader>
-                      <DialogTitle>Settle Utility Bill</DialogTitle>
-                      <DialogDescription className="text-slate-500">Total Outstanding: MK {totalDue.toLocaleString()}</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Select Payment Method</label>
-                      <div className="grid grid-cols-1 gap-2">
-                        {paymentMethods.length > 0 ? paymentMethods.map(method => (
-                          <button 
-                            key={method.id}
-                            onClick={() => setSelectedMethod(method.id)}
-                            className={`flex items-center justify-between p-4 border rounded-[5px] transition-all ${selectedMethod === method.id ? 'bg-primary/20 border-primary' : 'bg-slate-950/50 border-white/5 hover:bg-white/5'}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : 
-                               method.type === 'BANK' ? <CreditCard className="h-4 w-4 text-primary" /> : 
-                               <Wallet className="h-4 w-4 text-primary" />}
-                              <div className="text-left">
-                                <p className="text-xs font-bold">{method.name}</p>
-                                <p className="text-[8px] text-slate-500 uppercase">{method.provider}</p>
-                              </div>
+              <Dialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="mt-4 w-full h-8 bg-destructive hover:bg-destructive/90 text-[10px] font-bold uppercase rounded-[5px]">Pay Now</Button>
+                </DialogTrigger>
+                <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px] max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>Settle Utility Bill</DialogTitle>
+                    <DialogDescription className="text-slate-500">Total Outstanding: MK {totalDue.toLocaleString()}</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Select Payment Method</label>
+                    <div className="grid grid-cols-1 gap-2">
+                      {paymentMethods.length > 0 ? paymentMethods.map(method => (
+                        <button 
+                          key={method.id}
+                          onClick={() => setSelectedMethod(method.id)}
+                          className={`flex items-center justify-between p-4 border rounded-[5px] transition-all ${selectedMethod === method.id ? 'bg-primary/20 border-primary' : 'bg-slate-950/50 border-white/5 hover:bg-white/5'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : 
+                             method.type === 'BANK' ? <CreditCard className="h-4 w-4 text-primary" /> : 
+                             <Wallet className="h-4 w-4 text-primary" />}
+                            <div className="text-left">
+                              <p className="text-xs font-bold">{method.name}</p>
+                              <p className="text-[8px] text-slate-500 uppercase">{method.provider}</p>
                             </div>
-                            {selectedMethod === method.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                          </button>
-                        )) : (
-                          <p className="text-center text-xs text-slate-500 italic py-4">No payment methods configured by admin.</p>
-                        )}
-                      </div>
+                          </div>
+                          {selectedMethod === method.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                        </button>
+                      )) : (
+                        <p className="text-center text-xs text-slate-500 italic py-4">No payment methods configured by admin.</p>
+                      )}
                     </div>
-                    <DialogFooter>
-                      <Button 
-                        disabled={!selectedMethod} 
-                        onClick={handlePayment}
-                        className="w-full bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px]"
-                      >
-                        Authorize Payment
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
+                  </div>
+                  <DialogFooter>
+                    <Button 
+                      disabled={!selectedMethod} 
+                      onClick={handlePayment}
+                      className="w-full bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px]"
+                    >
+                      Authorize Payment
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
 
