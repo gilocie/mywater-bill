@@ -22,7 +22,8 @@ import {
   UserCheck,
   Zap,
   MapPin,
-  Activity
+  Activity,
+  ShieldAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   if (!user) return null;
 
   // --- CUSTOMER VIEW ---
+  // Customers see their individual consumption and wallet
   if (user.role === 'CUSTOMER') {
     const userBills = MOCK_BILLS.filter(b => b.customerId === user.id);
     const pendingBill = userBills.find(b => b.status === 'PENDING' || b.status === 'OVERDUE');
@@ -143,6 +145,7 @@ export default function DashboardPage() {
   }
 
   // --- DISTRICT STAFF VIEW ---
+  // Staff see their assigned zone metrics and customers
   if (user.role === 'DISTRICT_STAFF') {
     const assignedCustomers = MOCK_USERS.filter(u => u.role === 'CUSTOMER' && u.assignedStaffId === user.id);
     
@@ -220,6 +223,7 @@ export default function DashboardPage() {
   }
 
   // --- SUPER ADMIN VIEW ---
+  // Super Admins are "banned" from customer dashboards and see only global hub
   const staffCount = MOCK_USERS.filter(u => u.role === 'DISTRICT_STAFF').length;
   const customerCount = MOCK_USERS.filter(u => u.role === 'CUSTOMER').length;
   
@@ -227,87 +231,104 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Operational Hub</h2>
-          <p className="text-muted-foreground">National oversight for Malawi Water Board.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-950 flex items-center gap-3">
+            <ShieldAlert className="h-8 w-8 text-primary" /> Operational Hub
+          </h2>
+          <p className="text-muted-foreground font-medium">National oversight and strategic resource monitoring.</p>
         </div>
-        <Button className="bg-primary gap-2">
-          <Activity className="h-4 w-4" /> Global Health Report
+        <Button className="bg-primary hover:bg-primary/90 gap-2 shadow-lg shadow-primary/20">
+          <Activity className="h-4 w-4" /> System Health Report
         </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-sm border-none bg-slate-900 text-white">
+        <Card className="shadow-2xl border-none bg-slate-900 text-white overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full -mr-12 -mt-12 blur-2xl" />
           <CardHeader className="pb-2">
-            <CardDescription className="text-slate-400">Monthly Revenue</CardDescription>
-            <CardTitle className="text-2xl">MK 12.4M</CardTitle>
+            <CardDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Monthly Revenue</CardDescription>
+            <CardTitle className="text-3xl font-black">MK 12.4M</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs text-green-400 flex items-center gap-1 mt-1 font-bold">
-              <ArrowUpRight className="h-3 w-3" /> 18% Increase
+              <ArrowUpRight className="h-3 w-3" /> 18.5% Growth
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-none">
+        <Card className="shadow-sm border-none bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardDescription>Active Customers</CardDescription>
+            <CardDescription className="font-bold uppercase tracking-widest text-[10px]">Active Consumers</CardDescription>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{customerCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">Across all districts</p>
+            <div className="text-3xl font-black">{customerCount}</div>
+            <p className="text-xs text-slate-400 mt-1 font-medium">Across all districts</p>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-none">
+        <Card className="shadow-sm border-none bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardDescription>District Staff</CardDescription>
+            <CardDescription className="font-bold uppercase tracking-widest text-[10px]">Field Staff</CardDescription>
             <UserCheck className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{staffCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">Operational Field Agents</p>
+            <div className="text-3xl font-black">{staffCount}</div>
+            <p className="text-xs text-slate-400 mt-1 font-medium">Active operational agents</p>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-none">
+        <Card className="shadow-sm border-none bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardDescription>Collection Efficiency</CardDescription>
+            <CardDescription className="font-bold uppercase tracking-widest text-[10px]">Billing Efficiency</CardDescription>
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">92.4%</div>
-            <Progress value={92} className="h-1 mt-3" />
+            <div className="text-3xl font-black">92.4%</div>
+            <Progress value={92} className="h-1.5 mt-4 bg-slate-100" />
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2 shadow-sm border-none">
+        <Card className="md:col-span-2 shadow-sm border-none bg-white">
           <CardHeader>
-            <CardTitle className="text-lg">District Revenue Distribution</CardTitle>
+            <CardTitle className="text-lg font-bold">District Revenue Distribution</CardTitle>
+            <CardDescription>Regional economic performance overview</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center border-t border-dashed text-muted-foreground italic">
-            [ Regional Performance Charts ]
+          <CardContent className="h-[300px] flex items-center justify-center border-t border-dashed border-slate-100 text-slate-300 italic font-medium">
+            <div className="text-center">
+              <Activity className="h-12 w-12 mx-auto mb-2 opacity-20" />
+              Real-time Analytics Feed
+            </div>
           </CardContent>
         </Card>
         
-        <Card className="shadow-sm border-none">
+        <Card className="shadow-sm border-none bg-slate-50">
           <CardHeader>
-            <CardTitle className="text-lg">System Integrity</CardTitle>
+            <CardTitle className="text-lg font-bold">Network Integrity</CardTitle>
+            <CardDescription>Core service status</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-              <div className="text-sm font-medium">Payment Sync</div>
-              <div className="h-2 w-2 rounded-full bg-green-500" />
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-slate-100">
+              <div className="text-sm font-bold text-slate-700">Financial Sync</div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-green-600 uppercase">Operational</span>
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              </div>
             </div>
-            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-              <div className="text-sm font-medium">SMS Notifications</div>
-              <div className="h-2 w-2 rounded-full bg-green-500" />
+            <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-slate-100">
+              <div className="text-sm font-bold text-slate-700">SMS Gateway</div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-green-600 uppercase">Operational</span>
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              </div>
             </div>
-            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-              <div className="text-sm font-medium">Database Backup</div>
-              <div className="h-2 w-2 rounded-full bg-yellow-500" />
+            <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-slate-100">
+              <div className="text-sm font-bold text-slate-700">Data Redundancy</div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-yellow-600 uppercase">Syncing</span>
+                <div className="h-2 w-2 rounded-full bg-yellow-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
