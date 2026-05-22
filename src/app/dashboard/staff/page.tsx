@@ -197,7 +197,7 @@ export default function StaffManagementPage() {
               <UserPlus className="h-4 w-4" /> Register Field Agent
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md bg-slate-900 border-white/5 text-white rounded-[5px]">
+          <DialogContent className="max-w-xl bg-slate-900 border-white/5 text-white rounded-[5px]">
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between">
                 <span>Staff Enrollment</span>
@@ -220,8 +220,8 @@ export default function StaffManagementPage() {
                       onChange={e => setFormData({...formData, name: e.target.value})}
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Staff ID (Manual or Auto)</label>
+                  <div className="space-y-1.5 col-span-1">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Staff ID</label>
                     <div className="flex gap-2">
                       <Input 
                         placeholder="STF-XXXX" 
@@ -229,12 +229,12 @@ export default function StaffManagementPage() {
                         value={formData.staffId}
                         onChange={e => setFormData({...formData, staffId: e.target.value.toUpperCase()})}
                       />
-                      <Button variant="outline" size="icon" onClick={generateStaffId} className="h-9 w-9 bg-slate-800 border-white/5 hover:bg-slate-700 rounded-[5px]">
+                      <Button variant="outline" size="icon" onClick={generateStaffId} className="h-9 w-9 bg-slate-800 border-white/5 hover:bg-slate-700 rounded-[5px] shrink-0">
                         <RefreshCw className="h-4 w-4 text-primary" />
                       </Button>
                     </div>
                   </div>
-                  <div className="space-y-1.5 col-span-2">
+                  <div className="space-y-1.5 col-span-1">
                     <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Work Email</label>
                     <Input 
                       type="email" 
