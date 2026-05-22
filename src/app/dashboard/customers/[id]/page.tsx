@@ -4,7 +4,7 @@
 import React, { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
-import { User, MOCK_BILLS, Bill } from '@/app/lib/mock-data';
+import { User, Bill, REGIONS, DISTRICTS } from '@/app/lib/mock-data';
 import { 
   Card, 
   CardContent, 
@@ -19,17 +19,17 @@ import {
   ArrowLeft, 
   Droplets, 
   Receipt, 
-  PowerOff, 
   MapPin, 
   Power,
   Clock,
-  CheckCircle2,
-  AlertTriangle,
   User as UserIcon,
   MessageSquare,
   BarChart3,
   Send,
-  History
+  History,
+  Edit,
+  Save,
+  Calculator
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -47,19 +47,33 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { user: authUser } = useAuth();
+  const { user: authUser, waterRate } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
   const [customer, setCustomer] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
   const [note, setNote] = useState('');
+
+  // Invoice Dialog State
+  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [invoiceUsage, setInvoiceUsage] = useState('');
+
+  // Edit Customer Dialog State
+  const [isEditCustomerDialogOpen, setIsEditCustomerDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<User>>({});
+  const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(false);
 
   useEffect(() => {
     const loadData = () => {
@@ -69,15 +83,32 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         setAllUsers(users);
         const found = users.find(u => u.id === id);
         setCustomer(found || null);
+        if (found) {
+          setEditFormData(found);
+          setWhatsappSameAsPhone(found.whatsappNumber === found.phoneNumber);
+        }
       }
+
+      // Load bills
+      const billsStr = localStorage.getItem('mywater_all_bills') || '[]';
+      const allBills: Bill[] = JSON.parse(billsStr);
+      setBills(allBills.filter(b => b.customerId === id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      
       setLoading(false);
     };
 
     loadData();
+    window.addEventListener('storage', loadData);
+    return () => window.removeEventListener('storage', loadData);
   }, [id]);
 
-  const bills = MOCK_BILLS.filter(b => b.customerId === id);
-  
+  // Sync WhatsApp if toggle is on in Edit Form
+  useEffect(() => {
+    if (whatsappSameAsPhone && editFormData.phoneNumber) {
+      setEditFormData(prev => ({ ...prev, whatsappNumber: prev.phoneNumber }));
+    }
+  }, [editFormData.phoneNumber, whatsappSameAsPhone]);
+
   // Calculate Totals
   const totalPaid = bills.filter(b => b.status === 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
   const outstandingBalance = bills.filter(b => b.status !== 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
@@ -85,7 +116,84 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   
   // Usage Data
   const lastMonthUsage = bills[0]?.meterReadingLiters || 0;
-  const yearlyUsage = bills.reduce((sum, b) => sum + b.meterReadingLiters, 0); // Simplified for mock
+  const yearlyUsage = bills.reduce((sum, b) => sum + b.meterReadingLiters, 0);
+
+  const handleCreateInvoice = () => {
+    const usage = parseFloat(invoiceUsage);
+    if (isNaN(usage) || usage <= 0) {
+      toast({
+        title: "Invalid Input",
+        description: "Please enter a valid water usage amount in liters.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newBill: Bill = {
+      id: `inv-${Date.now()}`,
+      customerId: id,
+      meterReadingLiters: usage,
+      ratePerLiter: waterRate,
+      totalAmount: usage * waterRate,
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      status: 'PENDING'
+    };
+
+    const billsStr = localStorage.getItem('mywater_all_bills') || '[]';
+    const allBills = JSON.parse(billsStr);
+    const updatedBills = [...allBills, newBill];
+    localStorage.setItem('mywater_all_bills', JSON.stringify(updatedBills));
+    
+    // Trigger storage event manually for same window
+    window.dispatchEvent(new Event('storage'));
+    
+    setIsInvoiceDialogOpen(false);
+    setInvoiceUsage('');
+    toast({
+      title: "Invoice Generated",
+      description: `Bill for ${usage}L (MK ${newBill.totalAmount.toLocaleString()}) has been issued.`
+    });
+  };
+
+  const handleUpdateCustomer = () => {
+    if (!editFormData.name || !editFormData.district) {
+      toast({
+        title: "Validation Error",
+        description: "Name and District are required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const updatedUsers = allUsers.map(u => u.id === id ? { ...u, ...editFormData } : u);
+    localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+    
+    // Trigger storage event manually
+    window.dispatchEvent(new Event('storage'));
+    
+    setIsEditCustomerDialogOpen(false);
+    toast({
+      title: "Profile Updated",
+      description: "Customer registry record has been successfully modified."
+    });
+  };
+
+  const handleDisconnect = () => {
+    toast({
+      variant: "destructive",
+      title: "Disconnection Command",
+      description: `Service suspension command sent for Meter: ${customer?.meterNumber}.`
+    });
+  };
+
+  const handleSendMessage = () => {
+    if (!note) return;
+    toast({
+      title: "Message Logged",
+      description: "Staff note has been attached to this customer profile."
+    });
+    setNote('');
+  };
 
   if (loading) {
     return (
@@ -105,30 +213,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       </div>
     );
   }
-
-  const handleIssueInvoice = () => {
-    toast({
-      title: "Invoice Generation",
-      description: `Calculating latest meter readings for ${customer.name}...`
-    });
-  };
-
-  const handleDisconnect = () => {
-    toast({
-      variant: "destructive",
-      title: "Disconnection Command",
-      description: `Service suspension command sent for Meter: ${customer.meterNumber}.`
-    });
-  };
-
-  const handleSendMessage = () => {
-    if (!note) return;
-    toast({
-      title: "Message Logged",
-      description: "Staff note has been attached to this customer profile."
-    });
-    setNote('');
-  };
 
   return (
     <div className="space-y-6">
@@ -158,7 +242,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               </div>
             </CardHeader>
             <CardContent className="px-6 pb-6 space-y-4">
-              {/* Primary Stats Row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5 px-0.5">Status</p>
@@ -181,7 +264,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </div>
               </div>
 
-              {/* Secondary Stats Row (Financial & Usage) */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 border-t border-white/5 pt-4">
                 <div className="p-4 bg-primary/5 border border-primary/10 rounded-[5px]">
                   <p className="text-[10px] text-primary/70 font-bold uppercase tracking-widest mb-1.5 px-0.5">Total Revenue</p>
@@ -213,7 +295,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   <TableHeader className="bg-slate-950/50">
                     <TableRow className="border-b border-white/5 hover:bg-transparent">
                       <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Invoice Date</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Amount</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Consumption</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10 text-right">Total Amount</TableHead>
                       <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10 text-right">Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -221,7 +304,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     {bills.length > 0 ? bills.map((bill) => (
                       <TableRow key={bill.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                         <TableCell className="text-xs text-white font-medium">{bill.date}</TableCell>
-                        <TableCell className="text-sm font-bold text-primary">MK {bill.totalAmount.toLocaleString()}</TableCell>
+                        <TableCell className="text-xs text-slate-400">{bill.meterReadingLiters.toLocaleString()} L</TableCell>
+                        <TableCell className="text-sm font-bold text-primary text-right">MK {bill.totalAmount.toLocaleString()}</TableCell>
                         <TableCell className="text-right">
                           <Badge className={bill.status === 'PAID' ? 'bg-green-500/20 text-green-500 border-green-500/30' : 'bg-destructive/20 text-destructive border-destructive/30'}>
                             {bill.status}
@@ -230,7 +314,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={3} className="h-24 text-center text-slate-600 italic text-xs">
+                        <TableCell colSpan={4} className="h-24 text-center text-slate-600 italic text-xs">
                           No historical billing data found for this meter.
                         </TableCell>
                       </TableRow>
@@ -248,12 +332,153 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Operational Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 px-5 pb-4">
-              <Button 
-                className="w-full bg-primary hover:bg-primary/90 gap-2 h-9 text-[10px] font-bold uppercase tracking-widest rounded-[5px]"
-                onClick={handleIssueInvoice}
-              >
-                <Receipt className="h-3.5 w-3.5" /> Issue Invoice
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      className="w-full bg-primary hover:bg-primary/90 gap-2 h-9 text-[10px] font-bold uppercase tracking-widest rounded-[5px]"
+                    >
+                      <Receipt className="h-3.5 w-3.5" /> Issue Invoice
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
+                    <DialogHeader>
+                      <DialogTitle className="text-lg font-bold">New Utility Invoice</DialogTitle>
+                      <DialogDescription className="text-slate-500 text-xs uppercase tracking-wider font-bold">Meter: {customer.meterNumber}</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="p-4 bg-slate-950 border border-white/5 rounded-[5px]">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Global Rate</span>
+                          <span className="text-xs font-bold text-primary">MK {waterRate.toFixed(2)} / L</span>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Usage Amount (Liters)</label>
+                          <Input 
+                            type="number" 
+                            placeholder="Enter liters used..." 
+                            className="bg-slate-800 border-white/5 text-white text-lg font-black h-12"
+                            value={invoiceUsage}
+                            onChange={(e) => setInvoiceUsage(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      
+                      {invoiceUsage && !isNaN(parseFloat(invoiceUsage)) && (
+                        <div className="p-4 bg-primary/10 border border-primary/20 rounded-[5px] flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                          <div className="flex items-center gap-2">
+                            <Calculator className="h-4 w-4 text-primary" />
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Calculated Total</span>
+                          </div>
+                          <span className="text-xl font-black text-white">MK {(parseFloat(invoiceUsage) * waterRate).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={handleCreateInvoice} className="w-full bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px]">
+                        Finalize & Issue Bill
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={isEditCustomerDialogOpen} onOpenChange={setIsEditCustomerDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      className="w-full border-white/5 bg-slate-800/40 text-white hover:bg-slate-800 gap-2 h-9 text-[10px] font-bold uppercase tracking-widest rounded-[5px]"
+                    >
+                      <Edit className="h-3.5 w-3.5 text-primary" /> Edit Profile
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md bg-slate-900 border-white/5 text-white rounded-[5px]">
+                    <DialogHeader>
+                      <DialogTitle className="text-lg font-bold">Edit Customer Record</DialogTitle>
+                      <DialogDescription className="text-slate-500 text-xs">Modify registry identity and contact parameters.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto px-1">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Full Name</label>
+                        <Input 
+                          value={editFormData.name} 
+                          onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                          className="bg-slate-800 border-white/5 text-sm h-9" 
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Region</label>
+                          <Select 
+                            value={editFormData.region} 
+                            onValueChange={(v) => setEditFormData({...editFormData, region: v})}
+                          >
+                            <SelectTrigger className="bg-slate-800 border-white/5 h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-white/10 text-white">
+                              {REGIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">District</label>
+                          <Select 
+                            value={editFormData.district} 
+                            onValueChange={(v) => setEditFormData({...editFormData, district: v})}
+                          >
+                            <SelectTrigger className="bg-slate-800 border-white/5 h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-white/10 text-white">
+                              {DISTRICTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Address</label>
+                        <Input 
+                          value={editFormData.address} 
+                          onChange={(e) => setEditFormData({...editFormData, address: e.target.value})}
+                          className="bg-slate-800 border-white/5 text-sm h-9" 
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Phone Number</label>
+                        <Input 
+                          value={editFormData.phoneNumber} 
+                          onChange={(e) => setEditFormData({...editFormData, phoneNumber: e.target.value})}
+                          className="bg-slate-800 border-white/5 text-sm h-9" 
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">WhatsApp</label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-bold text-slate-600 uppercase">Sync Phone</span>
+                            <Switch checked={whatsappSameAsPhone} onCheckedChange={setWhatsappSameAsPhone} className="scale-75" />
+                          </div>
+                        </div>
+                        <Input 
+                          value={editFormData.whatsappNumber} 
+                          onChange={(e) => !whatsappSameAsPhone && setEditFormData({...editFormData, whatsappNumber: e.target.value})}
+                          className={`bg-slate-800 border-white/5 text-sm h-9 transition-opacity ${whatsappSameAsPhone ? 'opacity-40 cursor-not-allowed' : 'opacity-100'}`} 
+                          readOnly={whatsappSameAsPhone}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Email</label>
+                        <Input 
+                          value={editFormData.email} 
+                          onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+                          className="bg-slate-800 border-white/5 text-sm h-9" 
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={handleUpdateCustomer} className="w-full bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px]">
+                        <Save className="h-4 w-4 mr-2" /> Commit Changes
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
               
               <Dialog>
                 <DialogTrigger asChild>
@@ -326,7 +551,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
 
-          {/* Message Box Below Staff Card */}
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="px-5 pt-5 pb-2">
               <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
