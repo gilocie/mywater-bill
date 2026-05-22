@@ -63,6 +63,7 @@ export default function StaffManagementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
+  const [availableAreas, setAvailableAreas] = useState<string[]>(AREAS);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -81,6 +82,14 @@ export default function StaffManagementPage() {
       if (usersStr) {
         const allUsers: User[] = JSON.parse(usersStr);
         setStaffList(allUsers.filter(u => u.role === 'DISTRICT_STAFF' || u.role === 'SUPER_ADMIN'));
+        
+        // Extract unique areas from customers
+        const customerAreas = allUsers
+          .filter(u => u.role === 'CUSTOMER' && u.area)
+          .map(u => u.area as string);
+        
+        const uniqueAreas = Array.from(new Set([...AREAS, ...customerAreas]));
+        setAvailableAreas(uniqueAreas);
       }
     };
     loadStaff();
@@ -218,7 +227,7 @@ export default function StaffManagementPage() {
                     <Input 
                       placeholder="e.g. Kondwani Phiri" 
                       className="bg-slate-800 border-white/5 h-9 text-sm rounded-[5px]"
-                      value={formData.name}
+                      value={formData.name || ''}
                       onChange={e => setFormData({...formData, name: e.target.value})}
                     />
                   </div>
@@ -228,7 +237,7 @@ export default function StaffManagementPage() {
                       <Input 
                         placeholder="STF-XXXX" 
                         className="bg-slate-800 border-white/5 h-9 text-sm font-mono font-bold text-primary rounded-[5px]"
-                        value={formData.staffId}
+                        value={formData.staffId || ''}
                         onChange={e => setFormData({...formData, staffId: e.target.value.toUpperCase()})}
                       />
                       <Button variant="outline" size="icon" onClick={generateStaffId} className="h-9 w-9 bg-slate-800 border-white/5 hover:bg-slate-700 rounded-[5px] shrink-0">
@@ -242,13 +251,13 @@ export default function StaffManagementPage() {
                       type="email" 
                       placeholder="staff@mwb.mw" 
                       className="bg-slate-800 border-white/5 h-9 text-sm rounded-[5px]"
-                      value={formData.email}
+                      value={formData.email || ''}
                       onChange={e => setFormData({...formData, email: e.target.value})}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">District</label>
-                    <Select onValueChange={v => setFormData({...formData, district: v})} value={formData.district}>
+                    <Select onValueChange={v => setFormData({...formData, district: v})} value={formData.district || ''}>
                       <SelectTrigger className="bg-slate-800 border-white/5 h-9 rounded-[5px]"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent className="bg-slate-800 border-white/10 text-white">
                         {DISTRICTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
@@ -261,7 +270,7 @@ export default function StaffManagementPage() {
                       <Input 
                         placeholder="Manual area or select" 
                         className="bg-slate-800 border-white/5 h-9 text-sm rounded-[5px]"
-                        value={formData.area}
+                        value={formData.area || ''}
                         onChange={e => setFormData({...formData, area: e.target.value})}
                       />
                       <Select onValueChange={v => setFormData({...formData, area: v})}>
@@ -269,7 +278,7 @@ export default function StaffManagementPage() {
                           <MapPin className="h-4 w-4 text-slate-500" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-800 border-white/10 text-white">
-                          {AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                          {availableAreas.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -287,7 +296,7 @@ export default function StaffManagementPage() {
                         type={showPassword ? "text" : "password"}
                         placeholder="••••••••" 
                         className="bg-slate-800 border-white/5 h-10 text-sm font-mono tracking-[0.3em] rounded-[5px] pr-10"
-                        value={formData.password}
+                        value={formData.password || ''}
                         onChange={e => setFormData({...formData, password: e.target.value})}
                       />
                       <button 

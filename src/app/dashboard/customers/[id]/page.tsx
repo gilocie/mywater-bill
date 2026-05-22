@@ -318,39 +318,39 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Full Name</label>
-                          <Input value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} placeholder="Name" className="bg-slate-800 border-white/5" />
+                          <Input value={editFormData.name || ''} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} placeholder="Name" className="bg-slate-800 border-white/5" />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Meter Number</label>
-                          <Input value={editFormData.meterNumber} onChange={(e) => setEditFormData({...editFormData, meterNumber: e.target.value.toUpperCase()})} placeholder="MTR-XXXX" className="bg-slate-800 border-white/5" />
+                          <Input value={editFormData.meterNumber || ''} onChange={(e) => setEditFormData({...editFormData, meterNumber: e.target.value.toUpperCase()})} placeholder="MTR-XXXX" className="bg-slate-800 border-white/5" />
                         </div>
                       </div>
                       
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Email Address</label>
-                        <Input value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} placeholder="email@mail.com" className="bg-slate-800 border-white/5" />
+                        <Input value={editFormData.email || ''} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} placeholder="email@mail.com" className="bg-slate-800 border-white/5" />
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Phone</label>
-                          <Input value={editFormData.phoneNumber} onChange={(e) => setEditFormData({...editFormData, phoneNumber: e.target.value})} placeholder="+265..." className="bg-slate-800 border-white/5" />
+                          <Input value={editFormData.phoneNumber || ''} onChange={(e) => setEditFormData({...editFormData, phoneNumber: e.target.value})} placeholder="+265..." className="bg-slate-800 border-white/5" />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">WhatsApp</label>
-                          <Input value={editFormData.whatsappNumber} onChange={(e) => setEditFormData({...editFormData, whatsappNumber: e.target.value})} placeholder="+265..." className="bg-slate-800 border-white/5" />
+                          <Input value={editFormData.whatsappNumber || ''} onChange={(e) => setEditFormData({...editFormData, whatsappNumber: e.target.value})} placeholder="+265..." className="bg-slate-800 border-white/5" />
                         </div>
                       </div>
 
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Detailed Address</label>
-                        <Input value={editFormData.address} onChange={(e) => setEditFormData({...editFormData, address: e.target.value})} placeholder="Address" className="bg-slate-800 border-white/5" />
+                        <Input value={editFormData.address || ''} onChange={(e) => setEditFormData({...editFormData, address: e.target.value})} placeholder="Address" className="bg-slate-800 border-white/5" />
                       </div>
                       
                       <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Region</label>
-                          <Select value={editFormData.region} onValueChange={(v) => setEditFormData({...editFormData, region: v})}>
+                          <Select value={editFormData.region || ''} onValueChange={(v) => setEditFormData({...editFormData, region: v})}>
                             <SelectTrigger className="bg-slate-800 border-white/5 h-9"><SelectValue /></SelectTrigger>
                             <SelectContent className="bg-slate-800 border-white/10 text-white">
                               {REGIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
@@ -359,7 +359,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">District</label>
-                          <Select value={editFormData.district} onValueChange={(v) => setEditFormData({...editFormData, district: v})}>
+                          <Select value={editFormData.district || ''} onValueChange={(v) => setEditFormData({...editFormData, district: v})}>
                             <SelectTrigger className="bg-slate-800 border-white/5 h-9"><SelectValue /></SelectTrigger>
                             <SelectContent className="bg-slate-800 border-white/10 text-white">
                               {DISTRICTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
@@ -370,7 +370,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                           <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Area</label>
                           <div className="flex gap-2">
                              <Input 
-                              value={editFormData.area} 
+                              value={editFormData.area || ''} 
                               onChange={(e) => setEditFormData({...editFormData, area: e.target.value})} 
                               placeholder="Area" 
                               className="bg-slate-800 border-white/5 h-9" 
