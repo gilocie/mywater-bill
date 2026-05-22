@@ -69,11 +69,11 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="customer" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsList className="grid w-full grid-cols-1 mb-8">
               <TabsTrigger value="customer" className="flex items-center gap-2">
                 <UserIcon className="h-4 w-4" /> Customer
               </TabsTrigger>
-              <TabsTrigger value="admin" className="flex items-center gap-2">
+              <TabsTrigger value="admin" className="hidden">
                 <ShieldCheck className="h-4 w-4" /> Admin/Staff
               </TabsTrigger>
             </TabsList>
