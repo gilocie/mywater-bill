@@ -27,7 +27,9 @@ import {
   MapPin,
   Smartphone,
   Mail,
-  RefreshCw
+  RefreshCw,
+  ArrowRight,
+  ArrowLeft
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -45,6 +47,7 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
 
 export default function CustomersPage() {
   const { user } = useAuth();
@@ -54,6 +57,7 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
   
   // Registration Form State
   const [formData, setFormData] = useState({
@@ -78,16 +82,33 @@ export default function CustomersPage() {
     };
 
     loadCustomers();
-    // Listen for storage changes in case other components update it
     window.addEventListener('storage', loadCustomers);
     return () => window.removeEventListener('storage', loadCustomers);
   }, []);
 
+  const handleNextStep = () => {
+    if (currentStep === 1) {
+      if (!formData.name || !formData.meterNumber || !formData.region || !formData.district) {
+        toast({
+          title: "Identity Required",
+          description: "Please complete the identity and location details before proceeding.",
+          variant: "destructive"
+        });
+        return;
+      }
+      setCurrentStep(2);
+    }
+  };
+
+  const handleBackStep = () => {
+    setCurrentStep(1);
+  };
+
   const handleAddCustomer = () => {
-    if (!formData.name || !formData.meterNumber || !formData.region || !formData.district) {
+    if (!formData.phone && !formData.email) {
       toast({
-        title: "Incomplete Registry",
-        description: "Please provide the name, meter number, and location details.",
+        title: "Contact Missing",
+        description: "Please provide at least one contact method for the customer.",
         variant: "destructive"
       });
       return;
@@ -105,7 +126,7 @@ export default function CustomersPage() {
       walletBalance: 0,
       phoneNumber: formData.phone,
       whatsappNumber: formData.whatsapp,
-      assignedStaffId: user?.id // Assign to the current staff if they are creating it
+      assignedStaffId: user?.id
     };
 
     // Update localStorage
@@ -128,11 +149,12 @@ export default function CustomersPage() {
       whatsapp: '',
       email: ''
     });
+    setCurrentStep(1);
     setIsDialogOpen(false);
 
     toast({
       title: "Customer Registered",
-      description: `${newCustomer.name} has been added to the utility registry.`
+      description: `${newCustomer.name} has been successfully added to the registry.`
     });
   };
 
@@ -143,9 +165,6 @@ export default function CustomersPage() {
   };
 
   const displayCustomers = customers.filter(customer => {
-    // If district staff, only show customers in their area (if applicable)
-    if (user?.role === 'DISTRICT_STAFF' && user.area && customer.area !== user.area) return false;
-    
     const searchLower = searchTerm.toLowerCase();
     return (
       customer.name.toLowerCase().includes(searchLower) ||
@@ -163,45 +182,54 @@ export default function CustomersPage() {
         </div>
         
         {user?.role !== 'CUSTOMER' && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) setCurrentStep(1);
+          }}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90 gap-2 rounded-[5px] h-9 font-bold uppercase tracking-wider text-xs">
                 <Plus className="h-4 w-4" /> Add Customer
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl bg-slate-900 border-white/5 text-white rounded-[5px]">
+            <DialogContent className="max-w-xl bg-slate-900 border-white/5 text-white rounded-[5px]">
               <DialogHeader>
-                <DialogTitle className="text-xl font-bold">Register New Customer</DialogTitle>
+                <DialogTitle className="text-xl font-bold flex items-center justify-between">
+                  <span>Register New Customer</span>
+                  <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-1 rounded">STEP {currentStep} OF 2</span>
+                </DialogTitle>
+                <Progress value={currentStep === 1 ? 50 : 100} className="h-1 bg-slate-800" />
               </DialogHeader>
-              <div className="grid grid-cols-2 gap-4 py-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Full Name</label>
-                  <Input 
-                    placeholder="e.g. Gift Nkhoma" 
-                    className="bg-slate-800 border-white/5 rounded-[5px]"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Meter Number</label>
-                  <div className="flex gap-2">
+
+              {currentStep === 1 ? (
+                /* STEP 1: IDENTITY & LOCATION */
+                <div className="grid grid-cols-2 gap-4 py-4 animate-in fade-in slide-in-from-right-2 duration-300">
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Full Name</label>
                     <Input 
-                      placeholder="MTR-XXXX" 
-                      value={formData.meterNumber} 
-                      onChange={(e) => setFormData(prev => ({ ...prev, meterNumber: e.target.value.toUpperCase() }))}
-                      className="bg-slate-800 border-white/5 rounded-[5px] font-mono font-bold text-primary"
+                      placeholder="e.g. Gift Nkhoma" 
+                      className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     />
-                    <Button variant="outline" size="icon" onClick={generateMeter} className="border-white/5 bg-slate-800 hover:bg-slate-700 rounded-[5px] h-10 w-10">
-                      <RefreshCw className="h-4 w-4 text-slate-400" />
-                    </Button>
                   </div>
-                </div>
-                <div className="col-span-2 grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
-                  <div className="space-y-2">
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Meter Number</label>
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="MTR-XXXX" 
+                        value={formData.meterNumber} 
+                        onChange={(e) => setFormData(prev => ({ ...prev, meterNumber: e.target.value.toUpperCase() }))}
+                        className="bg-slate-800 border-white/5 rounded-[5px] font-mono font-bold text-primary h-9"
+                      />
+                      <Button variant="outline" size="icon" onClick={generateMeter} className="border-white/5 bg-slate-800 hover:bg-slate-700 rounded-[5px] h-9 w-9">
+                        <RefreshCw className="h-4 w-4 text-slate-400" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Region</label>
                     <Select onValueChange={(v) => setFormData(prev => ({ ...prev, region: v }))} value={formData.region}>
-                      <SelectTrigger className="bg-slate-800 border-white/5 rounded-[5px]">
+                      <SelectTrigger className="bg-slate-800 border-white/5 rounded-[5px] h-9">
                         <SelectValue placeholder="Select Region" />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-800 border-white/10 text-white">
@@ -209,10 +237,10 @@ export default function CustomersPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">District</label>
                     <Select onValueChange={(v) => setFormData(prev => ({ ...prev, district: v }))} value={formData.district}>
-                      <SelectTrigger className="bg-slate-800 border-white/5 rounded-[5px]">
+                      <SelectTrigger className="bg-slate-800 border-white/5 rounded-[5px] h-9">
                         <SelectValue placeholder="Select District" />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-800 border-white/10 text-white">
@@ -220,53 +248,75 @@ export default function CustomersPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Detailed Address</label>
+                    <Input 
+                      placeholder="House #, Street Name, Landmark" 
+                      className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm"
+                      value={formData.address}
+                      onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                    />
+                  </div>
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Detailed Address</label>
-                  <Input 
-                    placeholder="House #, Street Name, Landmark" 
-                    className="bg-slate-800 border-white/5 rounded-[5px]"
-                    value={formData.address}
-                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                  />
-                </div>
-                <div className="col-span-2 grid grid-cols-3 gap-4 border-t border-white/5 pt-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Phone</label>
+              ) : (
+                /* STEP 2: CONTACT DETAILS */
+                <div className="grid grid-cols-2 gap-4 py-4 animate-in fade-in slide-in-from-right-2 duration-300">
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Phone Number</label>
                     <Input 
                       placeholder="+265..." 
-                      className="bg-slate-800 border-white/5 rounded-[5px]"
+                      className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm"
                       value={formData.phone}
                       onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">WhatsApp</label>
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">WhatsApp Number</label>
                     <Input 
                       placeholder="+265..." 
-                      className="bg-slate-800 border-white/5 rounded-[5px]"
+                      className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm"
                       value={formData.whatsapp}
                       onChange={(e) => setFormData(prev => ({ ...prev, whatsapp: e.target.value }))}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Email</label>
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Email Address</label>
                     <Input 
                       placeholder="customer@mail.com" 
-                      className="bg-slate-800 border-white/5 rounded-[5px]"
+                      className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm"
                       value={formData.email}
                       onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                     />
                   </div>
                 </div>
-              </div>
-              <DialogFooter className="pt-2">
-                <Button 
-                  className="w-full bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-11 rounded-[5px]" 
-                  onClick={handleAddCustomer}
-                >
-                  Complete Registration
-                </Button>
+              )}
+
+              <DialogFooter className="gap-2 pt-2 border-t border-white/5">
+                {currentStep === 2 && (
+                  <Button 
+                    variant="outline"
+                    className="flex-1 border-white/5 hover:bg-white/5 font-bold uppercase tracking-widest h-10 rounded-[5px] text-xs"
+                    onClick={handleBackStep}
+                  >
+                    <ArrowLeft className="h-3 w-3 mr-2" /> Back
+                  </Button>
+                )}
+                
+                {currentStep === 1 ? (
+                  <Button 
+                    className="w-full bg-slate-800 hover:bg-slate-700 font-bold uppercase tracking-widest h-10 rounded-[5px] text-xs" 
+                    onClick={handleNextStep}
+                  >
+                    Continue to Contact <ArrowRight className="h-3 w-3 ml-2" />
+                  </Button>
+                ) : (
+                  <Button 
+                    className="flex-[2] bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px] text-xs" 
+                    onClick={handleAddCustomer}
+                  >
+                    Complete Registration
+                  </Button>
+                )}
               </DialogFooter>
             </DialogContent>
           </Dialog>
