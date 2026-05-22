@@ -1,0 +1,29 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "app-logo",
+      "description": "Professional water utility logo",
+      "imageUrl": "https://picsum.photos/seed/water-logo/200/200",
+      "imageHint": "water utility"
+    },
+    {
+      "id": "hero-bg",
+      "description": "Clean water ripples backdrop",
+      "imageUrl": "https://picsum.photos/seed/water-bg/1200/800",
+      "imageHint": "water ripples"
+    },
+    {
+      "id": "user-admin",
+      "description": "Admin profile picture",
+      "imageUrl": "https://picsum.photos/seed/admin-user/100/100",
+      "imageHint": "professional man"
+    },
+    {
+      "id": "user-staff",
+      "description": "Staff profile picture",
+      "imageUrl": "https://picsum.photos/seed/staff-user/100/100",
+      "imageHint": "professional woman"
+    }
+  ]
+}
