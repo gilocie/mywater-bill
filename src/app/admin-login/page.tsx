@@ -7,7 +7,7 @@ import { useAuth } from '@/components/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShieldCheck, Loader2, Eye, EyeOff, Lock, Mail, Droplets } from 'lucide-react';
+import { ShieldCheck, Loader2, Eye, EyeOff, Lock, Mail, Droplets, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -71,7 +71,7 @@ export default function AdminLoginPage() {
 
       {/* Brand Identity - Top Left Corner */}
       <div className="absolute top-8 left-8 z-30 flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-1000">
-        <div className="bg-primary/20 backdrop-blur-md border border-primary/30 p-2 rounded-xl shadow-2xl">
+        <div className="bg-primary/20 backdrop-blur-md border border-primary/30 p-2 rounded-[5px] shadow-2xl">
           <Droplets className="text-white h-5 w-5" />
         </div>
         <div>
@@ -82,9 +82,9 @@ export default function AdminLoginPage() {
         </div>
       </div>
       
-      <Card className="w-full max-w-sm z-10 shadow-2xl border-white/5 bg-slate-900/60 backdrop-blur-2xl text-white">
+      <Card className="w-full max-w-sm z-10 shadow-2xl border-white/5 bg-slate-900/60 backdrop-blur-2xl text-white rounded-[5px]">
         <CardHeader className="space-y-0.5 text-center pb-3 pt-5">
-          <div className="mx-auto bg-primary w-8 h-8 rounded-lg flex items-center justify-center shadow-lg shadow-primary/20 mb-2">
+          <div className="mx-auto bg-primary w-8 h-8 rounded-[5px] flex items-center justify-center shadow-lg shadow-primary/20 mb-2">
             <ShieldCheck className="text-white h-4 w-4" />
           </div>
           <CardTitle className="text-lg font-black tracking-tight">Staff Portal</CardTitle>
@@ -102,7 +102,7 @@ export default function AdminLoginPage() {
                   placeholder="staff@mwb.mw" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-8 bg-slate-800/40 border-slate-700/50 text-white text-[11px] placeholder:text-slate-600 focus:border-primary transition-all rounded-md"
+                  className="h-8 bg-slate-800/40 border-slate-700/50 text-white text-[11px] placeholder:text-slate-600 focus:border-primary transition-all rounded-[5px]"
                 />
               </div>
               <div className="space-y-1">
@@ -115,7 +115,7 @@ export default function AdminLoginPage() {
                     placeholder="••••••••" 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-8 bg-slate-800/40 border-slate-700/50 text-white text-[11px] placeholder:text-slate-600 pr-8 focus:border-primary transition-all rounded-md"
+                    className="h-8 bg-slate-800/40 border-slate-700/50 text-white text-[11px] placeholder:text-slate-600 pr-8 focus:border-primary transition-all rounded-[5px]"
                   />
                   <button
                     type="button"
@@ -127,14 +127,19 @@ export default function AdminLoginPage() {
                 </div>
               </div>
             </div>
-            <Button className="w-full h-8 bg-primary hover:bg-primary/90 transition-all font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-primary/10 rounded-md" disabled={loading}>
+            <Button className="w-full h-8 bg-primary hover:bg-primary/90 transition-all font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-primary/10 rounded-[5px]" disabled={loading}>
               {loading ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : "Verify Identity"}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex items-center justify-between border-t border-white/5 py-2.5 px-5 bg-slate-950/20 rounded-b-lg">
-          <Link href="/" className="text-[9px] font-bold text-slate-500 hover:text-primary transition-colors uppercase tracking-tight">Public Portal</Link>
-          <p className="text-[7px] text-slate-700 font-mono tracking-tighter uppercase font-bold">CORE-v2.9</p>
+        <CardFooter className="flex flex-col gap-2 border-t border-white/5 py-3 px-5 bg-slate-950/20 rounded-b-[5px]">
+          <div className="flex items-center justify-between w-full">
+            <Link href="/" className="text-[9px] font-bold text-slate-500 hover:text-primary transition-colors uppercase tracking-tight">Public Portal</Link>
+            <Link href="/register" className="text-[9px] font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-tight flex items-center gap-1">
+              <UserPlus className="h-2.5 w-2.5" /> Create Account
+            </Link>
+          </div>
+          <p className="text-[7px] text-slate-700 font-mono tracking-tighter uppercase font-bold text-center">CORE-v2.9.4 • AUTHORIZED ACCESS</p>
         </CardFooter>
       </Card>
     </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -68,7 +69,7 @@ export default function LoginPage() {
 
       {/* Brand Identity - Top Left Corner */}
       <div className="absolute top-8 left-8 z-30 flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-1000">
-        <div className="bg-primary/20 backdrop-blur-md border border-primary/30 p-2.5 rounded-2xl shadow-2xl">
+        <div className="bg-primary/20 backdrop-blur-md border border-primary/30 p-2.5 rounded-[5px] shadow-2xl">
           <Droplets className="text-white h-7 w-7" />
         </div>
         <div>
@@ -97,12 +98,12 @@ export default function LoginPage() {
           /* Compact Horizontal Login Interface */
           <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
             <form onSubmit={handleCustomerLogin} className="space-y-4">
-              <div className="flex items-center gap-2 bg-slate-900/60 backdrop-blur-2xl border border-white/10 p-2 rounded-lg shadow-2xl">
+              <div className="flex items-center gap-2 bg-slate-900/60 backdrop-blur-2xl border border-white/10 p-2 rounded-[5px] shadow-2xl">
                 <Input 
                   placeholder="MTR-XXXX" 
                   value={meterNumber}
                   onChange={(e) => setMeterNumber(e.target.value.toUpperCase())}
-                  className="flex-1 h-12 bg-white/5 border-none text-white font-mono text-xl font-bold tracking-widest placeholder:text-slate-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="flex-1 h-12 bg-white/5 border-none text-white font-mono text-xl font-bold tracking-widest placeholder:text-slate-600 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-[5px]"
                   autoFocus
                 />
                 <Button 
