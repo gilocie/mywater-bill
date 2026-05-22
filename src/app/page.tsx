@@ -18,7 +18,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
 
   React.useEffect(() => {
@@ -29,10 +29,10 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!identifier || !password) {
       toast({
         title: "Missing Information",
-        description: "Please enter your email and password.",
+        description: "Please enter your credentials.",
         variant: "destructive"
       });
       return;
@@ -40,7 +40,7 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await login(email, password); 
+      await login(identifier, password); 
       router.push('/dashboard');
     } catch (err) {
       toast({
@@ -70,17 +70,16 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-semibold">Email Address</label>
+                <label className="text-sm font-semibold">Email or Meter Number</label>
                 <Input 
-                  type="email"
-                  placeholder="name@example.com" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com or MTR-XXXX" 
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="h-11 border-muted"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-semibold">Password</label>
+                <label className="text-sm font-semibold">Password / Security PIN</label>
                 <div className="relative">
                   <Input 
                     type={showPassword ? "text" : "password"}

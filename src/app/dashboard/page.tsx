@@ -20,7 +20,9 @@ import {
   FileText,
   Clock,
   UserCheck,
-  Zap
+  Zap,
+  MapPin,
+  Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -29,7 +31,10 @@ import { MOCK_BILLS, MOCK_USERS } from '@/app/lib/mock-data';
 export default function DashboardPage() {
   const { user } = useAuth();
 
-  if (user?.role === 'CUSTOMER') {
+  if (!user) return null;
+
+  // --- CUSTOMER VIEW ---
+  if (user.role === 'CUSTOMER') {
     const userBills = MOCK_BILLS.filter(b => b.customerId === user.id);
     const pendingBill = userBills.find(b => b.status === 'PENDING' || b.status === 'OVERDUE');
 
@@ -137,7 +142,84 @@ export default function DashboardPage() {
     );
   }
 
-  // Admin/Staff View
+  // --- DISTRICT STAFF VIEW ---
+  if (user.role === 'DISTRICT_STAFF') {
+    const assignedCustomers = MOCK_USERS.filter(u => u.role === 'CUSTOMER' && u.assignedStaffId === user.id);
+    
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Staff Console: {user.district}</h2>
+          <p className="text-muted-foreground">Managing your assigned zone operations.</p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="shadow-sm border-none bg-slate-800 text-white">
+            <CardHeader className="pb-2">
+              <CardDescription className="text-slate-400">Assigned Customers</CardDescription>
+              <CardTitle className="text-2xl">{assignedCustomers.length}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-1 text-xs text-green-400">
+                <UserCheck className="h-3 w-3" /> All active
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm border-none">
+            <CardHeader className="pb-2">
+              <CardDescription>Pending Readings</CardDescription>
+              <CardTitle className="text-2xl">12</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-1 text-xs text-yellow-600">
+                <Clock className="h-3 w-3" /> Due by Friday
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm border-none">
+            <CardHeader className="pb-2">
+              <CardDescription>Reported Leaks</CardDescription>
+              <CardTitle className="text-2xl text-destructive">2</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-1 text-xs text-destructive font-bold">
+                <AlertCircle className="h-3 w-3" /> Immediate action required
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="shadow-sm border-none">
+          <CardHeader>
+            <CardTitle className="text-lg">Recent Assigned Customers</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {assignedCustomers.slice(0, 5).map(customer => (
+              <div key={customer.id} className="flex items-center justify-between p-4 border rounded-xl hover:bg-muted/30 transition-all cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Droplets className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm">{customer.name}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <MapPin className="h-3 w-3" /> {customer.location}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-[10px] font-bold text-primary">{customer.meterNumber}</p>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs">View History</Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // --- SUPER ADMIN VIEW ---
   const staffCount = MOCK_USERS.filter(u => u.role === 'DISTRICT_STAFF').length;
   const customerCount = MOCK_USERS.filter(u => u.role === 'CUSTOMER').length;
   
@@ -145,16 +227,12 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">
-            {user?.role === 'SUPER_ADMIN' ? 'Operational Hub' : 'District Dashboard'}
-          </h2>
-          <p className="text-muted-foreground">
-            {user?.role === 'SUPER_ADMIN' ? 'All Malawi Districts' : `${user?.district} Regional Console`}
-          </p>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Operational Hub</h2>
+          <p className="text-muted-foreground">National oversight for Malawi Water Board.</p>
         </div>
-        <div className="flex gap-2">
-          <Button className="bg-primary">Generate Report</Button>
-        </div>
+        <Button className="bg-primary gap-2">
+          <Activity className="h-4 w-4" /> Global Health Report
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -177,26 +255,24 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{customerCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">Target: 2,500</p>
+            <p className="text-xs text-muted-foreground mt-1">Across all districts</p>
           </CardContent>
         </Card>
 
-        {user?.role === 'SUPER_ADMIN' && (
-          <Card className="shadow-sm border-none">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardDescription>Operational Staff</CardDescription>
-              <UserCheck className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{staffCount}</div>
-              <p className="text-xs text-muted-foreground mt-1">Across 6 Districts</p>
-            </CardContent>
-          </Card>
-        )}
+        <Card className="shadow-sm border-none">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardDescription>District Staff</CardDescription>
+            <UserCheck className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{staffCount}</div>
+            <p className="text-xs text-muted-foreground mt-1">Operational Field Agents</p>
+          </CardContent>
+        </Card>
 
         <Card className="shadow-sm border-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardDescription>Payment Rate</CardDescription>
+            <CardDescription>Collection Efficiency</CardDescription>
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
@@ -209,7 +285,7 @@ export default function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="md:col-span-2 shadow-sm border-none">
           <CardHeader>
-            <CardTitle className="text-lg">Revenue Distribution</CardTitle>
+            <CardTitle className="text-lg">District Revenue Distribution</CardTitle>
           </CardHeader>
           <CardContent className="h-[300px] flex items-center justify-center border-t border-dashed text-muted-foreground italic">
             [ Regional Performance Charts ]

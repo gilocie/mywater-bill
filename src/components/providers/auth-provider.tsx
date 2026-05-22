@@ -6,7 +6,7 @@ import { User, MOCK_USERS, Role } from '@/app/lib/mock-data';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, meterNumber?: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
@@ -36,16 +36,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return usersStr ? JSON.parse(usersStr) : [];
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     setIsLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     const allUsers = getAllUsers();
-    // System recognizes role based on credentials
+    
+    // Search by email OR meter number
     const foundUser = allUsers.find(
       (u) =>
-        u.email === email &&
-        (u.pin === password || password === 'password') // Using 'password' as a fallback for mock data
+        (u.email === identifier || u.meterNumber === identifier) &&
+        (u.pin === password || password === 'password')
     );
 
     if (foundUser) {
@@ -64,7 +65,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const allUsers = getAllUsers();
     
-    // Logic: If no SUPER_ADMIN exists, the first user becomes one
     const hasAdmin = allUsers.some(u => u.role === 'SUPER_ADMIN');
     const role: Role = !hasAdmin ? 'SUPER_ADMIN' : 'CUSTOMER';
 
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       walletBalance: 0,
       meterNumber: role === 'CUSTOMER' ? (meterNumber || `MTR-${Math.floor(1000 + Math.random() * 9000)}`) : undefined,
       pin: password,
-      district: 'Lilongwe' // Default district
+      district: 'Lilongwe'
     };
 
     const updatedUsers = [...allUsers, newUser];
