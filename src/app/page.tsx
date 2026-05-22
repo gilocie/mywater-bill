@@ -74,7 +74,7 @@ export default function LoginPage() {
         </div>
         <div>
           <h1 className="text-2xl font-black tracking-tighter text-white uppercase leading-none">
-            MyWater <span className="text-primary">MW</span>
+            My Water <span className="text-primary">Bill</span>
           </h1>
           <p className="text-[8px] font-bold tracking-[0.3em] text-slate-400 uppercase opacity-80">National Utility Portal</p>
         </div>

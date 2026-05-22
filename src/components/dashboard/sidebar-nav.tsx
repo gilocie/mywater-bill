@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -72,7 +71,9 @@ export function SidebarNav() {
           <Droplets className="text-white h-7 w-7" />
         </div>
         <div>
-          <h1 className="font-headline font-black text-xl tracking-tighter text-white leading-none">MyWater</h1>
+          <h1 className="font-headline font-black text-xl tracking-tighter text-white leading-none">
+            My Water <span className="text-primary">Bill</span>
+          </h1>
           <p className="text-[9px] text-slate-500 uppercase tracking-[0.2em] font-bold mt-1">Utility Control</p>
         </div>
       </SidebarHeader>
