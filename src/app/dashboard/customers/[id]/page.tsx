@@ -1,10 +1,10 @@
 
 "use client";
 
-import React, { use } from 'react';
+import React, { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
-import { MOCK_USERS, MOCK_BILLS, Bill } from '@/app/lib/mock-data';
+import { User, MOCK_BILLS, Bill } from '@/app/lib/mock-data';
 import { 
   Card, 
   CardContent, 
@@ -21,10 +21,11 @@ import {
   Receipt, 
   PowerOff, 
   MapPin, 
-  Wallet,
+  Power,
   Clock,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  User as UserIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -42,11 +43,44 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const router = useRouter();
   const { toast } = useToast();
 
-  const customer = MOCK_USERS.find(u => u.id === id);
+  const [customer, setCustomer] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+    const loadData = () => {
+      const usersStr = localStorage.getItem('mywater_all_users');
+      if (usersStr) {
+        const users: User[] = JSON.parse(usersStr);
+        setAllUsers(users);
+        const found = users.find(u => u.id === id);
+        setCustomer(found || null);
+      }
+      setLoading(false);
+    };
+
+    loadData();
+  }, [id]);
+
   const bills = MOCK_BILLS.filter(b => b.customerId === id);
 
+  if (loading) {
+    return (
+      <div className="h-96 flex items-center justify-center">
+        <div className="animate-pulse text-slate-500 font-bold uppercase tracking-widest text-xs">Retrieving Record...</div>
+      </div>
+    );
+  }
+
   if (!customer) {
-    return <div className="p-12 text-center">Customer not found.</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
+        <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Customer Record Missing</p>
+        <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/customers')} className="border-white/5 rounded-[5px]">
+          Return to Registry
+        </Button>
+      </div>
+    );
   }
 
   const handleIssueInvoice = () => {
@@ -68,132 +102,142 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     <div className="space-y-6">
       <Button 
         variant="ghost" 
-        className="gap-2 -ml-2 text-muted-foreground hover:text-primary"
+        className="gap-2 -ml-2 text-slate-400 hover:text-primary transition-colors h-8 px-2 rounded-[5px]"
         onClick={() => router.back()}
       >
-        <ArrowLeft className="h-4 w-4" /> Back to Customers
+        <ArrowLeft className="h-4 w-4" /> Back to Registry
       </Button>
 
       <div className="flex flex-col md:flex-row items-start gap-6">
         <div className="flex-1 space-y-6 w-full">
-          <Card className="shadow-sm border-none overflow-hidden">
-            <div className="h-2 bg-primary w-full" />
-            <CardHeader className="pb-4">
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] overflow-hidden">
+            <div className="h-1 bg-primary w-full" />
+            <CardHeader className="pb-4 pt-6 px-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-2xl font-bold">{customer.name}</CardTitle>
-                  <CardDescription className="flex items-center gap-2 mt-1">
-                    <MapPin className="h-3 w-3" /> {customer.location}
+                  <CardTitle className="text-2xl font-black text-white">{customer.name}</CardTitle>
+                  <CardDescription className="flex items-center gap-2 mt-1 text-slate-400 font-medium">
+                    <MapPin className="h-3.5 w-3.5 text-primary" /> {customer.district}{customer.address ? `, ${customer.address}` : ''}
                   </CardDescription>
                 </div>
-                <Badge className="h-6">METER: {customer.meterNumber}</Badge>
+                <Badge className="h-7 bg-primary/10 text-primary border-primary/20 font-mono font-bold px-3 rounded-[5px]">
+                  METER: {customer.meterNumber}
+                </Badge>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-6 pb-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 bg-muted/30 rounded-xl">
-                  <p className="text-xs text-muted-foreground font-semibold uppercase mb-1">Status</p>
-                  <Badge className="bg-green-500">ACTIVE</Badge>
+                <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5 px-0.5">Status</p>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                    <span className="text-xs font-bold text-green-500">ACTIVE</span>
+                  </div>
                 </div>
-                <div className="p-4 bg-muted/30 rounded-xl">
-                  <p className="text-xs text-muted-foreground font-semibold uppercase mb-1">District</p>
-                  <p className="font-bold">{customer.district}</p>
+                <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5 px-0.5">Region</p>
+                  <p className="text-sm font-bold text-white">{customer.region || 'Not Specified'}</p>
                 </div>
-                <div className="p-4 bg-muted/30 rounded-xl">
-                  <p className="text-xs text-muted-foreground font-semibold uppercase mb-1">Balance</p>
-                  <p className="font-bold text-primary">MK {customer.walletBalance.toLocaleString()}</p>
+                <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5 px-0.5">Wallet</p>
+                  <p className="text-sm font-bold text-primary">MK {(customer.walletBalance || 0).toLocaleString()}</p>
                 </div>
-                <div className="p-4 bg-muted/30 rounded-xl">
-                  <p className="text-xs text-muted-foreground font-semibold uppercase mb-1">Consumption</p>
-                  <p className="font-bold">4.2k Liters</p>
+                <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5 px-0.5">Assigned Area</p>
+                  <p className="text-sm font-bold text-white">{customer.area || customer.district}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-none">
-            <CardHeader>
-              <CardTitle className="text-lg">Billing History</CardTitle>
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
+            <CardHeader className="px-6 pt-6 pb-3">
+              <CardTitle className="text-lg font-bold text-white">Billing History</CardTitle>
+              <CardDescription className="text-slate-500 text-xs font-medium uppercase tracking-tight">Recent financial ledger for this consumer.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {bills.map((bill) => (
-                    <TableRow key={bill.id}>
-                      <TableCell className="text-sm">{bill.date}</TableCell>
-                      <TableCell className="font-bold">MK {bill.totalAmount.toLocaleString()}</TableCell>
-                      <TableCell>
-                        {bill.status === 'PAID' ? (
-                          <Badge className="bg-green-500">PAID</Badge>
-                        ) : (
-                          <Badge variant={bill.status === 'OVERDUE' ? 'destructive' : 'secondary'}>
+            <CardContent className="px-6 pb-6">
+              <div className="rounded-[5px] border border-white/5 overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-slate-950/50">
+                    <TableRow className="border-b border-white/5 hover:bg-transparent">
+                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Invoice Date</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Amount</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10 text-right">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bills.length > 0 ? bills.map((bill) => (
+                      <TableRow key={bill.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <TableCell className="text-xs text-white font-medium">{bill.date}</TableCell>
+                        <TableCell className="text-sm font-bold text-primary">MK {bill.totalAmount.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge className={bill.status === 'PAID' ? 'bg-green-500/20 text-green-500 border-green-500/30' : 'bg-destructive/20 text-destructive border-destructive/30'}>
                             {bill.status}
                           </Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                        </TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={3} className="h-24 text-center text-slate-600 italic text-xs">
+                          No historical billing data found for this meter.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </div>
 
         <div className="w-full md:w-80 space-y-4">
-          <Card className="shadow-sm border-none bg-slate-900 text-white">
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-slate-400">Operations</CardTitle>
+          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
+            <CardHeader className="px-5 pt-6 pb-3">
+              <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Operational Actions</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 px-5 pb-4">
               <Button 
-                className="w-full bg-primary hover:bg-primary/90 gap-2"
+                className="w-full bg-primary hover:bg-primary/90 gap-2 h-9 text-[10px] font-bold uppercase tracking-widest rounded-[5px]"
                 onClick={handleIssueInvoice}
               >
-                <Receipt className="h-4 w-4" /> Issue Invoice
+                <Receipt className="h-3.5 w-3.5" /> Issue Invoice
               </Button>
               <Button 
                 variant="outline" 
-                className="w-full border-slate-700 bg-transparent text-white hover:bg-slate-800 gap-2"
+                className="w-full border-white/5 bg-slate-800/40 text-white hover:bg-slate-800 gap-2 h-9 text-[10px] font-bold uppercase tracking-widest rounded-[5px]"
               >
-                <Droplets className="h-4 w-4" /> Remote Reading
+                <Droplets className="h-3.5 w-3.5 text-primary" /> Remote Reading
               </Button>
-              <div className="pt-4 border-t border-slate-800">
+              <div className="pt-4 border-t border-white/5">
                 <Button 
                   variant="destructive" 
-                  className="w-full gap-2"
+                  className="w-full gap-2 h-9 text-[10px] font-bold uppercase tracking-widest rounded-[5px]"
                   onClick={handleDisconnect}
                 >
-                  <PowerOff className="h-4 w-4" /> Suspend Service
+                  <Power className="h-3.5 w-3.5" /> Suspend Service
                 </Button>
               </div>
             </CardContent>
-            <CardFooter>
-              <p className="text-[10px] text-slate-500 text-center w-full">
-                All operational actions are logged for audit compliance.
+            <CardFooter className="px-5 pb-5">
+              <p className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter text-center w-full">
+                Compliance Protocol: 29.A-SEC
               </p>
             </CardFooter>
           </Card>
 
-          <Card className="shadow-sm border-none">
-            <CardHeader>
-              <CardTitle className="text-sm">Assigned Staff</CardTitle>
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
+            <CardHeader className="px-5 pt-5 pb-3">
+              <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Assigned Official</CardTitle>
             </CardHeader>
-            <CardContent className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center font-bold">
-                {MOCK_USERS.find(u => u.id === customer.assignedStaffId)?.name[0] || '?'}
+            <CardContent className="flex items-center gap-3 px-5 pb-5">
+              <div className="h-9 w-9 rounded-[5px] bg-slate-800 border border-white/5 flex items-center justify-center font-bold text-primary">
+                {allUsers.find(u => u.id === customer.assignedStaffId)?.name[0] || '?'}
               </div>
               <div>
-                <p className="text-sm font-semibold">
-                  {MOCK_USERS.find(u => u.id === customer.assignedStaffId)?.name || 'Unassigned'}
+                <p className="text-xs font-bold text-white leading-none mb-1">
+                  {allUsers.find(u => u.id === customer.assignedStaffId)?.name || 'Central Admin'}
                 </p>
-                <p className="text-xs text-muted-foreground">District Field Agent</p>
+                <p className="text-[9px] text-slate-500 uppercase font-bold tracking-tight">District Field Agent</p>
               </div>
             </CardContent>
           </Card>
