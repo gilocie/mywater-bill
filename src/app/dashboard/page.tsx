@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/components/providers/auth-provider';
 import { 
   Card, 
@@ -27,10 +27,18 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { MOCK_BILLS, MOCK_USERS } from '@/app/lib/mock-data';
+import { MOCK_BILLS, User } from '@/app/lib/mock-data';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+    const usersStr = localStorage.getItem('mywater_all_users');
+    if (usersStr) {
+      setAllUsers(JSON.parse(usersStr));
+    }
+  }, []);
 
   if (!user) return null;
 
@@ -100,7 +108,7 @@ export default function DashboardPage() {
 
   // --- DISTRICT STAFF VIEW ---
   if (user.role === 'DISTRICT_STAFF') {
-    const assignedCustomers = MOCK_USERS.filter(u => u.role === 'CUSTOMER' && u.area === user.area);
+    const assignedCustomers = allUsers.filter(u => u.role === 'CUSTOMER' && u.area === user.area);
     
     return (
       <div className="space-y-6">
@@ -150,7 +158,7 @@ export default function DashboardPage() {
             <CardTitle className="text-lg">Customers in {user.area}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {assignedCustomers.map(customer => (
+            {assignedCustomers.length > 0 ? assignedCustomers.map(customer => (
               <div key={customer.id} className="flex items-center justify-between p-4 border rounded-xl hover:bg-muted/30 transition-all">
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -168,15 +176,17 @@ export default function DashboardPage() {
                   <Button variant="link" size="sm" className="h-auto p-0 text-xs">View Details</Button>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-sm text-muted-foreground italic text-center py-4">No customers assigned to this area yet.</p>
+            )}
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // --- SUPER ADMIN VIEW ---
-  const customerCount = MOCK_USERS.filter(u => u.role === 'CUSTOMER').length;
+  // --- SUPER ADMIN VIEW (Default) ---
+  const customerCount = allUsers.filter(u => u.role === 'CUSTOMER').length;
   
   return (
     <div className="space-y-6">

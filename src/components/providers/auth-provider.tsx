@@ -20,6 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Initialize users in local storage if not present
+    // We'll keep mock users for now but allow registration to override
     if (!localStorage.getItem('mywater_all_users')) {
       localStorage.setItem('mywater_all_users', JSON.stringify(MOCK_USERS));
     }
@@ -65,8 +66,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const allUsers = getAllUsers();
     
-    // Logic: First person to register becomes SUPER_ADMIN, others become DISTRICT_STAFF
-    const hasAdmin = allUsers.some(u => u.role === 'SUPER_ADMIN');
+    // Logic: First person to REGISTER in this system gets SUPER_ADMIN.
+    // We check if there are any users other than the default mock admin.
+    const hasAdmin = allUsers.some(u => u.role === 'SUPER_ADMIN' && u.email !== 'admin@mywater.mw');
     const role: Role = !hasAdmin ? 'SUPER_ADMIN' : 'DISTRICT_STAFF';
 
     const newUser: User = {
@@ -78,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       meterNumber: role === 'CUSTOMER' ? (meterNumber || `MTR-${Math.floor(1000 + Math.random() * 9000)}`) : undefined,
       pin: password,
       district: 'Lilongwe',
-      area: role === 'DISTRICT_STAFF' ? 'Area 47' : undefined // Default area for staff testing
+      area: role === 'DISTRICT_STAFF' ? 'Area 47' : undefined
     };
 
     const updatedUsers = [...allUsers, newUser];
