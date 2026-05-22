@@ -29,7 +29,8 @@ import {
   Mail,
   RefreshCw,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  MessageSquare
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -48,6 +49,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 export default function CustomersPage() {
   const { user } = useAuth();
@@ -58,6 +61,7 @@ export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(false);
   
   // Registration Form State
   const [formData, setFormData] = useState({
@@ -85,6 +89,13 @@ export default function CustomersPage() {
     window.addEventListener('storage', loadCustomers);
     return () => window.removeEventListener('storage', loadCustomers);
   }, []);
+
+  // Sync WhatsApp if toggle is on
+  useEffect(() => {
+    if (whatsappSameAsPhone) {
+      setFormData(prev => ({ ...prev, whatsapp: prev.phone }));
+    }
+  }, [formData.phone, whatsappSameAsPhone]);
 
   const handleNextStep = () => {
     if (currentStep === 1) {
@@ -125,7 +136,7 @@ export default function CustomersPage() {
       meterNumber: formData.meterNumber,
       walletBalance: 0,
       phoneNumber: formData.phone,
-      whatsappNumber: formData.whatsapp,
+      whatsappNumber: whatsappSameAsPhone ? formData.phone : formData.whatsapp,
       assignedStaffId: user?.id
     };
 
@@ -149,6 +160,7 @@ export default function CustomersPage() {
       whatsapp: '',
       email: ''
     });
+    setWhatsappSameAsPhone(false);
     setCurrentStep(1);
     setIsDialogOpen(false);
 
@@ -184,7 +196,10 @@ export default function CustomersPage() {
         {user?.role !== 'CUSTOMER' && (
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
-            if (!open) setCurrentStep(1);
+            if (!open) {
+              setCurrentStep(1);
+              setWhatsappSameAsPhone(false);
+            }
           }}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90 gap-2 rounded-[5px] h-9 font-bold uppercase tracking-wider text-xs">
@@ -262,7 +277,9 @@ export default function CustomersPage() {
                 /* STEP 2: CONTACT DETAILS */
                 <div className="grid grid-cols-2 gap-4 py-4 animate-in fade-in slide-in-from-right-2 duration-300">
                   <div className="col-span-2 space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Phone Number</label>
+                    <div className="flex items-center justify-between px-1">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Phone Number</label>
+                    </div>
                     <Input 
                       placeholder="+265..." 
                       className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm"
@@ -271,12 +288,23 @@ export default function CustomersPage() {
                     />
                   </div>
                   <div className="col-span-2 space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">WhatsApp Number</label>
+                    <div className="flex items-center justify-between px-1">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">WhatsApp Number</label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold text-slate-600 uppercase">Same as Phone</span>
+                        <Switch 
+                          checked={whatsappSameAsPhone}
+                          onCheckedChange={setWhatsappSameAsPhone}
+                          className="scale-75"
+                        />
+                      </div>
+                    </div>
                     <Input 
                       placeholder="+265..." 
-                      className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm"
+                      className={`bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm transition-opacity ${whatsappSameAsPhone ? 'opacity-40 cursor-not-allowed' : 'opacity-100'}`}
                       value={formData.whatsapp}
-                      onChange={(e) => setFormData(prev => ({ ...prev, whatsapp: e.target.value }))}
+                      onChange={(e) => !whatsappSameAsPhone && setFormData(prev => ({ ...prev, whatsapp: e.target.value }))}
+                      readOnly={whatsappSameAsPhone}
                     />
                   </div>
                   <div className="col-span-2 space-y-1.5">
@@ -356,21 +384,29 @@ export default function CustomersPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <MapPin className="h-3 w-3 text-primary" />
+                        <MapPin className="h-3.5 w-3.5 text-primary opacity-70" />
                         {customer.district}{customer.address ? `, ${customer.address}` : ''}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-3">
-                        {customer.phoneNumber && <Smartphone className="h-3.5 w-3.5 text-slate-500" />}
+                      <div className="flex items-center gap-4">
+                        {customer.phoneNumber && (
+                          <div className="flex items-center gap-1.5 text-slate-400 group">
+                            <Smartphone className="h-4 w-4 text-primary group-hover:text-primary/80 transition-colors" />
+                            <span className="text-[10px] font-mono tracking-tighter">{customer.phoneNumber}</span>
+                          </div>
+                        )}
+                        {customer.whatsappNumber && (
+                          <MessageSquare className="h-3.5 w-3.5 text-green-500 opacity-80" />
+                        )}
                         {customer.email && <Mail className="h-3.5 w-3.5 text-slate-500" />}
                       </div>
                     </TableCell>
                     <TableCell className="text-right py-4">
                       <Button 
-                        variant="ghost" 
+                        variant="default" 
                         size="sm" 
-                        className="text-xs font-bold uppercase tracking-tighter text-slate-400 hover:text-primary hover:bg-primary/5 rounded-[5px]"
+                        className="text-[10px] h-7 bg-primary hover:bg-primary/90 font-bold uppercase tracking-wider rounded-[5px] px-3"
                         onClick={() => router.push(`/dashboard/customers/${customer.id}`)}
                       >
                         Inspect Record
