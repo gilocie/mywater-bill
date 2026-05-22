@@ -5,8 +5,8 @@ import { AuthProvider } from '@/components/providers/auth-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'My Water Bill - Malawi Utility Portal',
-  description: 'Streamlined water billing and management for Malawian districts.',
+  title: 'My Water Bill - Malawi Water Board',
+  description: 'Streamlined water billing and management for the Malawi Water Board.',
 };
 
 export default function RootLayout({

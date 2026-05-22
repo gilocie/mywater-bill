@@ -76,7 +76,7 @@ export default function LoginPage() {
           <h1 className="text-2xl font-black tracking-tighter text-white uppercase leading-none">
             My Water <span className="text-primary">Bill</span>
           </h1>
-          <p className="text-[8px] font-bold tracking-[0.3em] text-slate-400 uppercase opacity-80">National Utility Portal</p>
+          <p className="text-[8px] font-bold tracking-[0.3em] text-slate-400 uppercase opacity-80">Malawi Water Board</p>
         </div>
       </div>
 
