@@ -53,7 +53,7 @@ export default function WalletPage() {
 
   useEffect(() => {
     const loadWalletData = () => {
-      // Load payment methods
+      // Load payment methods - filter for active only
       const methodsStr = localStorage.getItem('mywater_payment_methods');
       if (methodsStr) {
         setPaymentMethods(JSON.parse(methodsStr).filter((m: PaymentMethod) => m.active));

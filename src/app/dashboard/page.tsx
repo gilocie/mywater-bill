@@ -74,7 +74,10 @@ export default function DashboardPage() {
       if (transStr) setAllTransactions(JSON.parse(transStr));
 
       const methodsStr = localStorage.getItem('mywater_payment_methods');
-      if (methodsStr) setPaymentMethods(JSON.parse(methodsStr).filter((m: PaymentMethod) => m.active));
+      if (methodsStr) {
+        // Filter only active methods set by Admin
+        setPaymentMethods(JSON.parse(methodsStr).filter((m: PaymentMethod) => m.active));
+      }
     };
 
     loadData();
@@ -556,7 +559,7 @@ export default function DashboardPage() {
                           {selectedMethod === method.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
                         </button>
                       )) : (
-                        <p className="text-center text-xs text-slate-500 italic py-4">No payment methods configured by admin.</p>
+                        <p className="text-center text-xs text-slate-500 italic py-4">No active payment channels available.</p>
                       )}
                     </div>
                   </div>
