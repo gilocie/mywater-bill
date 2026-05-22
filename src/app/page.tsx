@@ -89,9 +89,9 @@ export default function LoginPage() {
              </div>
              <Button 
                onClick={() => setShowInput(true)}
-               className="h-20 px-12 bg-primary hover:bg-primary/90 text-2xl font-black uppercase tracking-tight shadow-2xl shadow-primary/40 rounded-3xl group transition-all"
+               className="h-12 px-8 bg-primary hover:bg-primary/90 text-lg font-bold uppercase tracking-tight shadow-xl shadow-primary/20 rounded-[5px] group transition-all"
              >
-               Check My Account <ArrowRight className="ml-3 h-6 w-6 group-hover:translate-x-2 transition-transform" />
+               Check My Account <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-2 transition-transform" />
              </Button>
           </div>
         ) : (
