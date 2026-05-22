@@ -67,7 +67,7 @@ export default function DashboardPage() {
             </div>
             <CardHeader className="pb-2">
               <CardDescription className="text-white/70">Wallet Balance</CardDescription>
-              <CardTitle className="text-2xl">MK {user.walletBalance.toLocaleString()}</CardTitle>
+              <CardTitle className="text-2xl">MK {user.walletBalance?.toLocaleString() || '0'}</CardTitle>
             </CardHeader>
             <CardContent>
               <Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 border-none text-white h-7 text-xs">Top Up</Button>
@@ -108,13 +108,13 @@ export default function DashboardPage() {
 
   // --- DISTRICT STAFF VIEW ---
   if (user.role === 'DISTRICT_STAFF') {
-    const assignedCustomers = allUsers.filter(u => u.role === 'CUSTOMER' && u.area === user.area);
+    const assignedCustomers = allUsers.filter(u => u.role === 'CUSTOMER' && (u.area === user.area || u.assignedStaffId === user.id));
     
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Staff Console: {user.area} Area</h2>
-          <p className="text-muted-foreground">Operational management for {user.district} district.</p>
+          <h2 className="text-3xl font-bold tracking-tight">Staff Console: {user.area || 'Field Office'}</h2>
+          <p className="text-muted-foreground">Operational management for {user.district || 'Assigned'} district.</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -155,7 +155,7 @@ export default function DashboardPage() {
 
         <Card className="shadow-sm border-none">
           <CardHeader>
-            <CardTitle className="text-lg">Customers in {user.area}</CardTitle>
+            <CardTitle className="text-lg">Customers in {user.area || 'Your Zone'}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {assignedCustomers.length > 0 ? assignedCustomers.map(customer => (
@@ -167,7 +167,7 @@ export default function DashboardPage() {
                   <div>
                     <p className="font-bold text-sm">{customer.name}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <MapPin className="h-3 w-3" /> {customer.address || customer.area}
+                      <MapPin className="h-3 w-3" /> {customer.address || customer.area || 'Address not set'}
                     </p>
                   </div>
                 </div>
@@ -185,68 +185,72 @@ export default function DashboardPage() {
     );
   }
 
-  // --- SUPER ADMIN VIEW (Default) ---
-  const customerCount = allUsers.filter(u => u.role === 'CUSTOMER').length;
-  
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-950 flex items-center gap-3">
-            <ShieldAlert className="h-8 w-8 text-primary" /> Operational Hub
-          </h2>
-          <p className="text-muted-foreground font-medium">Global oversight and national resource monitoring.</p>
+  // --- SUPER ADMIN VIEW ---
+  if (user.role === 'SUPER_ADMIN') {
+    const customerCount = allUsers.filter(u => u.role === 'CUSTOMER').length;
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-950 flex items-center gap-3">
+              <ShieldAlert className="h-8 w-8 text-primary" /> Operational Hub
+            </h2>
+            <p className="text-muted-foreground font-medium">Global oversight and national resource monitoring.</p>
+          </div>
         </div>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="shadow-2xl border-none bg-slate-900 text-white overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full -mr-12 -mt-12 blur-2xl" />
-          <CardHeader className="pb-2">
-            <CardDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Total Revenue</CardDescription>
-            <CardTitle className="text-3xl font-black">MK 12.4M</CardTitle>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="shadow-2xl border-none bg-slate-900 text-white overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full -mr-12 -mt-12 blur-2xl" />
+            <CardHeader className="pb-2">
+              <CardDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Total Revenue</CardDescription>
+              <CardTitle className="text-3xl font-black">MK 12.4M</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xs text-green-400 flex items-center gap-1 mt-1 font-bold">
+                <ArrowUpRight className="h-3 w-3" /> 18.5% Growth
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-none bg-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardDescription className="font-bold uppercase tracking-widest text-[10px]">Total Customers</CardDescription>
+              <Users className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-black">{customerCount}</div>
+              <p className="text-xs text-slate-400 mt-1 font-medium">All registered accounts</p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-none bg-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardDescription className="font-bold uppercase tracking-widest text-[10px]">Total Water Used</CardDescription>
+              <Droplets className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-black">28.5M L</div>
+              <Progress value={92} className="h-1.5 mt-4 bg-slate-100" />
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="shadow-sm border-none bg-white">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold">System Integrity</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-xs text-green-400 flex items-center gap-1 mt-1 font-bold">
-              <ArrowUpRight className="h-3 w-3" /> 18.5% Growth
+          <CardContent className="h-[200px] flex items-center justify-center border-t border-dashed border-slate-100 text-slate-300 italic font-medium">
+            <div className="text-center">
+              <Activity className="h-12 w-12 mx-auto mb-2 opacity-20" />
+              Live Network Feed
             </div>
           </CardContent>
         </Card>
-
-        <Card className="shadow-sm border-none bg-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardDescription className="font-bold uppercase tracking-widest text-[10px]">Total Customers</CardDescription>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black">{customerCount}</div>
-            <p className="text-xs text-slate-400 mt-1 font-medium">All registered accounts</p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm border-none bg-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardDescription className="font-bold uppercase tracking-widest text-[10px]">Total Water Used</CardDescription>
-            <Droplets className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black">28.5M L</div>
-            <Progress value={92} className="h-1.5 mt-4 bg-slate-100" />
-          </CardContent>
-        </Card>
       </div>
+    );
+  }
 
-      <Card className="shadow-sm border-none bg-white">
-        <CardHeader>
-          <CardTitle className="text-lg font-bold">System Integrity</CardTitle>
-        </CardHeader>
-        <CardContent className="h-[200px] flex items-center justify-center border-t border-dashed border-slate-100 text-slate-300 italic font-medium">
-          <div className="text-center">
-            <Activity className="h-12 w-12 mx-auto mb-2 opacity-20" />
-            Live Network Feed
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  return null;
 }
