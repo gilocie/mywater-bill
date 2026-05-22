@@ -33,7 +33,6 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent
 } from '@/components/ui/sidebar';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export function SidebarNav() {
   const { user, logout } = useAuth();
@@ -114,18 +113,6 @@ export function SidebarNav() {
       </SidebarContent>
 
       <SidebarFooter className="p-6 border-t border-white/5 bg-slate-950">
-        <div className="flex items-center gap-3 mb-6">
-          <Avatar className="h-10 w-10 border-2 border-slate-800 shadow-xl rounded-[5px]">
-            <AvatarImage src={`https://picsum.photos/seed/${user.id}/80`} className="rounded-[5px]" />
-            <AvatarFallback className="bg-slate-800 text-primary font-bold rounded-[5px]">{user.name[0]}</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-bold truncate text-white leading-none mb-1">{user.name}</p>
-            <p className="text-[10px] text-slate-500 truncate font-mono uppercase tracking-tighter">
-              {user.role === 'SUPER_ADMIN' ? 'System Administrator' : user.role.replace('_', ' ')}
-            </p>
-          </div>
-        </div>
         <button 
           onClick={logout}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-400/10 rounded-[5px] transition-all border border-red-400/20"

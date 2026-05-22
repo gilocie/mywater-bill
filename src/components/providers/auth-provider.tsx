@@ -8,8 +8,11 @@ interface AuthContextType {
   user: User | null;
   login: (identifier: string, password?: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  updateUser: (data: Partial<User>) => void;
   logout: () => void;
   isLoading: boolean;
+  waterRate: number;
+  setWaterRate: (rate: number) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [waterRate, setWaterRateState] = useState(2.5);
 
   useEffect(() => {
     // Ensure user list exists in local storage
@@ -32,6 +36,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('mywater_user');
       }
     }
+
+    const savedRate = localStorage.getItem('mywater_rate');
+    if (savedRate) {
+      setWaterRateState(parseFloat(savedRate));
+    }
+
     setIsLoading(false);
   }, []);
 
@@ -47,7 +57,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const allUsers = getAllUsers();
     
-    // Search for the user by email or meter number
     const foundUser = allUsers.find(
       (u) =>
         (u.email?.toLowerCase() === identifier.toLowerCase() || u.meterNumber === identifier) &&
@@ -69,9 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     const allUsers = getAllUsers();
-    
-    // The very first person to register in the entire system gets SUPER_ADMIN
-    // We check for any users that are not the default mock ones
     const registeredStaffCount = allUsers.filter(u => u.role !== 'CUSTOMER').length;
     const role: Role = registeredStaffCount === 0 ? 'SUPER_ADMIN' : 'DISTRICT_STAFF';
 
@@ -94,13 +100,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   };
 
+  const updateUser = (data: Partial<User>) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...data };
+    setUser(updatedUser);
+    localStorage.setItem('mywater_user', JSON.stringify(updatedUser));
+
+    const allUsers = getAllUsers();
+    const updatedAllUsers = allUsers.map(u => u.id === user.id ? updatedUser : u);
+    localStorage.setItem('mywater_all_users', JSON.stringify(updatedAllUsers));
+  };
+
+  const setWaterRate = (rate: number) => {
+    setWaterRateState(rate);
+    localStorage.setItem('mywater_rate', rate.toString());
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('mywater_user');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, register, updateUser, logout, isLoading, waterRate, setWaterRate }}>
       {children}
     </AuthContext.Provider>
   );
