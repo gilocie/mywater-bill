@@ -65,8 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const allUsers = getAllUsers();
     
+    // Logic: First person to register becomes SUPER_ADMIN, others become DISTRICT_STAFF
     const hasAdmin = allUsers.some(u => u.role === 'SUPER_ADMIN');
-    const role: Role = !hasAdmin ? 'SUPER_ADMIN' : 'CUSTOMER';
+    const role: Role = !hasAdmin ? 'SUPER_ADMIN' : 'DISTRICT_STAFF';
 
     const newUser: User = {
       id: `u-${Date.now()}`,
@@ -76,7 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       walletBalance: 0,
       meterNumber: role === 'CUSTOMER' ? (meterNumber || `MTR-${Math.floor(1000 + Math.random() * 9000)}`) : undefined,
       pin: password,
-      district: 'Lilongwe'
+      district: 'Lilongwe',
+      area: role === 'DISTRICT_STAFF' ? 'Area 47' : undefined // Default area for staff testing
     };
 
     const updatedUsers = [...allUsers, newUser];
