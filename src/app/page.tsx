@@ -137,7 +137,7 @@ export default function LoginPage() {
           </Tabs>
         </CardContent>
         <CardFooter className="flex justify-center border-t py-4">
-          <p className="text-xs text-muted-foreground">© 2024 MyWater Malawi Utility Board</p>
+          <p className="text-xs text-muted-foreground">@2026, Malawi Water Board</p>
         </CardFooter>
       </Card>
     </div>
