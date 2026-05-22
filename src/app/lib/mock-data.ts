@@ -42,9 +42,7 @@ export const DISTRICTS = ['Blantyre', 'Lilongwe', 'Mzuzu', 'Zomba', 'Kasungu', '
 export const AREAS = ['Area 47', 'Area 18', 'Chirimba', 'Ndirande', 'Kanjedza', 'Chilomoni'];
 export const GLOBAL_WATER_RATE = 2.5; 
 
-// Initializing with an empty array to ensure the first registrant is the first Super Admin
+// Start completely empty to ensure the first registrant is the Super Admin
 export const MOCK_USERS: User[] = [];
-
 export const MOCK_BILLS: Bill[] = [];
-
 export const MOCK_TRANSACTIONS: Transaction[] = [];
