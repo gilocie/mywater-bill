@@ -29,10 +29,10 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !pin) {
+    if (!id) {
       toast({
         title: "Missing Information",
-        description: "Please enter your credentials.",
+        description: "Please enter your meter number.",
         variant: "destructive"
       });
       return;
@@ -69,15 +69,8 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="customer" className="w-full">
-            <TabsList className="grid w-full grid-cols-1 mb-8">
-              <TabsTrigger value="customer" className="flex items-center gap-2">
-                <UserIcon className="h-4 w-4" /> Customer
-              </TabsTrigger>
-              <TabsTrigger value="admin" className="hidden">
-                <ShieldCheck className="h-4 w-4" /> Admin/Staff
-              </TabsTrigger>
-            </TabsList>
-
+            {/* TabsList removed as requested to streamline for customers */}
+            
             <TabsContent value="customer">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
@@ -88,18 +81,9 @@ export default function LoginPage() {
                     onChange={(e) => setId(e.target.value)}
                     className="h-11 border-muted"
                   />
-                  <p className="text-[10px] text-muted-foreground italic">Example: MTR-1001 (PIN: 1234)</p>
+                  <p className="text-[10px] text-muted-foreground italic">Example: MTR-1001</p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold">Security PIN</label>
-                  <Input 
-                    type="password" 
-                    placeholder="••••" 
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value)}
-                    className="h-11 border-muted"
-                  />
-                </div>
+                {/* Security PIN removed for customers as requested */}
                 <Button className="w-full h-11 bg-primary hover:bg-primary/90 transition-all font-semibold" disabled={loading}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Verify & Sign In"}
                 </Button>
@@ -117,7 +101,6 @@ export default function LoginPage() {
                     onChange={(e) => setId(e.target.value)}
                     className="h-11 border-muted"
                   />
-                  <p className="text-[10px] text-muted-foreground italic">Example: admin@mywater.mw (Password: password)</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold">Password</label>

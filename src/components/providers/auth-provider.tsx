@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const foundUser = MOCK_USERS.find(
       (u) =>
         (u.email === idValue || u.meterNumber === idValue) &&
-        (u.pin === pinValue || pinValue === 'password')
+        (u.role === 'CUSTOMER' || u.pin === pinValue || pinValue === 'password')
     );
 
     if (foundUser) {
