@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Droplets, Loader2, Search, ArrowRight, UserCircle } from 'lucide-react';
+import { Droplets, Loader2, ArrowRight, UserCircle, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -85,7 +84,7 @@ export default function LoginPage() {
           /* Initial Access Button */
           <div className="space-y-8 text-center animate-in fade-in zoom-in-95 duration-1000">
              <div className="space-y-2">
-               <p className="text-slate-300 font-bold text-2xl md:text-3xl opacity-90">Manage Your Utility with ease</p>
+               <p className="text-slate-300 font-bold text-3xl md:text-4xl opacity-90 tracking-tight">Manage Your Utility with ease</p>
              </div>
              <Button 
                onClick={() => setShowInput(true)}
@@ -95,59 +94,44 @@ export default function LoginPage() {
              </Button>
           </div>
         ) : (
-          /* Customer Portal Form: Dark Glass Transparent */
-          <Card className="w-full shadow-2xl border-white/10 bg-slate-950/40 backdrop-blur-3xl text-white rounded-[2.5rem] overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
-            <CardHeader className="text-center pb-8 pt-10 border-b border-white/5">
-              <CardTitle className="text-3xl font-black flex items-center justify-center gap-3">
-                Consumer Portal
-              </CardTitle>
-              <CardDescription className="text-slate-400 font-medium pt-2 text-base">
-                Enter your meter number to access usage and billing
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-12 px-10">
-              <form onSubmit={handleCustomerLogin} className="space-y-8">
-                <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 text-center block">Meter Reference ID</label>
-                  <Input 
-                    placeholder="MTR-XXXX" 
-                    value={meterNumber}
-                    onChange={(e) => setMeterNumber(e.target.value.toUpperCase())}
-                    className="h-20 bg-white/5 border-white/10 text-3xl font-mono font-black tracking-[0.4em] text-center focus:border-primary focus:ring-primary/20 transition-all rounded-3xl placeholder:text-slate-700"
-                    autoFocus
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <Button 
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setShowInput(false)}
-                    className="h-16 px-6 text-slate-400 hover:text-white hover:bg-white/10 rounded-3xl font-bold uppercase text-xs"
-                  >
-                    Back
-                  </Button>
-                  <Button className="flex-1 h-16 bg-primary hover:bg-primary/90 text-xl font-black uppercase tracking-tight shadow-2xl shadow-primary/40 rounded-3xl group transition-all" disabled={loading}>
-                    {loading ? <Loader2 className="animate-spin h-6 w-6" /> : (
-                      <span className="flex items-center gap-2">
-                        Check My Account <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                      </span>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-            <CardFooter className="justify-center py-10 flex flex-col gap-6">
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <span>New connection?</span>
-                <Link href="/register" className="text-primary font-black hover:underline uppercase tracking-tighter">Register Online</Link>
+          /* Compact Horizontal Login Interface */
+          <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <form onSubmit={handleCustomerLogin} className="space-y-4">
+              <div className="flex items-center gap-2 bg-slate-900/60 backdrop-blur-2xl border border-white/10 p-2 rounded-lg shadow-2xl">
+                <Input 
+                  placeholder="MTR-XXXX" 
+                  value={meterNumber}
+                  onChange={(e) => setMeterNumber(e.target.value.toUpperCase())}
+                  className="flex-1 h-12 bg-white/5 border-none text-white font-mono text-xl font-bold tracking-widest placeholder:text-slate-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  autoFocus
+                />
+                <Button 
+                  type="submit" 
+                  className="h-12 px-8 bg-primary hover:bg-primary/90 text-sm font-bold uppercase rounded-[5px] transition-all"
+                  disabled={loading}
+                >
+                  {loading ? <Loader2 className="animate-spin h-5 w-5" /> : "Login"}
+                </Button>
               </div>
               
-              {/* Subtle administrative backdoor link */}
-              <Link href="/admin-login" className="text-[10px] text-slate-600 hover:text-slate-400 uppercase font-bold tracking-[0.2em] transition-colors flex items-center gap-1">
-                <UserCircle className="h-3 w-3" /> Staff Portal Access
-              </Link>
-            </CardFooter>
-          </Card>
+              <div className="flex items-center justify-between px-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowInput(false)}
+                  className="text-[10px] text-slate-500 hover:text-white uppercase font-bold tracking-widest transition-colors flex items-center gap-1.5"
+                >
+                  <X className="h-3 w-3" /> Cancel
+                </button>
+                
+                <Link 
+                  href="/admin-login" 
+                  className="text-[10px] text-slate-600 hover:text-slate-400 uppercase font-bold tracking-[0.2em] transition-colors flex items-center gap-1.5"
+                >
+                  <UserCircle className="h-3 w-3" /> Staff Access
+                </Link>
+              </div>
+            </form>
+          </div>
         )}
       </div>
       
