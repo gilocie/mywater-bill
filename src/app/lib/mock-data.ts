@@ -16,6 +16,9 @@ export interface User {
   assignedStaffId?: string;
   phoneNumber?: string;
   whatsappNumber?: string;
+  // Suspension details
+  suspensionGracePeriodDate?: string; // ISO Date
+  suspensionStatus?: 'ACTIVE' | 'WARNING' | 'SUSPENDED';
 }
 
 export interface Bill {

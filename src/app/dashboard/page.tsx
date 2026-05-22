@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/components/providers/auth-provider';
 import { 
   Card, 
@@ -18,30 +18,36 @@ import {
   AlertCircle,
   Clock,
   UserCheck,
-  Zap,
-  MapPin,
   Activity,
   ShieldAlert,
   FileText,
   CreditCard,
   Smartphone,
   CheckCircle2,
-  Calculator
+  Calendar,
+  History,
+  Download,
+  AlertTriangle,
+  Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Bill, User, PaymentMethod } from '@/app/lib/mock-data';
+import { Bill, User, PaymentMethod, Transaction } from '@/app/lib/mock-data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { user, updateUser } = useAuth();
   const { toast } = useToast();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [allBills, setAllBills] = useState<Bill[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [usageFilter, setUsageFilter] = useState<'month' | '3months' | 'year'>('month');
 
   useEffect(() => {
     const loadData = () => {
@@ -50,6 +56,9 @@ export default function DashboardPage() {
 
       const billsStr = localStorage.getItem('mywater_all_bills');
       if (billsStr) setAllBills(JSON.parse(billsStr));
+
+      const transStr = localStorage.getItem('mywater_all_transactions');
+      if (transStr) setAllTransactions(JSON.parse(transStr));
 
       const methodsStr = localStorage.getItem('mywater_payment_methods');
       if (methodsStr) setPaymentMethods(JSON.parse(methodsStr).filter((m: PaymentMethod) => m.active));
@@ -69,7 +78,6 @@ export default function DashboardPage() {
     const userBills = allBills.filter(b => b.customerId === user.id && b.status !== 'PAID');
     const totalDue = userBills.reduce((sum, b) => sum + b.totalAmount, 0);
 
-    // Simulate payment
     const updatedBills = allBills.map(b => 
       (b.customerId === user.id && b.status !== 'PAID') ? { ...b, status: 'PAID' as const } : b
     );
@@ -77,7 +85,19 @@ export default function DashboardPage() {
     localStorage.setItem('mywater_all_bills', JSON.stringify(updatedBills));
     setAllBills(updatedBills);
 
-    // If using wallet, deduct balance
+    // Create Transaction
+    const newTrans: Transaction = {
+      id: `tr-${Date.now()}`,
+      userId: user.id,
+      amount: totalDue,
+      type: 'BILL_PAYMENT',
+      date: new Date().toLocaleDateString('en-GB'),
+      description: `Utility Settlement via ${method?.name}`
+    };
+    const updatedTrans = [newTrans, ...allTransactions];
+    localStorage.setItem('mywater_all_transactions', JSON.stringify(updatedTrans));
+    setAllTransactions(updatedTrans);
+
     if (method?.type === 'WALLET') {
       updateUser({ walletBalance: (user.walletBalance || 0) - totalDue });
     }
@@ -179,6 +199,16 @@ export default function DashboardPage() {
   if (user.role === 'DISTRICT_STAFF') {
     const assignedCustomers = allUsers.filter(u => u.role === 'CUSTOMER' && (u.area === user.area || u.assignedStaffId === user.id));
     
+    // Check for critical suspension warnings (1 day left)
+    const criticalWarnings = assignedCustomers.filter(c => {
+      if (!c.suspensionGracePeriodDate) return false;
+      const graceDate = new Date(c.suspensionGracePeriodDate);
+      const today = new Date();
+      const diffTime = graceDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays === 1;
+    });
+
     return (
       <div className="space-y-6">
         <div>
@@ -187,6 +217,16 @@ export default function DashboardPage() {
           </h2>
           <p className="text-slate-400 font-medium">Managing service delivery for {user.district || 'Assigned'} district.</p>
         </div>
+
+        {criticalWarnings.length > 0 && (
+          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-[5px] flex items-center gap-4 animate-pulse">
+            <AlertTriangle className="h-6 w-6 text-red-500" />
+            <div>
+              <p className="text-sm font-bold text-white">Disconnection Protocol Alert</p>
+              <p className="text-xs text-slate-400">{criticalWarnings.length} customer(s) have 24 hours remaining in grace period.</p>
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="shadow-sm border-white/5 bg-slate-800 text-white rounded-[5px]">
@@ -231,25 +271,47 @@ export default function DashboardPage() {
             <CardTitle className="text-lg font-bold text-white">Assigned Registry</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {assignedCustomers.length > 0 ? assignedCustomers.map(customer => (
-              <div key={customer.id} className="flex items-center justify-between p-4 border border-white/5 rounded-[5px] hover:bg-white/5 transition-all cursor-pointer" onClick={() => window.location.href = `/dashboard/customers/${customer.id}`}>
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 bg-primary/10 rounded-[5px] flex items-center justify-center text-primary">
-                    <Droplets className="h-5 w-5" />
+            {assignedCustomers.length > 0 ? assignedCustomers.map(customer => {
+               // Calculate grace period countdown
+               let graceDisplay = null;
+               if (customer.suspensionGracePeriodDate) {
+                 const graceDate = new Date(customer.suspensionGracePeriodDate);
+                 const today = new Date();
+                 const diffTime = graceDate.getTime() - today.getTime();
+                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                 graceDisplay = diffDays > 0 ? `${diffDays}d remaining` : 'Grace Expired';
+               }
+
+               return (
+                <div key={customer.id} className="flex items-center justify-between p-4 border border-white/5 rounded-[5px] hover:bg-white/5 transition-all cursor-pointer" onClick={() => window.location.href = `/dashboard/customers/${customer.id}`}>
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 bg-primary/10 rounded-[5px] flex items-center justify-center text-primary relative">
+                      <Droplets className="h-5 w-5" />
+                      {customer.suspensionStatus === 'WARNING' && <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-slate-900" />}
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-white">{customer.name}</p>
+                      <div className="flex items-center gap-3">
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                          <MapPin className="h-3 w-3" /> {customer.address || customer.area || 'Location not set'}
+                        </p>
+                        {graceDisplay && (
+                          <span className={cn("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded", 
+                            graceDisplay === '1d remaining' ? "bg-red-500 text-white" : "bg-slate-800 text-slate-400"
+                          )}>
+                            {graceDisplay}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-sm text-white">{customer.name}</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1">
-                      <MapPin className="h-3 w-3" /> {customer.address || customer.area || 'Location not set'}
-                    </p>
+                  <div className="text-right">
+                    <p className="font-mono text-[10px] font-bold text-primary">{customer.meterNumber}</p>
+                    <p className="text-[9px] text-slate-500 uppercase font-bold">Inspect Profile</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-mono text-[10px] font-bold text-primary">{customer.meterNumber}</p>
-                  <p className="text-[9px] text-slate-500 uppercase font-bold">Inspect Profile</p>
-                </div>
-              </div>
-            )) : (
+               );
+            }) : (
               <div className="text-center py-12">
                 <Users className="h-12 w-12 text-slate-800 mx-auto mb-2" />
                 <p className="text-sm text-slate-600 italic">No customers assigned to this area yet.</p>
@@ -267,6 +329,27 @@ export default function DashboardPage() {
     const pendingBills = userBills.filter(b => b.status !== 'PAID');
     const totalDue = pendingBills.reduce((sum, b) => sum + b.totalAmount, 0);
     const totalUsage = userBills.reduce((sum, b) => sum + b.meterReadingLiters, 0);
+    const userTransactions = allTransactions.filter(t => t.userId === user.id);
+
+    // Filtered usage data
+    const filteredUsage = userBills.filter(b => {
+      const bDate = new Date(b.date);
+      const now = new Date();
+      if (usageFilter === 'month') return bDate.getMonth() === now.getMonth() && bDate.getFullYear() === now.getFullYear();
+      if (usageFilter === '3months') return bDate > new Date(now.setMonth(now.getMonth() - 3));
+      if (usageFilter === 'year') return bDate.getFullYear() === now.getFullYear();
+      return true;
+    }).reduce((sum, b) => sum + b.meterReadingLiters, 0);
+
+    // Grace period logic for customer
+    let graceCountdown = null;
+    if (user.suspensionGracePeriodDate) {
+      const graceDate = new Date(user.suspensionGracePeriodDate);
+      const today = new Date();
+      const diffTime = graceDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      graceCountdown = diffDays > 0 ? diffDays : 0;
+    }
 
     return (
       <div className="space-y-6">
@@ -276,8 +359,10 @@ export default function DashboardPage() {
             <p className="text-slate-400 font-medium">Meter: <span className="font-mono text-primary font-bold tracking-widest">{user.meterNumber}</span> | {user.district} District</p>
           </div>
           <div className="flex items-center gap-2 bg-green-500/10 px-4 py-2 rounded-[5px] border border-green-500/20">
-            <Zap className="h-4 w-4 text-green-500 fill-green-500" />
-            <span className="text-xs font-bold text-green-500 uppercase">Service Status: Active</span>
+            <Zap className={cn("h-4 w-4", user.suspensionStatus === 'SUSPENDED' ? "text-red-500" : "text-green-500 fill-current")} />
+            <span className={cn("text-xs font-bold uppercase", user.suspensionStatus === 'SUSPENDED' ? "text-red-500" : "text-green-500")}>
+              Service Status: {user.suspensionStatus || 'ACTIVE'}
+            </span>
           </div>
         </div>
 
@@ -294,6 +379,7 @@ export default function DashboardPage() {
               <Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 border-none text-white h-7 text-[10px] font-bold uppercase rounded-[5px]" onClick={() => window.location.href = '/dashboard/wallet'}>Refill Balance</Button>
             </CardContent>
           </Card>
+
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Total Consumption</CardDescription>
@@ -304,6 +390,7 @@ export default function DashboardPage() {
               <Progress value={Math.min(100, (totalUsage / 1000) * 100)} className="h-1 mt-3 bg-slate-800" />
             </CardContent>
           </Card>
+
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Amount Due</CardDescription>
@@ -314,7 +401,7 @@ export default function DashboardPage() {
               {totalDue > 0 && (
                 <Dialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="mt-4 w-full h-8 bg-destructive hover:bg-destructive/90 text-[10px] font-bold uppercase rounded-[5px]">Settle Bill Now</Button>
+                    <Button className="mt-4 w-full h-8 bg-destructive hover:bg-destructive/90 text-[10px] font-bold uppercase rounded-[5px]">Pay Now</Button>
                   </DialogTrigger>
                   <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px] max-w-sm">
                     <DialogHeader>
@@ -360,14 +447,90 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
+
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Billing Status</CardDescription>
               <Clock className="h-4 w-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black text-white">{pendingBills.length} Bill{pendingBills.length !== 1 ? 's' : ''}</div>
-              <p className="text-[10px] text-slate-500 font-medium mt-1">Unsettled in ledger</p>
+              {graceCountdown !== null ? (
+                <div className="space-y-1">
+                  <div className="text-2xl font-black text-red-500">Warning</div>
+                  <p className="text-[10px] text-red-400 font-bold uppercase animate-pulse tracking-tighter">
+                    Disconnection in {graceCountdown} days
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="text-3xl font-black text-white">{pendingBills.length} Bill{pendingBills.length !== 1 ? 's' : ''}</div>
+                  <p className="text-[10px] text-slate-500 font-medium mt-1">Unsettled in ledger</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* SIDE BY SIDE SECTIONS */}
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Usage Filter Section */}
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
+            <CardHeader className="pb-2 px-6 pt-6">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary" /> Consumption Insight
+                </CardTitle>
+                <Tabs value={usageFilter} onValueChange={(v: any) => setUsageFilter(v)} className="bg-slate-950 p-1 rounded-[5px]">
+                  <TabsList className="bg-transparent border-none">
+                    <TabsTrigger value="month" className="text-[10px] h-7 px-3 data-[state=active]:bg-primary">MONTH</TabsTrigger>
+                    <TabsTrigger value="3months" className="text-[10px] h-7 px-3 data-[state=active]:bg-primary">3M</TabsTrigger>
+                    <TabsTrigger value="year" className="text-[10px] h-7 px-3 data-[state=active]:bg-primary">YEAR</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            </CardHeader>
+            <CardContent className="px-6 pb-6 pt-4">
+              <div className="p-6 bg-slate-950/50 border border-white/5 rounded-[5px] text-center">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Aggregate Usage</p>
+                <h3 className="text-4xl font-black text-white">{filteredUsage.toLocaleString()} <span className="text-lg text-primary">Litres</span></h3>
+                <div className="mt-4 h-2 w-full bg-slate-900 rounded-full overflow-hidden">
+                   <div 
+                    className="h-full bg-primary transition-all duration-1000" 
+                    style={{ width: `${Math.min(100, (filteredUsage / (usageFilter === 'year' ? 12000 : 1000)) * 100)}%` }} 
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Transactions Section */}
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
+            <CardHeader className="pb-2 px-6 pt-6">
+              <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
+                <History className="h-5 w-5 text-accent" /> Recent Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-6 pb-6 pt-2">
+              <div className="space-y-3 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
+                {userTransactions.length > 0 ? userTransactions.map(trans => (
+                  <div key={trans.id} className="flex items-center justify-between p-3 bg-slate-950/40 border border-white/5 rounded-[5px] group">
+                    <div>
+                      <p className="text-xs font-bold text-white">{trans.description}</p>
+                      <p className="text-[9px] text-slate-500">{trans.date}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={cn("text-xs font-black", trans.type === 'DEPOSIT' ? "text-green-500" : "text-primary")}>
+                        MK {trans.amount.toLocaleString()}
+                      </span>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center py-12 text-slate-600 italic text-xs">No recent transactions found.</div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
