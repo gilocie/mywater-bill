@@ -6,7 +6,7 @@ import { User, MOCK_USERS, Role } from '@/app/lib/mock-data';
 
 interface AuthContextType {
   user: User | null;
-  login: (meterOrEmail: string, pinOrPass: string, isAdmin?: boolean) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, meterNumber?: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
@@ -36,16 +36,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return usersStr ? JSON.parse(usersStr) : [];
   };
 
-  const login = async (idValue: string, pinValue: string, isAdmin: boolean = false) => {
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     const allUsers = getAllUsers();
+    // System recognizes role based on credentials
     const foundUser = allUsers.find(
       (u) =>
-        (u.email === idValue || u.meterNumber === idValue) &&
-        (isAdmin ? u.role !== 'CUSTOMER' : u.role === 'CUSTOMER') &&
-        (u.pin === pinValue || pinValue === 'password' || !isAdmin) // Customers don't need PIN now
+        u.email === email &&
+        (u.pin === password || password === 'password') // Using 'password' as a fallback for mock data
     );
 
     if (foundUser) {
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role,
       walletBalance: 0,
       meterNumber: role === 'CUSTOMER' ? (meterNumber || `MTR-${Math.floor(1000 + Math.random() * 9000)}`) : undefined,
-      pin: password, // Using password as pin for the mock/local system
+      pin: password,
       district: 'Lilongwe' // Default district
     };
 
