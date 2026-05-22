@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -65,9 +66,9 @@ export function SidebarNav() {
   if (!user) return null;
 
   return (
-    <Sidebar className="border-r border-slate-800 bg-slate-950">
+    <Sidebar className="border-r border-white/5 bg-slate-950">
       <SidebarHeader className="p-6 flex flex-row items-center gap-3">
-        <div className="bg-primary p-2.5 rounded-xl shadow-lg shadow-primary/20">
+        <div className="bg-primary p-2.5 rounded-[5px] shadow-lg shadow-primary/20">
           <Droplets className="text-white h-7 w-7" />
         </div>
         <div>
@@ -94,7 +95,7 @@ export function SidebarNav() {
                         asChild 
                         isActive={pathname === item.href}
                         className={cn(
-                          "transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-900 h-10 px-4 rounded-xl",
+                          "transition-all duration-200 text-slate-400 hover:text-white hover:bg-white/5 h-10 px-4 rounded-[5px]",
                           pathname === item.href && "bg-primary/10 text-primary font-bold hover:bg-primary/20 hover:text-primary"
                         )}
                       >
@@ -112,11 +113,11 @@ export function SidebarNav() {
         })}
       </SidebarContent>
 
-      <SidebarFooter className="p-6 border-t border-slate-900 bg-slate-950">
+      <SidebarFooter className="p-6 border-t border-white/5 bg-slate-950">
         <div className="flex items-center gap-3 mb-6">
-          <Avatar className="h-10 w-10 border-2 border-slate-800 shadow-xl">
-            <AvatarImage src={`https://picsum.photos/seed/${user.id}/80`} />
-            <AvatarFallback className="bg-slate-800 text-primary font-bold">{user.name[0]}</AvatarFallback>
+          <Avatar className="h-10 w-10 border-2 border-slate-800 shadow-xl rounded-[5px]">
+            <AvatarImage src={`https://picsum.photos/seed/${user.id}/80`} className="rounded-[5px]" />
+            <AvatarFallback className="bg-slate-800 text-primary font-bold rounded-[5px]">{user.name[0]}</AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
             <p className="text-sm font-bold truncate text-white leading-none mb-1">{user.name}</p>
@@ -127,7 +128,7 @@ export function SidebarNav() {
         </div>
         <button 
           onClick={logout}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-400/10 rounded-xl transition-all border border-red-400/20"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-400/10 rounded-[5px] transition-all border border-red-400/20"
         >
           <LogOut className="h-3.5 w-3.5" />
           <span>Sign Out</span>
