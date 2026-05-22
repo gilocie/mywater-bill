@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/components/providers/auth-provider';
 import { 
   Card, 
@@ -31,7 +31,8 @@ import {
   Zap,
   Loader2,
   PlusCircle,
-  ArrowDownLeft
+  ArrowDownLeft,
+  MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -41,9 +42,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const { user, updateUser } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [allBills, setAllBills] = useState<Bill[]>([]);
@@ -75,7 +78,6 @@ export default function DashboardPage() {
 
       const methodsStr = localStorage.getItem('mywater_payment_methods');
       if (methodsStr) {
-        // Filter only active methods set by Admin
         setPaymentMethods(JSON.parse(methodsStr).filter((m: PaymentMethod) => m.active));
       }
     };
@@ -101,7 +103,6 @@ export default function DashboardPage() {
     localStorage.setItem('mywater_all_bills', JSON.stringify(updatedBills));
     setAllBills(updatedBills);
 
-    // Create Transaction
     const newTrans: Transaction = {
       id: `tr-${Date.now()}`,
       userId: user.id,
@@ -121,7 +122,7 @@ export default function DashboardPage() {
     setIsPayDialogOpen(false);
     toast({
       title: "Bill Settled",
-      description: `Payment of MK ${totalDue.toLocaleString()} via ${method?.name} successful.`,
+      description: `Payment of MK ${totalDue.toLocaleString()} successful.`,
     });
   };
 
@@ -129,7 +130,7 @@ export default function DashboardPage() {
     if (!depositAmount || isNaN(Number(depositAmount)) || !selectedDepositMethodId || !user) {
       toast({
         title: "Incomplete Request",
-        description: "Please enter a valid amount and select a payment channel.",
+        description: "Please enter a valid amount and select a channel.",
         variant: "destructive"
       });
       return;
@@ -139,7 +140,6 @@ export default function DashboardPage() {
     const amount = parseFloat(depositAmount);
     const method = paymentMethods.find(m => m.id === selectedDepositMethodId);
 
-    // Simulate payment processing
     setTimeout(() => {
       const currentBalance = user.walletBalance || 0;
       updateUser({ walletBalance: currentBalance + amount });
@@ -155,7 +155,7 @@ export default function DashboardPage() {
 
       const transStr = localStorage.getItem('mywater_all_transactions') || '[]';
       const allTrans = JSON.parse(transStr);
-      localStorage.setItem('mywater_all_transactions', JSON.stringify([newTrans, ...allTrans]));
+      localStorage.setItem('mywater_all_transactions', JSON.stringify([newStaff, ...allTrans]));
       
       setIsDepositing(false);
       setDepositAmount('');
@@ -164,7 +164,7 @@ export default function DashboardPage() {
 
       toast({
         title: "Balance Updated",
-        description: `MK ${amount.toLocaleString()} successfully credited to your wallet via ${method?.name}.`,
+        description: `MK ${amount.toLocaleString()} credited successfully.`,
       });
 
       window.dispatchEvent(new Event('storage'));
@@ -259,9 +259,12 @@ export default function DashboardPage() {
 
   // --- DISTRICT STAFF VIEW ---
   if (user.role === 'DISTRICT_STAFF') {
-    const assignedCustomers = allUsers.filter(u => u.role === 'CUSTOMER' && (u.area === user.area || u.assignedStaffId === user.id));
+    // Filter customers strictly based on staff's assigned area or specific assignment
+    const assignedCustomers = allUsers.filter(u => 
+      u.role === 'CUSTOMER' && 
+      (u.area === user.area || u.assignedStaffId === user.id || u.district === user.district)
+    );
     
-    // Check for critical suspension warnings (1 day left)
     const criticalWarnings = assignedCustomers.filter(c => {
       if (!c.suspensionGracePeriodDate) return false;
       const graceDate = new Date(c.suspensionGracePeriodDate);
@@ -273,11 +276,17 @@ export default function DashboardPage() {
 
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-            <Activity className="h-7 w-7 text-primary" /> Staff Console: {user.area || 'Operational Zone'}
-          </h2>
-          <p className="text-slate-400 font-medium">Managing service delivery for {user.district || 'Assigned'} district.</p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
+              <Activity className="h-7 w-7 text-primary" /> Staff Console: {user.area || 'Zone Control'}
+            </h2>
+            <p className="text-slate-400 font-medium">Monitoring service delivery for {user.district} District.</p>
+          </div>
+          <div className="flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-[5px] border border-white/5">
+            <MapPin className="h-4 w-4 text-primary" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white">Assigned: {user.area}</span>
+          </div>
         </div>
 
         {criticalWarnings.length > 0 && (
@@ -285,7 +294,7 @@ export default function DashboardPage() {
             <AlertTriangle className="h-6 w-6 text-red-500" />
             <div>
               <p className="text-sm font-bold text-white">Disconnection Protocol Alert</p>
-              <p className="text-xs text-slate-400">{criticalWarnings.length} customer(s) have 24 hours remaining in grace period.</p>
+              <p className="text-xs text-slate-400">{criticalWarnings.length} account(s) reaching grace limit.</p>
             </div>
           </div>
         )}
@@ -293,48 +302,47 @@ export default function DashboardPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="shadow-sm border-white/5 bg-slate-800 text-white rounded-[5px]">
             <CardHeader className="pb-2">
-              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Area Customers</CardDescription>
+              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Area Portfolio</CardDescription>
               <CardTitle className="text-3xl font-black">{assignedCustomers.length}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-1 text-xs text-green-400 font-bold">
-                <UserCheck className="h-3 w-3" /> Managed in zone
+                <UserCheck className="h-3 w-3" /> Active Customers
               </div>
             </CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pb-2">
-              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Total Liters Managed</CardDescription>
+              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Zone Consumption</CardDescription>
               <CardTitle className="text-3xl font-black text-white">
                 {allBills.filter(b => assignedCustomers.find(c => c.id === b.customerId)).reduce((sum, b) => sum + b.meterReadingLiters, 0).toLocaleString()} L
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-1 text-xs text-blue-400 font-bold">
-                <Droplets className="h-3 w-3" /> Historical Aggregate
+                <Droplets className="h-3 w-3" /> Area Total
               </div>
             </CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-accent/10 rounded-[5px]">
             <CardHeader className="pb-2">
-              <CardDescription className="text-accent/70 font-bold uppercase text-[10px]">Pending Invoices</CardDescription>
+              <CardDescription className="text-accent/70 font-bold uppercase text-[10px]">Actionable Invoices</CardDescription>
               <CardTitle className="text-3xl font-black text-accent flex items-center gap-2">
                 <FileText className="h-6 w-6" /> {allBills.filter(b => b.status === 'PENDING' && assignedCustomers.find(c => c.id === b.customerId)).length}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-[10px] text-accent/50 font-medium">Unsettled accounts in zone</p>
+              <p className="text-[10px] text-accent/50 font-medium">Requires settlement follow-up</p>
             </CardContent>
           </Card>
         </div>
 
         <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-white">Assigned Registry</CardTitle>
+            <CardTitle className="text-lg font-bold text-white">Zone Registry</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {assignedCustomers.length > 0 ? assignedCustomers.map(customer => {
-               // Calculate grace period countdown
                let graceDisplay = null;
                if (customer.suspensionGracePeriodDate) {
                  const graceDate = new Date(customer.suspensionGracePeriodDate);
@@ -345,7 +353,7 @@ export default function DashboardPage() {
                }
 
                return (
-                <div key={customer.id} className="flex items-center justify-between p-4 border border-white/5 rounded-[5px] hover:bg-white/5 transition-all cursor-pointer" onClick={() => window.location.href = `/dashboard/customers/${customer.id}`}>
+                <div key={customer.id} className="flex items-center justify-between p-4 border border-white/5 rounded-[5px] hover:bg-white/5 transition-all cursor-pointer" onClick={() => router.push(`/dashboard/customers/${customer.id}`)}>
                   <div className="flex items-center gap-4">
                     <div className="h-10 w-10 bg-primary/10 rounded-[5px] flex items-center justify-center text-primary relative">
                       <Droplets className="h-5 w-5" />
@@ -355,7 +363,7 @@ export default function DashboardPage() {
                       <p className="font-bold text-sm text-white">{customer.name}</p>
                       <div className="flex items-center gap-3">
                         <p className="text-xs text-slate-500 flex items-center gap-1">
-                          <MapPin className="h-3 w-3" /> {customer.address || customer.area || 'Location not set'}
+                          <MapPin className="h-3 w-3" /> {customer.address || customer.area}
                         </p>
                         {graceDisplay && (
                           <span className={cn("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded", 
@@ -369,14 +377,14 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-mono text-[10px] font-bold text-primary">{customer.meterNumber}</p>
-                    <p className="text-[9px] text-slate-500 uppercase font-bold">Inspect Profile</p>
+                    <p className="text-[9px] text-slate-500 uppercase font-bold">Manage</p>
                   </div>
                 </div>
                );
             }) : (
               <div className="text-center py-12">
-                <Users className="h-12 w-12 text-slate-800 mx-auto mb-2" />
-                <p className="text-sm text-slate-600 italic">No customers assigned to this area yet.</p>
+                <Users className="h-12 w-12 text-slate-800 mx-auto mb-2 opacity-20" />
+                <p className="text-sm text-slate-600 italic">No customers detected in your assigned area.</p>
               </div>
             )}
           </CardContent>
@@ -393,7 +401,6 @@ export default function DashboardPage() {
     const totalUsage = userBills.reduce((sum, b) => sum + b.meterReadingLiters, 0);
     const userTransactions = allTransactions.filter(t => t.userId === user.id);
 
-    // Filtered usage data
     const filteredUsage = userBills.filter(b => {
       const bDate = new Date(b.date);
       const now = new Date();
@@ -407,7 +414,6 @@ export default function DashboardPage() {
       return true;
     }).reduce((sum, b) => sum + b.meterReadingLiters, 0);
 
-    // Grace period logic for customer
     let graceCountdown = null;
     if (user.suspensionGracePeriodDate) {
       const graceDate = new Date(user.suspensionGracePeriodDate);
@@ -449,63 +455,29 @@ export default function DashboardPage() {
                 <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px] max-w-sm">
                   <DialogHeader>
                     <DialogTitle className="text-xl font-black uppercase tracking-tight">Refill Wallet</DialogTitle>
-                    <DialogDescription className="text-slate-500 text-xs">Authorize a deposit from your external payment channels.</DialogDescription>
+                    <DialogDescription className="text-slate-500 text-xs">Authorize a deposit from external channels.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-5 py-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-[0.2em] px-1">Deposit Amount (MK)</label>
-                      <Input 
-                        placeholder="e.g. 5000" 
-                        type="number" 
-                        value={depositAmount}
-                        onChange={(e) => setDepositAmount(e.target.value)}
-                        className="bg-slate-950 border-white/5 h-12 text-lg font-black text-white rounded-[5px] focus:border-primary transition-all"
-                      />
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-[0.2em] px-1">Amount (MK)</label>
+                      <Input placeholder="e.g. 5000" type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} className="bg-slate-950 border-white/5 h-12 text-lg font-black text-white rounded-[5px]" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold uppercase text-slate-500 tracking-[0.2em] px-1">Select Channel</label>
-                      <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
-                        {paymentMethods.length > 0 ? paymentMethods.map(method => (
-                          <button 
-                            key={method.id}
-                            onClick={() => setSelectedDepositMethodId(method.id)}
-                            className={cn(
-                              "flex items-center justify-between p-4 border rounded-[5px] transition-all text-left",
-                              selectedDepositMethodId === method.id 
-                                ? "bg-primary/20 border-primary ring-1 ring-primary/50" 
-                                : "bg-slate-950/50 border-white/5 hover:bg-white/5"
-                            )}
-                          >
+                      <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1">
+                        {paymentMethods.map(method => (
+                          <button key={method.id} onClick={() => setSelectedDepositMethodId(method.id)} className={cn("flex items-center justify-between p-4 border rounded-[5px] transition-all text-left", selectedDepositMethodId === method.id ? "bg-primary/20 border-primary" : "bg-slate-950/50 border-white/5")}>
                             <div className="flex items-center gap-3">
-                              <div className="bg-slate-900 p-2 rounded-[5px]">
-                                {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : 
-                                 method.type === 'BANK' ? <CreditCard className="h-4 w-4 text-primary" /> : 
-                                 <Wallet className="h-4 w-4 text-primary" />}
-                              </div>
-                              <div>
-                                <p className="text-[11px] font-black text-white uppercase">{method.name}</p>
-                                <p className="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">{method.provider}</p>
-                              </div>
+                              {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : <CreditCard className="h-4 w-4 text-primary" />}
+                              <div><p className="text-[11px] font-black text-white uppercase">{method.name}</p><p className="text-[9px] text-slate-500 font-bold">{method.provider}</p></div>
                             </div>
-                            {selectedDepositMethodId === method.id && <CheckCircle2 className="h-4 w-4 text-primary animate-in zoom-in" />}
+                            {selectedDepositMethodId === method.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
                           </button>
-                        )) : (
-                          <div className="p-4 bg-slate-950/50 border border-white/5 rounded-[5px] text-center italic text-[10px] text-slate-600">
-                            No active payment channels available.
-                          </div>
-                        )}
+                        ))}
                       </div>
                     </div>
                   </div>
-                  <DialogFooter>
-                    <Button 
-                      className="w-full bg-primary hover:bg-primary/90 font-black uppercase tracking-widest h-12 rounded-[5px] text-sm shadow-2xl" 
-                      onClick={handleDeposit} 
-                      disabled={isDepositing || !selectedDepositMethodId || !depositAmount}
-                    >
-                      {isDepositing ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : "Authorize Push Payment"}
-                    </Button>
-                  </DialogFooter>
+                  <DialogFooter><Button className="w-full bg-primary h-12 rounded-[5px] font-black uppercase" onClick={handleDeposit} disabled={isDepositing}>Authorize Payment</Button></DialogFooter>
                 </DialogContent>
               </Dialog>
             </CardContent>
@@ -513,7 +485,7 @@ export default function DashboardPage() {
 
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Total Consumption</CardDescription>
+              <CardDescription className="text-slate-400 font-bold uppercase text-[10px]">Consumption</CardDescription>
               <Droplets className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
@@ -531,47 +503,24 @@ export default function DashboardPage() {
               <div className={`text-3xl font-black ${totalDue > 0 ? 'text-destructive' : 'text-green-500'}`}>MK {totalDue.toLocaleString()}</div>
               <Dialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="mt-4 w-full h-8 bg-destructive hover:bg-destructive/90 text-[10px] font-bold uppercase rounded-[5px]">Pay Now</Button>
+                  <Button className="mt-4 w-full h-8 bg-destructive text-[10px] font-bold uppercase rounded-[5px]">Pay Now</Button>
                 </DialogTrigger>
                 <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px] max-w-sm">
-                  <DialogHeader>
-                    <DialogTitle>Settle Utility Bill</DialogTitle>
-                    <DialogDescription className="text-slate-500">Total Outstanding: MK {totalDue.toLocaleString()}</DialogDescription>
-                  </DialogHeader>
+                  <DialogHeader><DialogTitle>Settle Bill</DialogTitle></DialogHeader>
                   <div className="space-y-4 py-4">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Select Payment Method</label>
                     <div className="grid grid-cols-1 gap-2">
-                      {paymentMethods.length > 0 ? paymentMethods.map(method => (
-                        <button 
-                          key={method.id}
-                          onClick={() => setSelectedMethod(method.id)}
-                          className={`flex items-center justify-between p-4 border rounded-[5px] transition-all ${selectedMethod === method.id ? 'bg-primary/20 border-primary' : 'bg-slate-950/50 border-white/5 hover:bg-white/5'}`}
-                        >
+                      {paymentMethods.map(method => (
+                        <button key={method.id} onClick={() => setSelectedMethod(method.id)} className={cn("flex items-center justify-between p-4 border rounded-[5px]", selectedMethod === method.id ? "bg-primary/20 border-primary" : "bg-slate-950/50 border-white/5")}>
                           <div className="flex items-center gap-3">
-                            {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : 
-                             method.type === 'BANK' ? <CreditCard className="h-4 w-4 text-primary" /> : 
-                             <Wallet className="h-4 w-4 text-primary" />}
-                            <div className="text-left">
-                              <p className="text-xs font-bold">{method.name}</p>
-                              <p className="text-[8px] text-slate-500 uppercase">{method.provider}</p>
-                            </div>
+                            {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : <CreditCard className="h-4 w-4 text-primary" />}
+                            <div className="text-left"><p className="text-xs font-bold">{method.name}</p><p className="text-[8px] text-slate-500">{method.provider}</p></div>
                           </div>
                           {selectedMethod === method.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
                         </button>
-                      )) : (
-                        <p className="text-center text-xs text-slate-500 italic py-4">No active payment channels available.</p>
-                      )}
+                      ))}
                     </div>
                   </div>
-                  <DialogFooter>
-                    <Button 
-                      disabled={!selectedMethod} 
-                      onClick={handlePayment}
-                      className="w-full bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px]"
-                    >
-                      Authorize Payment
-                    </Button>
-                  </DialogFooter>
+                  <DialogFooter><Button disabled={!selectedMethod} onClick={handlePayment} className="w-full bg-primary h-10 rounded-[5px]">Authorize</Button></DialogFooter>
                 </DialogContent>
               </Dialog>
             </CardContent>
@@ -586,79 +535,50 @@ export default function DashboardPage() {
               {graceCountdown !== null ? (
                 <div className="space-y-1">
                   <div className="text-2xl font-black text-red-500">Warning</div>
-                  <p className="text-[10px] text-red-400 font-bold uppercase animate-pulse tracking-tighter">
-                    Disconnection in {graceCountdown} days
-                  </p>
+                  <p className="text-[10px] text-red-400 font-bold animate-pulse">Disconnection in {graceCountdown} days</p>
                 </div>
               ) : (
                 <>
                   <div className="text-3xl font-black text-white">{pendingBills.length} Bill{pendingBills.length !== 1 ? 's' : ''}</div>
-                  <p className="text-[10px] text-slate-500 font-medium mt-1">Unsettled in ledger</p>
+                  <p className="text-[10px] text-slate-500 font-medium mt-1">Pending Ledger</p>
                 </>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* SIDE BY SIDE SECTIONS */}
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Usage Filter Section */}
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pb-2 px-6 pt-6">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-primary" /> Consumption Insight
-                </CardTitle>
+                <CardTitle className="text-lg font-bold text-white flex items-center gap-2"><Calendar className="h-5 w-5 text-primary" /> Usage Analysis</CardTitle>
                 <Tabs value={usageFilter} onValueChange={(v: any) => setUsageFilter(v)} className="bg-slate-950 p-1 rounded-[5px]">
                   <TabsList className="bg-transparent border-none">
-                    <TabsTrigger value="month" className="text-[10px] h-7 px-3 data-[state=active]:bg-primary">MONTH</TabsTrigger>
-                    <TabsTrigger value="3months" className="text-[10px] h-7 px-3 data-[state=active]:bg-primary">3M</TabsTrigger>
-                    <TabsTrigger value="year" className="text-[10px] h-7 px-3 data-[state=active]:bg-primary">YEAR</TabsTrigger>
+                    <TabsTrigger value="month" className="text-[10px] h-7 px-3">MONTH</TabsTrigger>
+                    <TabsTrigger value="3months" className="text-[10px] h-7 px-3">3M</TabsTrigger>
+                    <TabsTrigger value="year" className="text-[10px] h-7 px-3">YEAR</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
             </CardHeader>
-            <CardContent className="px-6 pb-6 pt-4">
-              <div className="p-6 bg-slate-950/50 border border-white/5 rounded-[5px] text-center">
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Aggregate Usage</p>
-                <h3 className="text-4xl font-black text-white">{filteredUsage.toLocaleString()} <span className="text-lg text-primary">Litres</span></h3>
-                <div className="mt-4 h-2 w-full bg-slate-900 rounded-full overflow-hidden">
-                   <div 
-                    className="h-full bg-primary transition-all duration-1000" 
-                    style={{ width: `${Math.min(100, (filteredUsage / (usageFilter === 'year' ? 12000 : 1000)) * 100)}%` }} 
-                  />
-                </div>
+            <CardContent className="px-6 pb-6 pt-4 text-center">
+              <h3 className="text-4xl font-black text-white">{filteredUsage.toLocaleString()} <span className="text-lg text-primary">Litres</span></h3>
+              <div className="mt-4 h-2 w-full bg-slate-900 rounded-full overflow-hidden">
+                <div className="h-full bg-primary" style={{ width: `${Math.min(100, (filteredUsage / (usageFilter === 'year' ? 12000 : 1000)) * 100)}%` }} />
               </div>
             </CardContent>
           </Card>
 
-          {/* Transactions Section */}
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
-            <CardHeader className="pb-2 px-6 pt-6">
-              <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
-                <History className="h-5 w-5 text-accent" /> Recent Activity
-              </CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2 px-6 pt-6"><CardTitle className="text-lg font-bold text-white flex items-center gap-2"><History className="h-5 w-5 text-accent" /> Recent Activity</CardTitle></CardHeader>
             <CardContent className="px-6 pb-6 pt-2">
-              <div className="space-y-3 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-3 max-h-[180px] overflow-y-auto">
                 {userTransactions.length > 0 ? userTransactions.map(trans => (
-                  <div key={trans.id} className="flex items-center justify-between p-3 bg-slate-950/40 border border-white/5 rounded-[5px] group">
-                    <div>
-                      <p className="text-xs font-bold text-white">{trans.description}</p>
-                      <p className="text-[9px] text-slate-500">{trans.date}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={cn("text-xs font-black", trans.type === 'DEPOSIT' ? "text-green-500" : "text-primary")}>
-                        MK {trans.amount.toLocaleString()}
-                      </span>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Download className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                  <div key={trans.id} className="flex items-center justify-between p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                    <div><p className="text-xs font-bold text-white">{trans.description}</p><p className="text-[9px] text-slate-500">{trans.date}</p></div>
+                    <span className={cn("text-xs font-black", trans.type === 'DEPOSIT' ? "text-green-500" : "text-primary")}>MK {trans.amount.toLocaleString()}</span>
                   </div>
-                )) : (
-                  <div className="text-center py-12 text-slate-600 italic text-xs">No recent transactions found.</div>
-                )}
+                )) : <div className="text-center py-12 text-slate-600 italic text-xs">No activity logged.</div>}
               </div>
             </CardContent>
           </Card>
@@ -671,7 +591,6 @@ export default function DashboardPage() {
     <div className="p-12 text-center bg-slate-900/50 rounded-[5px] border border-white/5">
       <ShieldAlert className="h-12 w-12 text-slate-800 mx-auto mb-4" />
       <h3 className="text-xl font-bold text-white">Unrecognized Workspace</h3>
-      <p className="text-slate-400 mt-2">Your role could not be identified. Please contact support.</p>
     </div>
   );
 }
