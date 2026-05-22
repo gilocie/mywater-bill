@@ -85,9 +85,6 @@ export default function LoginPage() {
           /* Initial Access Button */
           <div className="space-y-8 text-center animate-in fade-in zoom-in-95 duration-1000">
              <div className="space-y-2">
-               <h2 className="text-5xl md:text-7xl font-black text-white tracking-tighter uppercase drop-shadow-2xl">
-                 Smart Water <br /> Management
-               </h2>
                <p className="text-slate-300 font-medium text-lg opacity-80">Seamlessly manage your utility from any device.</p>
              </div>
              <Button 
