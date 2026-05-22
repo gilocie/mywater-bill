@@ -6,12 +6,16 @@ export interface User {
   name: string;
   email: string;
   role: Role;
+  region?: string;
   district?: string; 
+  area?: string;
+  address?: string;
   meterNumber?: string;
   pin?: string;
   walletBalance: number;
-  assignedStaffId?: string; // For customers
-  location?: string; // For customers
+  assignedStaffId?: string;
+  phoneNumber?: string;
+  whatsappNumber?: string;
 }
 
 export interface Bill {
@@ -33,8 +37,10 @@ export interface Transaction {
   description: string;
 }
 
+export const REGIONS = ['Northern', 'Central', 'Southern'];
 export const DISTRICTS = ['Blantyre', 'Lilongwe', 'Mzuzu', 'Zomba', 'Kasungu', 'Mangochi'];
-export const GLOBAL_WATER_RATE = 2.5; // MWK per liter
+export const AREAS = ['Area 47', 'Area 18', 'Chirimba', 'Ndirande', 'Kanjedza', 'Chilomoni'];
+export const GLOBAL_WATER_RATE = 2.5; 
 
 export const MOCK_USERS: User[] = [
   {
@@ -49,15 +55,9 @@ export const MOCK_USERS: User[] = [
     name: 'Chisomo Phiri',
     email: 'chisomo@mywater.mw',
     role: 'DISTRICT_STAFF',
+    region: 'Southern',
     district: 'Blantyre',
-    walletBalance: 0,
-  },
-  {
-    id: 'u3',
-    name: 'Lumbani Banda',
-    email: 'lumbani@mywater.mw',
-    role: 'DISTRICT_STAFF',
-    district: 'Lilongwe',
+    area: 'Chirimba',
     walletBalance: 0,
   },
   {
@@ -65,84 +65,36 @@ export const MOCK_USERS: User[] = [
     name: 'John Phiri',
     email: 'john@gmail.com',
     role: 'CUSTOMER',
+    region: 'Southern',
     district: 'Blantyre',
+    area: 'Chirimba',
     meterNumber: 'MTR-1001',
     pin: '1234',
     walletBalance: 15000,
     assignedStaffId: 'u2',
-    location: 'Chirimba, Blantyre'
+    phoneNumber: '+265 999 123 456',
+    whatsappNumber: '+265 999 123 456'
   },
   {
     id: 'c2',
     name: 'Mercy Banda',
     email: 'mercy@gmail.com',
     role: 'CUSTOMER',
+    region: 'Central',
     district: 'Lilongwe',
+    area: 'Area 47',
     meterNumber: 'MTR-2002',
     pin: '5678',
     walletBalance: 2500,
-    assignedStaffId: 'u3',
-    location: 'Area 47, Lilongwe'
-  },
-  {
-    id: 'c3',
-    name: 'Gift Nkhoma',
-    email: 'gift@gmail.com',
-    role: 'CUSTOMER',
-    district: 'Blantyre',
-    meterNumber: 'MTR-3003',
-    pin: '1111',
-    walletBalance: 500,
-    assignedStaffId: 'u2',
-    location: 'Ndirande, Blantyre'
+    phoneNumber: '+265 888 765 432'
   }
 ];
 
 export const MOCK_BILLS: Bill[] = [
-  {
-    id: 'b1',
-    customerId: 'c1',
-    meterReadingLiters: 4000,
-    ratePerLiter: GLOBAL_WATER_RATE,
-    totalAmount: 4000 * GLOBAL_WATER_RATE,
-    date: '2024-02-15',
-    status: 'PAID',
-  },
-  {
-    id: 'b2',
-    customerId: 'c1',
-    meterReadingLiters: 3500,
-    ratePerLiter: GLOBAL_WATER_RATE,
-    totalAmount: 3500 * GLOBAL_WATER_RATE,
-    date: '2024-03-10',
-    status: 'PENDING',
-  },
-  {
-    id: 'b3',
-    customerId: 'c2',
-    meterReadingLiters: 2000,
-    ratePerLiter: GLOBAL_WATER_RATE,
-    totalAmount: 2000 * GLOBAL_WATER_RATE,
-    date: '2024-03-05',
-    status: 'OVERDUE',
-  },
+  { id: 'b1', customerId: 'c1', meterReadingLiters: 4000, ratePerLiter: GLOBAL_WATER_RATE, totalAmount: 10000, date: '2024-02-15', status: 'PAID' },
+  { id: 'b2', customerId: 'c1', meterReadingLiters: 3500, ratePerLiter: GLOBAL_WATER_RATE, totalAmount: 8750, date: '2024-03-10', status: 'PENDING' },
 ];
 
 export const MOCK_TRANSACTIONS: Transaction[] = [
-  {
-    id: 't1',
-    userId: 'c1',
-    amount: 20000,
-    type: 'DEPOSIT',
-    date: '2024-01-01',
-    description: 'Deposit via Airtel Money',
-  },
-  {
-    id: 't2',
-    userId: 'c1',
-    amount: 10000,
-    type: 'BILL_PAYMENT',
-    date: '2024-02-16',
-    description: 'Payment for Bill #b1',
-  },
+  { id: 't1', userId: 'c1', amount: 20000, type: 'DEPOSIT', date: '2024-01-01', description: 'Deposit via Airtel Money' },
 ];

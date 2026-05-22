@@ -10,12 +10,14 @@ import {
   Users, 
   Receipt, 
   Wallet, 
-  FileBarChart, 
   LogOut,
   BellRing,
   UserCheck,
   Building2,
-  ShieldCheck
+  Map,
+  CreditCard,
+  ClipboardList,
+  MapPin
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/providers/auth-provider';
@@ -51,8 +53,11 @@ export function SidebarNav() {
       label: 'Operational',
       items: [
         { icon: Wallet, label: 'My Wallet', href: '/dashboard/wallet', roles: ['CUSTOMER'] },
-        { icon: FileBarChart, label: 'Strategic Reports', href: '/dashboard/reports', roles: ['SUPER_ADMIN'] },
-        { icon: Building2, label: 'District Hubs', href: '/dashboard/districts', roles: ['SUPER_ADMIN'] },
+        { icon: ClipboardList, label: 'Reports', href: '/dashboard/reports', roles: ['DISTRICT_STAFF'] },
+        { icon: CreditCard, label: 'Payment Methods', href: '/dashboard/payments', roles: ['SUPER_ADMIN'] },
+        { icon: Map, label: 'Regions', href: '/dashboard/regions', roles: ['SUPER_ADMIN'] },
+        { icon: Building2, label: 'Districts', href: '/dashboard/districts', roles: ['SUPER_ADMIN'] },
+        { icon: MapPin, label: 'Areas', href: '/dashboard/areas', roles: ['SUPER_ADMIN'] },
         { icon: BellRing, label: 'Broadcasts', href: '/dashboard/notifications', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
       ]
     }
