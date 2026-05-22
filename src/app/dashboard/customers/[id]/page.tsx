@@ -55,6 +55,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { cn } from '@/lib/utils';
 
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -112,9 +113,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const totalPaid = bills.filter(b => b.status === 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
   const outstandingBalance = bills.filter(b => b.status !== 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
   const totalLiters = bills.reduce((sum, b) => sum + b.meterReadingLiters, 0);
-  
-  const lastMonthUsage = bills[0]?.meterReadingLiters || 0;
-  const yearlyUsage = bills.reduce((sum, b) => sum + b.meterReadingLiters, 0);
 
   const handleCreateInvoice = () => {
     const usage = parseFloat(invoiceUsage);
@@ -330,10 +328,42 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px]">
                     <DialogHeader><DialogTitle>Edit Profile</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4">
-                      <Input value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} placeholder="Name" className="bg-slate-800 border-white/5" />
-                      <Input value={editFormData.address} onChange={(e) => setEditFormData({...editFormData, address: e.target.value})} placeholder="Address" className="bg-slate-800 border-white/5" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Full Name</label>
+                          <Input value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} placeholder="Name" className="bg-slate-800 border-white/5" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Meter Number</label>
+                          <Input value={editFormData.meterNumber} onChange={(e) => setEditFormData({...editFormData, meterNumber: e.target.value.toUpperCase()})} placeholder="MTR-XXXX" className="bg-slate-800 border-white/5" />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Detailed Address</label>
+                        <Input value={editFormData.address} onChange={(e) => setEditFormData({...editFormData, address: e.target.value})} placeholder="Address" className="bg-slate-800 border-white/5" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Region</label>
+                          <Select value={editFormData.region} onValueChange={(v) => setEditFormData({...editFormData, region: v})}>
+                            <SelectTrigger className="bg-slate-800 border-white/5"><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-white/10 text-white">
+                              {REGIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">District</label>
+                          <Select value={editFormData.district} onValueChange={(v) => setEditFormData({...editFormData, district: v})}>
+                            <SelectTrigger className="bg-slate-800 border-white/5"><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-white/10 text-white">
+                              {DISTRICTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
-                    <DialogFooter><Button onClick={handleUpdateCustomer} className="w-full">Save Changes</Button></DialogFooter>
+                    <DialogFooter><Button onClick={handleUpdateCustomer} className="w-full bg-primary font-bold uppercase tracking-widest h-10">Save Changes</Button></DialogFooter>
                   </DialogContent>
                 </Dialog>
               </div>
