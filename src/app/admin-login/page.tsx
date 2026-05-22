@@ -7,9 +7,10 @@ import { useAuth } from '@/components/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShieldCheck, Loader2, Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { ShieldCheck, Loader2, Eye, EyeOff, Lock, Mail, Droplets } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function AdminLoginPage() {
   const { login, user } = useAuth();
@@ -54,10 +55,34 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-1/3 h-1/3 bg-primary/20 rounded-full blur-[120px] -mr-12 -mt-12" />
+    <div className="h-screen w-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-950">
+      {/* Cinematic Background Image */}
+      <div className="absolute inset-0 z-0">
+        <Image 
+          src="https://picsum.photos/seed/water-staff/1920/1080"
+          alt="Water Background"
+          fill
+          className="object-cover opacity-40 grayscale-[0.4]"
+          priority
+          data-ai-hint="water surface"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/80" />
+      </div>
+
+      {/* Brand Identity - Top Left Corner */}
+      <div className="absolute top-8 left-8 z-30 flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-1000">
+        <div className="bg-primary/20 backdrop-blur-md border border-primary/30 p-2.5 rounded-2xl shadow-2xl">
+          <Droplets className="text-white h-7 w-7" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-black tracking-tighter text-white uppercase leading-none">
+            My Water <span className="text-primary">Bill</span>
+          </h1>
+          <p className="text-[8px] font-bold tracking-[0.3em] text-slate-400 uppercase opacity-80">Malawi Water Board</p>
+        </div>
+      </div>
       
-      <Card className="w-full max-w-2xl shadow-2xl border-none bg-slate-900 text-white">
+      <Card className="w-full max-w-2xl z-10 shadow-2xl border-white/5 bg-slate-900/80 backdrop-blur-2xl text-white">
         <CardHeader className="space-y-2 text-center pb-8 pt-10">
           <div className="mx-auto bg-primary w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl shadow-primary/40 mb-4">
             <ShieldCheck className="text-white h-8 w-8" />
@@ -77,7 +102,7 @@ export default function AdminLoginPage() {
                   placeholder="name@mywater.mw" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-12 bg-slate-800 border-slate-700 text-white placeholder:text-slate-600 focus:border-primary transition-all"
+                  className="h-12 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-600 focus:border-primary transition-all"
                 />
               </div>
               <div className="space-y-3">
@@ -90,7 +115,7 @@ export default function AdminLoginPage() {
                     placeholder="••••••••" 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-12 bg-slate-800 border-slate-700 text-white placeholder:text-slate-600 pr-10 focus:border-primary transition-all"
+                    className="h-12 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-600 pr-10 focus:border-primary transition-all"
                   />
                   <button
                     type="button"
@@ -107,7 +132,7 @@ export default function AdminLoginPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4 border-t border-slate-800 py-6 bg-slate-950/40 rounded-b-lg">
+        <CardFooter className="flex flex-col gap-4 border-t border-white/5 py-6 bg-slate-950/40 rounded-b-lg">
           <div className="flex items-center justify-between w-full px-6">
             <Link href="/" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Return to Public Portal</Link>
             <p className="text-[10px] text-slate-600 font-mono tracking-tighter uppercase">MWB-SYSTEM-CORE-v2.6</p>
