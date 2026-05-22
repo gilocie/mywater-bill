@@ -4,14 +4,13 @@
 import React, { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
-import { User, Bill, REGIONS, DISTRICTS } from '@/app/lib/mock-data';
+import { User, Bill, REGIONS, DISTRICTS, AREAS } from '@/app/lib/mock-data';
 import { 
   Card, 
   CardContent, 
   CardHeader, 
   CardTitle,
   CardDescription,
-  CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,16 +21,13 @@ import {
   MapPin, 
   Power,
   Clock,
-  User as UserIcon,
   MessageSquare,
   BarChart3,
   Send,
-  History,
   Edit,
-  Save,
-  Calculator,
-  CalendarDays,
-  ShieldAlert
+  ShieldAlert,
+  Phone,
+  Mail,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -54,7 +50,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { cn } from '@/lib/utils';
 
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -74,7 +69,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [invoiceUsage, setInvoiceUsage] = useState('');
   const [isEditCustomerDialogOpen, setIsEditCustomerDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState<Partial<User>>({});
-  const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(false);
   const [isSuspendDialogOpen, setIsSuspendDialogOpen] = useState(false);
   const [gracePeriodDays, setGracePeriodDays] = useState('7');
 
@@ -88,7 +82,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         setCustomer(found || null);
         if (found) {
           setEditFormData(found);
-          setWhatsappSameAsPhone(found.whatsappNumber === found.phoneNumber);
         }
       }
 
@@ -103,12 +96,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     window.addEventListener('storage', loadData);
     return () => window.removeEventListener('storage', loadData);
   }, [id]);
-
-  useEffect(() => {
-    if (whatsappSameAsPhone && editFormData.phoneNumber) {
-      setEditFormData(prev => ({ ...prev, whatsappNumber: prev.phoneNumber }));
-    }
-  }, [editFormData.phoneNumber, whatsappSameAsPhone]);
 
   const totalPaid = bills.filter(b => b.status === 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
   const outstandingBalance = bills.filter(b => b.status !== 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
@@ -325,7 +312,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       <Edit className="h-3.5 w-3.5 text-primary" /> Edit Profile
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px]">
+                  <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px] max-w-lg overflow-y-auto max-h-[90vh]">
                     <DialogHeader><DialogTitle>Edit Profile</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="grid grid-cols-2 gap-3">
@@ -338,15 +325,33 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                           <Input value={editFormData.meterNumber} onChange={(e) => setEditFormData({...editFormData, meterNumber: e.target.value.toUpperCase()})} placeholder="MTR-XXXX" className="bg-slate-800 border-white/5" />
                         </div>
                       </div>
+                      
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Email Address</label>
+                        <Input value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} placeholder="email@mail.com" className="bg-slate-800 border-white/5" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Phone</label>
+                          <Input value={editFormData.phoneNumber} onChange={(e) => setEditFormData({...editFormData, phoneNumber: e.target.value})} placeholder="+265..." className="bg-slate-800 border-white/5" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">WhatsApp</label>
+                          <Input value={editFormData.whatsappNumber} onChange={(e) => setEditFormData({...editFormData, whatsappNumber: e.target.value})} placeholder="+265..." className="bg-slate-800 border-white/5" />
+                        </div>
+                      </div>
+
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Detailed Address</label>
                         <Input value={editFormData.address} onChange={(e) => setEditFormData({...editFormData, address: e.target.value})} placeholder="Address" className="bg-slate-800 border-white/5" />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      
+                      <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Region</label>
                           <Select value={editFormData.region} onValueChange={(v) => setEditFormData({...editFormData, region: v})}>
-                            <SelectTrigger className="bg-slate-800 border-white/5"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="bg-slate-800 border-white/5 h-9"><SelectValue /></SelectTrigger>
                             <SelectContent className="bg-slate-800 border-white/10 text-white">
                               {REGIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                             </SelectContent>
@@ -355,11 +360,30 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">District</label>
                           <Select value={editFormData.district} onValueChange={(v) => setEditFormData({...editFormData, district: v})}>
-                            <SelectTrigger className="bg-slate-800 border-white/5"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="bg-slate-800 border-white/5 h-9"><SelectValue /></SelectTrigger>
                             <SelectContent className="bg-slate-800 border-white/10 text-white">
                               {DISTRICTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                             </SelectContent>
                           </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Area</label>
+                          <div className="flex gap-2">
+                             <Input 
+                              value={editFormData.area} 
+                              onChange={(e) => setEditFormData({...editFormData, area: e.target.value})} 
+                              placeholder="Area" 
+                              className="bg-slate-800 border-white/5 h-9" 
+                            />
+                            <Select onValueChange={(v) => setEditFormData({...editFormData, area: v})}>
+                              <SelectTrigger className="bg-slate-800 border-white/5 h-9 w-10 p-0 flex items-center justify-center">
+                                <MapPin className="h-4 w-4 opacity-40" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-slate-800 border-white/10 text-white">
+                                {AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                       </div>
                     </div>

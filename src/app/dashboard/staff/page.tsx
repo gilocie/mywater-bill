@@ -25,7 +25,6 @@ import {
   MapPin, 
   Mail,
   Copy,
-  Share2,
   Search,
   RefreshCw,
   ArrowRight,
@@ -33,7 +32,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   User as UserIcon,
-  IdCard
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -62,6 +62,7 @@ export default function StaffManagementPage() {
   const [staffList, setStaffList] = useState<User[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -79,7 +80,6 @@ export default function StaffManagementPage() {
       const usersStr = localStorage.getItem('mywater_all_users');
       if (usersStr) {
         const allUsers: User[] = JSON.parse(usersStr);
-        // Display both Super Admins and District Staff in the registry
         setStaffList(allUsers.filter(u => u.role === 'DISTRICT_STAFF' || u.role === 'SUPER_ADMIN'));
       }
     };
@@ -132,7 +132,6 @@ export default function StaffManagementPage() {
     const usersStr = localStorage.getItem('mywater_all_users') || '[]';
     const allUsers = JSON.parse(usersStr);
     
-    // Check if ID already exists
     if (allUsers.find((u: User) => u.id === newStaff.id)) {
       toast({
         title: "Conflict",
@@ -147,6 +146,7 @@ export default function StaffManagementPage() {
 
     setIsDialogOpen(false);
     setCurrentStep(1);
+    setShowPassword(false);
     setFormData({ name: '', email: '', password: '', region: '', district: '', area: '', staffId: '' });
     
     toast({
@@ -190,7 +190,10 @@ export default function StaffManagementPage() {
         
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
-          if (!open) setCurrentStep(1);
+          if (!open) {
+            setCurrentStep(1);
+            setShowPassword(false);
+          }
         }}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90 gap-2 rounded-[5px] h-9 font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20">
@@ -208,7 +211,6 @@ export default function StaffManagementPage() {
             </DialogHeader>
 
             {currentStep === 1 ? (
-              /* STEP 1: IDENTITY & AREA */
               <div className="space-y-4 py-4 animate-in fade-in slide-in-from-right-2 duration-300">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5 col-span-2">
@@ -255,28 +257,47 @@ export default function StaffManagementPage() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Assigned Area</label>
-                    <Select onValueChange={v => setFormData({...formData, area: v})} value={formData.area}>
-                      <SelectTrigger className="bg-slate-800 border-white/5 h-9 rounded-[5px]"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/10 text-white">
-                        {AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Manual area or select" 
+                        className="bg-slate-800 border-white/5 h-9 text-sm rounded-[5px]"
+                        value={formData.area}
+                        onChange={e => setFormData({...formData, area: e.target.value})}
+                      />
+                      <Select onValueChange={v => setFormData({...formData, area: v})}>
+                        <SelectTrigger className="bg-slate-800 border-white/5 h-9 w-10 p-0 rounded-[5px] flex items-center justify-center">
+                          <MapPin className="h-4 w-4 text-slate-500" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-white/10 text-white">
+                          {AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
                 <p className="text-[9px] text-slate-600 bg-slate-950/50 p-2 rounded italic">Staff will only see utility records matching their assigned territory.</p>
               </div>
             ) : (
-              /* STEP 2: SECURITY */
               <div className="space-y-4 py-4 animate-in fade-in slide-in-from-right-2 duration-300">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Security Access Token</label>
                   <div className="flex gap-2">
-                    <Input 
-                      placeholder="••••••••" 
-                      className="bg-slate-800 border-white/5 h-10 text-sm font-mono tracking-[0.3em] rounded-[5px]"
-                      value={formData.password}
-                      onChange={e => setFormData({...formData, password: e.target.value})}
-                    />
+                    <div className="relative flex-1">
+                      <Input 
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••" 
+                        className="bg-slate-800 border-white/5 h-10 text-sm font-mono tracking-[0.3em] rounded-[5px] pr-10"
+                        value={formData.password}
+                        onChange={e => setFormData({...formData, password: e.target.value})}
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                     <Button variant="outline" size="icon" onClick={generateToken} className="h-10 w-10 bg-slate-800 border-white/5 hover:bg-slate-700 rounded-[5px]">
                       <RefreshCw className="h-4 w-4 text-primary" />
                     </Button>
