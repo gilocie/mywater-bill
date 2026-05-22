@@ -7,7 +7,7 @@ import { useAuth } from '@/components/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Droplets, Loader2, UserPlus } from 'lucide-react';
+import { UserPlus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
@@ -20,8 +20,7 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: '',
-    meterNumber: ''
+    password: ''
   });
 
   React.useEffect(() => {
@@ -43,7 +42,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await register(formData.name, formData.email, formData.password, formData.meterNumber);
+      await register(formData.name, formData.email, formData.password);
       toast({
         title: "Account Created",
         description: "Welcome to MyWater Portal!"
@@ -65,7 +64,7 @@ export default function RegisterPage() {
       <div className="absolute top-0 right-0 w-1/3 h-1/3 bg-primary/5 rounded-full blur-3xl -mr-12 -mt-12" />
       <div className="absolute bottom-0 left-0 w-1/4 h-1/4 bg-accent/10 rounded-full blur-3xl -ml-12 -mb-12" />
 
-      <Card className="w-full max-w-md shadow-xl border-none">
+      <Card className="w-full max-w-2xl shadow-xl border-none">
         <CardHeader className="space-y-2 text-center pb-8">
           <div className="mx-auto bg-primary w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 mb-2">
             <UserPlus className="text-white h-7 w-7" />
@@ -74,25 +73,27 @@ export default function RegisterPage() {
           <CardDescription>Register your utility account today</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">Full Name</label>
-              <Input 
-                placeholder="John Doe" 
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                className="h-11 border-muted"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">Email Address</label>
-              <Input 
-                type="email"
-                placeholder="john@example.com" 
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="h-11 border-muted"
-              />
+          <form onSubmit={handleRegister} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold">Full Name</label>
+                <Input 
+                  placeholder="John Doe" 
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="h-11 border-muted"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold">Email Address</label>
+                <Input 
+                  type="email"
+                  placeholder="john@example.com" 
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="h-11 border-muted"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Password</label>
@@ -101,15 +102,6 @@ export default function RegisterPage() {
                 placeholder="••••••••" 
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
-                className="h-11 border-muted"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">Meter Number (Optional)</label>
-              <Input 
-                placeholder="MTR-XXXX" 
-                value={formData.meterNumber}
-                onChange={(e) => setFormData({...formData, meterNumber: e.target.value})}
                 className="h-11 border-muted"
               />
             </div>

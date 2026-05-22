@@ -17,7 +17,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  const [id, setId] = useState('');
+  const [email, setEmail] = useState('');
 
   React.useEffect(() => {
     if (user) {
@@ -27,10 +27,10 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id) {
+    if (!email) {
       toast({
         title: "Missing Information",
-        description: "Please enter your meter number.",
+        description: "Please enter your email address.",
         variant: "destructive"
       });
       return;
@@ -38,12 +38,12 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await login(id, '', false); // Passwordless for customers
+      await login(email, '', false); // Passwordless for customers
       router.push('/dashboard');
     } catch (err) {
       toast({
         title: "Authentication Failed",
-        description: "Invalid meter number. Please check your records.",
+        description: "Invalid email address. Please check your records.",
         variant: "destructive"
       });
     } finally {
@@ -67,14 +67,14 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Meter Number</label>
+              <label className="text-sm font-semibold">Email Address</label>
               <Input 
-                placeholder="MTR-XXXX" 
-                value={id}
-                onChange={(e) => setId(e.target.value)}
+                type="email"
+                placeholder="name@example.com" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="h-11 border-muted"
               />
-              <p className="text-[10px] text-muted-foreground italic">Example: MTR-1001</p>
             </div>
             <Button className="w-full h-11 bg-primary hover:bg-primary/90 transition-all font-semibold" disabled={loading}>
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Verify & Sign In"}
