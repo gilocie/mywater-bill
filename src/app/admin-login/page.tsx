@@ -62,81 +62,77 @@ export default function AdminLoginPage() {
           src="https://picsum.photos/seed/water-staff/1920/1080"
           alt="Water Background"
           fill
-          className="object-cover opacity-40 grayscale-[0.4]"
+          className="object-cover opacity-30 grayscale-[0.6]"
           priority
-          data-ai-hint="water surface"
+          data-ai-hint="dark water"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/80" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-slate-950" />
       </div>
 
       {/* Brand Identity - Top Left Corner */}
-      <div className="absolute top-8 left-8 z-30 flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-1000">
-        <div className="bg-primary/20 backdrop-blur-md border border-primary/30 p-2.5 rounded-2xl shadow-2xl">
-          <Droplets className="text-white h-7 w-7" />
+      <div className="absolute top-8 left-8 z-30 flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-1000">
+        <div className="bg-primary/20 backdrop-blur-md border border-primary/30 p-2 rounded-xl shadow-2xl">
+          <Droplets className="text-white h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-black tracking-tighter text-white uppercase leading-none">
+          <h1 className="text-xl font-black tracking-tighter text-white uppercase leading-none">
             My Water <span className="text-primary">Bill</span>
           </h1>
-          <p className="text-[8px] font-bold tracking-[0.3em] text-slate-400 uppercase opacity-80">Malawi Water Board</p>
+          <p className="text-[7px] font-bold tracking-[0.3em] text-slate-500 uppercase opacity-80">Malawi Water Board</p>
         </div>
       </div>
       
-      <Card className="w-full max-w-2xl z-10 shadow-2xl border-white/5 bg-slate-900/80 backdrop-blur-2xl text-white">
-        <CardHeader className="space-y-2 text-center pb-8 pt-10">
-          <div className="mx-auto bg-primary w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl shadow-primary/40 mb-4">
-            <ShieldCheck className="text-white h-8 w-8" />
+      <Card className="w-full max-w-md z-10 shadow-2xl border-white/5 bg-slate-900/60 backdrop-blur-2xl text-white">
+        <CardHeader className="space-y-1 text-center pb-4 pt-6">
+          <div className="mx-auto bg-primary w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 mb-2">
+            <ShieldCheck className="text-white h-5 w-5" />
           </div>
-          <CardTitle className="text-3xl font-black tracking-tight">Staff Workspace</CardTitle>
-          <CardDescription className="text-slate-400 text-base">Authorized administrative personnel only</CardDescription>
+          <CardTitle className="text-xl font-black tracking-tight">Staff Portal</CardTitle>
+          <CardDescription className="text-slate-400 text-[10px] uppercase tracking-widest font-bold">Authorized Personnel Only</CardDescription>
         </CardHeader>
-        <CardContent className="px-10 pb-10">
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                  <Mail className="h-3 w-3" /> Work Email
-                </label>
+        <CardContent className="px-6 pb-6">
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2 px-1">
+                <Mail className="h-2.5 w-2.5" /> Email
+              </label>
+              <Input 
+                type="email" 
+                placeholder="staff@mywater.mw" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-9 bg-slate-800/40 border-slate-700/50 text-white text-xs placeholder:text-slate-600 focus:border-primary transition-all rounded-md"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2 px-1">
+                <Lock className="h-2.5 w-2.5" /> Token
+              </label>
+              <div className="relative">
                 <Input 
-                  type="email" 
-                  placeholder="name@mywater.mw" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-12 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-600 focus:border-primary transition-all"
+                  type={showPassword ? "text" : "password"} 
+                  placeholder="••••••••" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-9 bg-slate-800/40 border-slate-700/50 text-white text-xs placeholder:text-slate-600 pr-9 focus:border-primary transition-all rounded-md"
                 />
-              </div>
-              <div className="space-y-3">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                  <Lock className="h-3 w-3" /> Security Token
-                </label>
-                <div className="relative">
-                  <Input 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="••••••••" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="h-12 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-600 pr-10 focus:border-primary transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
               </div>
             </div>
-            <Button className="w-full h-12 bg-primary hover:bg-primary/90 transition-all font-bold text-lg shadow-xl shadow-primary/20" disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Verify Identity"}
+            <Button className="w-full h-9 bg-primary hover:bg-primary/90 transition-all font-bold text-xs uppercase tracking-widest shadow-lg shadow-primary/10 rounded-md" disabled={loading}>
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Verify Identity"}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4 border-t border-white/5 py-6 bg-slate-950/40 rounded-b-lg">
-          <div className="flex items-center justify-between w-full px-6">
-            <Link href="/" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Return to Public Portal</Link>
-            <p className="text-[10px] text-slate-600 font-mono tracking-tighter uppercase">MWB-SYSTEM-CORE-v2.6</p>
-          </div>
+        <CardFooter className="flex items-center justify-between border-t border-white/5 py-3 px-6 bg-slate-950/20 rounded-b-lg">
+          <Link href="/" className="text-[10px] font-bold text-slate-500 hover:text-primary transition-colors uppercase tracking-tight">Public Portal</Link>
+          <p className="text-[8px] text-slate-700 font-mono tracking-tighter uppercase font-bold">CORE-v2.9</p>
         </CardFooter>
       </Card>
     </div>
