@@ -85,7 +85,7 @@ export default function LoginPage() {
           /* Initial Access Button */
           <div className="space-y-8 text-center animate-in fade-in zoom-in-95 duration-1000">
              <div className="space-y-2">
-               <p className="text-slate-300 font-medium text-lg opacity-80">Seamlessly manage your utility from any device.</p>
+               <p className="text-slate-300 font-bold text-2xl md:text-3xl opacity-90">Manage Your Utility with ease</p>
              </div>
              <Button 
                onClick={() => setShowInput(true)}
