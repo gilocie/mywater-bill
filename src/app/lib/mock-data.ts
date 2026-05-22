@@ -6,10 +6,12 @@ export interface User {
   name: string;
   email: string;
   role: Role;
-  district?: string; // For staff and customers
-  meterNumber?: string; // For customers
-  pin?: string; // For customers
+  district?: string; 
+  meterNumber?: string;
+  pin?: string;
   walletBalance: number;
+  assignedStaffId?: string; // For customers
+  location?: string; // For customers
 }
 
 export interface Bill {
@@ -37,23 +39,23 @@ export const GLOBAL_WATER_RATE = 2.5; // MWK per liter
 export const MOCK_USERS: User[] = [
   {
     id: 'u1',
-    name: 'Super Admin',
+    name: 'Chief Administrator',
     email: 'admin@mywater.mw',
     role: 'SUPER_ADMIN',
     walletBalance: 0,
   },
   {
     id: 'u2',
-    name: 'Blantyre Staff',
-    email: 'bt-staff@mywater.mw',
+    name: 'Chisomo Phiri',
+    email: 'chisomo@mywater.mw',
     role: 'DISTRICT_STAFF',
     district: 'Blantyre',
     walletBalance: 0,
   },
   {
     id: 'u3',
-    name: 'Lilongwe Staff',
-    email: 'll-staff@mywater.mw',
+    name: 'Lumbani Banda',
+    email: 'lumbani@mywater.mw',
     role: 'DISTRICT_STAFF',
     district: 'Lilongwe',
     walletBalance: 0,
@@ -67,6 +69,8 @@ export const MOCK_USERS: User[] = [
     meterNumber: 'MTR-1001',
     pin: '1234',
     walletBalance: 15000,
+    assignedStaffId: 'u2',
+    location: 'Chirimba, Blantyre'
   },
   {
     id: 'c2',
@@ -77,7 +81,21 @@ export const MOCK_USERS: User[] = [
     meterNumber: 'MTR-2002',
     pin: '5678',
     walletBalance: 2500,
+    assignedStaffId: 'u3',
+    location: 'Area 47, Lilongwe'
   },
+  {
+    id: 'c3',
+    name: 'Gift Nkhoma',
+    email: 'gift@gmail.com',
+    role: 'CUSTOMER',
+    district: 'Blantyre',
+    meterNumber: 'MTR-3003',
+    pin: '1111',
+    walletBalance: 500,
+    assignedStaffId: 'u2',
+    location: 'Ndirande, Blantyre'
+  }
 ];
 
 export const MOCK_BILLS: Bill[] = [
