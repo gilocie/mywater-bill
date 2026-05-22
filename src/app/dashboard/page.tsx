@@ -216,7 +216,7 @@ export default function DashboardPage() {
 
         <Card className="shadow-sm border-none bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardDescription className="font-bold uppercase tracking-widest text-[10px]">Total Water Used</Card : Description>
+            <CardDescription className="font-bold uppercase tracking-widest text-[10px]">Total Water Used</CardDescription>
             <Droplets className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
