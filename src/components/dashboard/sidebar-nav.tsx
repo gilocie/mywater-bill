@@ -17,7 +17,8 @@ import {
   Map,
   CreditCard,
   ClipboardList,
-  MapPin
+  MapPin,
+  ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/providers/auth-provider';
@@ -45,14 +46,15 @@ export function SidebarNav() {
         { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
         { icon: Users, label: 'Customers', href: '/dashboard/customers', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF'] },
         { icon: UserCheck, label: 'Staff Registry', href: '/dashboard/staff', roles: ['SUPER_ADMIN'] },
-        { icon: Receipt, label: 'Billing & Ledger', href: '/dashboard/billing', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
+        { icon: Receipt, label: 'Ledger Audit', href: '/dashboard/billing', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
       ]
     },
     {
       label: 'Operational',
       items: [
+        { icon: ShieldCheck, label: 'Verifications', href: '/dashboard/verifications', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF'] },
         { icon: Wallet, label: 'My Wallet', href: '/dashboard/wallet', roles: ['CUSTOMER'] },
-        { icon: CreditCard, label: 'Payment Channels', href: '/dashboard/payments', roles: ['SUPER_ADMIN'] },
+        { icon: CreditCard, label: 'Settlement Channels', href: '/dashboard/payments', roles: ['SUPER_ADMIN'] },
         { icon: BellRing, label: 'Broadcasts', href: '/dashboard/notifications', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
       ]
     }
@@ -70,7 +72,7 @@ export function SidebarNav() {
           <h1 className="font-headline font-black text-xl tracking-tighter text-white leading-none">
             My Water <span className="text-primary">Bill</span>
           </h1>
-          <p className="text-[9px] text-slate-500 uppercase tracking-[0.2em] font-bold mt-1">Utility Control</p>
+          <p className="text-[9px] text-slate-500 uppercase tracking-[0.2em] font-bold mt-1">Utility Portal</p>
         </div>
       </SidebarHeader>
 

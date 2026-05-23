@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/providers/auth-provider';
-import { Transaction } from '@/app/lib/mock-data';
+import { Transaction, PaymentMethod } from '@/app/lib/mock-data';
 import { 
   Card, 
   CardContent, 
@@ -23,10 +23,21 @@ import {
   Info,
   Wallet,
   ChevronRight,
-  Download
+  Download,
+  Smartphone,
+  CreditCard,
+  Zap,
+  CheckCircle2,
+  Clock,
+  ShieldAlert,
+  FileText,
+  UploadCloud,
+  X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function WalletPage() {
   const { user, updateUser } = useAuth();
@@ -34,96 +45,126 @@ export default function WalletPage() {
   
   const [depositAmount, setDepositAmount] = useState('5000');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  
+  // Checkout States
+  const [isMethodsDialogOpen, setIsMethodsDialogOpen] = useState(false);
+  const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
+  const [manualReference, setManualReference] = useState('');
+  const [saveMethod, setSaveMethod] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    const loadWalletData = () => {
+    const loadData = () => {
       const transStr = localStorage.getItem('mywater_all_transactions');
       if (transStr && user) {
         const allTrans: Transaction[] = JSON.parse(transStr);
         setTransactions(allTrans.filter(t => t.userId === user.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       }
+      
+      const methodsStr = localStorage.getItem('mywater_payment_methods');
+      if (methodsStr) setMethods(JSON.parse(methodsStr).filter((m: PaymentMethod) => m.active));
     };
 
-    loadWalletData();
-    window.addEventListener('storage', loadWalletData);
-    return () => window.removeEventListener('storage', loadWalletData);
+    loadData();
+    window.addEventListener('storage', loadData);
+    return () => window.removeEventListener('storage', loadData);
   }, [user]);
 
-  const handleDeposit = () => {
-    const amount = parseFloat(depositAmount);
-    if (isNaN(amount) || amount <= 0 || !user) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid amount to refill.",
-        variant: "destructive"
-      });
+  const handleInitiateRefill = () => {
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      toast({ title: "Invalid Amount", description: "Please enter a valid amount.", variant: "destructive" });
       return;
     }
+    setIsMethodsDialogOpen(true);
+  };
 
+  const handleSelectMethod = (method: PaymentMethod) => {
+    setSelectedMethod(method);
+    setIsMethodsDialogOpen(false);
+    
+    if (method.isBrandPay) {
+      handleBrandPay(method);
+    } else {
+      setIsManualDialogOpen(true);
+    }
+  };
+
+  const handleBrandPay = (method: PaymentMethod) => {
     if (typeof window === 'undefined' || !(window as any).BrandPay) {
-      toast({
-        title: "System Error",
-        description: "Payment gateway is not initialized.",
-        variant: "destructive"
-      });
+      toast({ title: "Gateway Error", description: "SDK not initialized.", variant: "destructive" });
       return;
     }
 
+    const amount = parseFloat(depositAmount);
     (window as any).BrandPay.openCheckout({
-      amount: amount,
+      amount,
       currency: 'MWK',
-      customerPhone: user.phoneNumber || '',
-      metadata: {
-        statementDescription: 'Wallet Refill',
-        fields: [
-          { fieldName: 'userId', fieldValue: user.id }
-        ]
-      },
-      onSuccess: (transaction: any) => {
-        const currentBalance = user.walletBalance || 0;
+      customerPhone: user?.phoneNumber || '',
+      metadata: { statementDescription: 'Wallet Refill', fields: [{ fieldName: 'userId', fieldValue: user?.id }] },
+      onSuccess: () => {
+        const currentBalance = user?.walletBalance || 0;
         updateUser({ walletBalance: currentBalance + amount });
-
-        const newTrans: Transaction = {
-          id: `tr-${Date.now()}`,
-          userId: user.id,
-          amount: amount,
-          type: 'DEPOSIT',
-          date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-          description: `Wallet Refill via BrandPay`
-        };
-
-        const transStr = localStorage.getItem('mywater_all_transactions') || '[]';
-        const allTrans = JSON.parse(transStr);
-        localStorage.setItem('mywater_all_transactions', JSON.stringify([newTrans, ...allTrans]));
-        
-        toast({
-          title: "Balance Refilled",
-          description: `MK ${amount.toLocaleString()} added to your utility wallet.`,
-        });
-
-        window.dispatchEvent(new Event('storage'));
-      },
-      onFailure: (error: any) => {
-        toast({
-          title: "Deposit Failed",
-          description: error || "Could not complete the deposit.",
-          variant: "destructive"
-        });
+        addTransaction(amount, 'COMPLETED', `Refill via ${method.name}`);
+        toast({ title: "Refill Successful", description: `MK ${amount.toLocaleString()} credited.` });
       }
     });
+  };
+
+  const handleManualVerification = () => {
+    if (!manualReference) {
+      toast({ title: "Reference Required", description: "Please provide your transaction ID or reference.", variant: "destructive" });
+      return;
+    }
+
+    setIsUploading(true);
+    // Simulate upload delay
+    setTimeout(() => {
+      const amount = parseFloat(depositAmount);
+      addTransaction(amount, 'PENDING_VERIFICATION', `Manual Deposit via ${selectedMethod?.name}`, manualReference);
+      
+      if (saveMethod && selectedMethod) {
+        // Persistence logic for preferred methods could go here
+      }
+
+      setIsManualDialogOpen(false);
+      setIsUploading(false);
+      setManualReference('');
+      toast({ title: "Proof Submitted", description: "Admin will verify your settlement shortly." });
+    }, 1500);
+  };
+
+  const addTransaction = (amount: number, status: Transaction['status'], desc: string, ref?: string) => {
+    if (!user) return;
+    const newTrans: Transaction = {
+      id: `tr-${Date.now()}`,
+      userId: user.id,
+      amount,
+      type: 'DEPOSIT',
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      description: desc,
+      status,
+      paymentMethodId: selectedMethod?.id
+    };
+
+    const transStr = localStorage.getItem('mywater_all_transactions') || '[]';
+    localStorage.setItem('mywater_all_transactions', JSON.stringify([newTrans, ...JSON.parse(transStr)]));
+    window.dispatchEvent(new Event('storage'));
   };
 
   if (!user) return null;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
-      <div>
-        <h2 className="text-3xl font-black tracking-tight text-white uppercase">Utility Wallet</h2>
-        <p className="text-slate-400 font-medium tracking-tight">Financial hub for automated utility settlements and balance management.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-black tracking-tight text-white uppercase">Utility Wallet</h2>
+          <p className="text-slate-400 font-medium tracking-tight">Manage your utility liquidity and automated settlements.</p>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {/* MAIN WALLET CARD */}
         <Card className="md:col-span-2 shadow-2xl border-white/5 bg-slate-900 rounded-[5px] overflow-hidden relative border-t-2 border-t-primary">
           <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
             <Wallet className="h-48 w-48 text-primary" />
@@ -137,106 +178,133 @@ export default function WalletPage() {
           </CardHeader>
           <CardContent className="px-8 pb-12">
             <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-3 text-[10px] font-bold text-green-500 uppercase tracking-widest bg-green-500/5 w-fit px-4 py-2 rounded-[5px] border border-green-500/20">
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_hsl(var(--destructive))]" />
-                System Status: BrandPay SDK Connected
-              </div>
-              
               <div className="max-w-xs space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Quick Deposit Amount</Label>
+                <Label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Refill Amount</Label>
                 <div className="flex gap-2">
-                  <Input 
-                    type="number" 
-                    value={depositAmount} 
-                    onChange={e => setDepositAmount(e.target.value)}
-                    className="bg-slate-950 border-white/5 h-10 font-black text-white" 
-                  />
-                  <Button onClick={handleDeposit} className="bg-primary hover:bg-primary/90 h-10 px-6 font-bold uppercase tracking-widest text-xs">Refill</Button>
+                  <Input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} className="bg-slate-950 border-white/5 h-10 font-black text-white" />
+                  <Button onClick={handleInitiateRefill} className="bg-primary hover:bg-primary/90 h-10 px-6 font-bold uppercase tracking-widest text-xs">Initiate Refill</Button>
                 </div>
               </div>
             </div>
           </CardContent>
-          <CardFooter className="bg-slate-950/40 flex justify-between items-center p-6 border-t border-white/5">
-            <p className="text-[9px] text-slate-600 font-mono tracking-tighter uppercase font-bold">BRANDPAY-v1.0.0-INTEGRATED</p>
-          </CardFooter>
         </Card>
 
-        {/* INFO CARD */}
         <Card className="shadow-2xl border-white/5 bg-slate-900/40 rounded-[5px] border-t-2 border-t-accent">
           <CardHeader className="pt-6 px-6">
-            <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-accent">
-              <Info className="h-4 w-4" /> Operational Guide
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-accent">
+              <Info className="h-4 w-4" /> Settlement Guide
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-[11px] space-y-6 px-6 pb-6">
-            <div className="space-y-4 text-slate-400 font-medium leading-relaxed">
-              <div className="flex gap-3">
-                <span className="text-accent font-black">01.</span>
-                <p>Deposits are processed via pawaPay integration, ensuring direct carrier billing and instant settlement.</p>
-              </div>
-              <div className="flex gap-3">
-                <span className="text-accent font-black">02.</span>
-                <p>System performs a background status poll until your mobile money provider confirms the transaction PIN prompt.</p>
-              </div>
-            </div>
-            <div className="p-4 bg-accent/5 border border-accent/20 rounded-[5px] text-accent text-[10px] font-black uppercase tracking-tighter text-center">
-              SECURE CHECKOUT ENABLED
-            </div>
+          <CardContent className="text-[10px] space-y-4 px-6 pb-6 text-slate-500 font-medium leading-relaxed">
+            <p><strong className="text-white">Integrated (SDK):</strong> Real-time processing via Mobile Money PIN prompt.</p>
+            <p><strong className="text-white">Manual:</strong> Require bank/field transfer followed by admin verification of digital receipts.</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* TRANSACTION HISTORY */}
       <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
         <CardHeader className="px-8 pt-8 pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-black text-white flex items-center gap-3 uppercase tracking-tight">
-              <History className="h-5 w-5 text-primary" /> Ledger Activity
+              <History className="h-5 w-5 text-primary" /> Activity Ledger
             </CardTitle>
-            <Button variant="ghost" size="sm" className="text-[10px] font-bold text-slate-500 hover:text-white uppercase tracking-widest gap-2">
-              <Download className="h-3.5 w-3.5" /> Export History
-            </Button>
           </div>
         </CardHeader>
         <CardContent className="px-8 pb-8">
           <div className="space-y-2">
-            {transactions.length > 0 ? (
-              transactions.map((t) => (
-                <div key={t.id} className="flex items-center justify-between p-4 bg-slate-950/50 border border-white/5 rounded-[5px] hover:bg-slate-950 transition-all group">
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "h-10 w-10 rounded-[5px] flex items-center justify-center transition-colors shadow-lg",
-                      t.type === 'DEPOSIT' ? "bg-green-500/10 text-green-500 border border-green-500/20" : "bg-primary/10 text-primary border border-primary/20"
-                    )}>
-                      {t.type === 'DEPOSIT' ? <ArrowDownLeft className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
-                    </div>
-                    <div>
-                      <p className="font-black text-[11px] text-white uppercase tracking-tight">{t.description}</p>
-                      <p className="text-[9px] text-slate-500 uppercase font-bold">{t.date}</p>
-                    </div>
+            {transactions.length > 0 ? transactions.map((t) => (
+              <div key={t.id} className="flex items-center justify-between p-4 bg-slate-950/50 border border-white/5 rounded-[5px] hover:bg-slate-950 transition-all group">
+                <div className="flex items-center gap-4">
+                  <div className={cn("h-10 w-10 rounded-[5px] flex items-center justify-center border", t.status === 'COMPLETED' ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-primary/10 text-primary border-primary/20")}>
+                    {t.type === 'DEPOSIT' ? <ArrowDownLeft className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
                   </div>
-                  <div className="flex items-center gap-6">
-                    <div className={cn(
-                      "font-black text-sm",
-                      t.type === 'DEPOSIT' ? "text-green-500" : "text-primary"
-                    )}>
-                      {t.type === 'DEPOSIT' ? '+' : '-'} MK {t.amount.toLocaleString()}
+                  <div>
+                    <p className="font-black text-[11px] text-white uppercase tracking-tight">{t.description}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[9px] text-slate-500 uppercase font-bold">{t.date}</span>
+                      {t.status === 'PENDING_VERIFICATION' && (
+                        <Badge variant="outline" className="h-4 text-[7px] border-primary/30 text-primary bg-primary/5 uppercase font-black">Waiting for Admin</Badge>
+                      )}
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-700 hover:text-white opacity-0 group-hover:opacity-100 transition-all">
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-20 border border-dashed border-white/5 rounded-[5px]">
-                <History className="h-12 w-12 text-slate-800 mx-auto mb-4 opacity-20" />
-                <p className="text-xs text-slate-600 font-bold uppercase tracking-widest">No matching ledger records found.</p>
+                <div className={cn("font-black text-sm", t.status === 'REJECTED' ? "text-red-500 line-through" : (t.type === 'DEPOSIT' ? "text-green-500" : "text-primary"))}>
+                  {t.type === 'DEPOSIT' ? '+' : '-'} MK {t.amount.toLocaleString()}
+                </div>
               </div>
-            )}
+            )) : <div className="text-center py-12 text-slate-600 text-xs italic">No matching ledger records.</div>}
           </div>
         </CardContent>
       </Card>
+
+      {/* Payment Selection Dialog */}
+      <Dialog open={isMethodsDialogOpen} onOpenChange={setIsMethodsDialogOpen}>
+        <DialogContent className="bg-slate-950 border-white/5 text-white max-w-lg rounded-[5px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black flex items-center gap-2"><Zap className="h-5 w-5 text-primary" /> Select Channel</DialogTitle>
+            <DialogDescription className="text-slate-500 text-xs">Choose how you want to settle this utility refill.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-4">
+            {methods.map(m => (
+              <Card key={m.id} className="bg-slate-900 border-white/5 hover:border-primary/50 transition-all cursor-pointer p-4 group relative overflow-hidden" onClick={() => handleSelectMethod(m)}>
+                <div className="flex items-start justify-between">
+                  <div className="p-2 bg-slate-950 rounded-[5px] text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                    {m.type === 'MOBILE_MONEY' ? <Smartphone className="h-5 w-5" /> : <CreditCard className="h-5 w-5" />}
+                  </div>
+                  {m.isBrandPay && <Zap className="h-3 w-3 text-primary fill-current" />}
+                </div>
+                <div className="mt-4">
+                  <p className="text-sm font-black text-white">{m.name}</p>
+                  <p className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-1">{m.isBrandPay ? 'Automated SDK' : 'Manual Settlement'}</p>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Verification Dialog */}
+      <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
+        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-md rounded-[5px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><ShieldAlert className="h-5 w-5 text-primary" /> Manual Verification</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-[5px] space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                <FileText className="h-3 w-3" /> Settlement Instructions
+              </Label>
+              <p className="text-xs text-slate-300 italic leading-relaxed">{selectedMethod?.manualInstructions}</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">Transaction Reference</Label>
+                <Input value={manualReference} onChange={e => setManualReference(e.target.value)} className="bg-slate-900 border-white/5 h-10 font-mono text-primary" placeholder="e.g. TR-9001-XXXX" />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">Upload Receipt (Photo/PDF)</Label>
+                <div className="border-2 border-dashed border-white/5 rounded-[5px] p-8 text-center bg-slate-900/50 hover:bg-slate-900 transition-colors cursor-pointer relative group">
+                  <UploadCloud className="h-8 w-8 text-slate-700 mx-auto mb-2 group-hover:text-primary transition-colors" />
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Click or Drag to Upload</p>
+                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox id="save-pref" checked={saveMethod} onCheckedChange={(v: any) => setSaveMethod(v)} />
+                <Label htmlFor="save-pref" className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Save reference for future billing</Label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleManualVerification} disabled={isUploading} className="w-full bg-primary font-black uppercase tracking-widest h-11 rounded-[5px]">
+              {isUploading ? "Uploading Protocol..." : "Submit for Admin Review"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

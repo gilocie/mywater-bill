@@ -38,6 +38,9 @@ export interface Transaction {
   type: 'DEPOSIT' | 'BILL_PAYMENT';
   date: string;
   description: string;
+  status?: 'COMPLETED' | 'PENDING_VERIFICATION' | 'REJECTED';
+  proofUrl?: string;
+  paymentMethodId?: string;
 }
 
 export interface PaymentMethod {
@@ -48,19 +51,10 @@ export interface PaymentMethod {
   active: boolean;
   isBrandPay?: boolean;
   accountNumber?: string;
+  manualInstructions?: string;
 }
 
 export const REGIONS = ['Northern', 'Central', 'Southern'];
 export const DISTRICTS = ['Blantyre', 'Lilongwe', 'Mzuzu', 'Zomba', 'Kasungu', 'Mangochi'];
 export const AREAS = ['Area 47', 'Area 18', 'Chirimba', 'Ndirande', 'Kanjedza', 'Chilomoni'];
 export const GLOBAL_WATER_RATE = 2.5; 
-
-// Base data structures for storage keys:
-// 'mywater_all_users'
-// 'mywater_all_bills'
-// 'mywater_all_transactions'
-// 'mywater_payment_methods'
-
-export const MOCK_USERS: User[] = [];
-export const MOCK_BILLS: Bill[] = [];
-export const MOCK_TRANSACTIONS: Transaction[] = [];
