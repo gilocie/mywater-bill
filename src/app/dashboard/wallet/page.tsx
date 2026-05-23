@@ -32,7 +32,8 @@ import {
   ShieldAlert,
   FileText,
   UploadCloud,
-  X
+  X,
+  ArrowRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -49,11 +50,13 @@ export default function WalletPage() {
   
   // Checkout States
   const [isMethodsDialogOpen, setIsMethodsDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
+  const [accountNumber, setAccountNumber] = useState('');
   const [manualReference, setManualReference] = useState('');
-  const [saveMethod, setSaveMethod] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [saveForFuture, setSaveForFuture] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const loadData = () => {
@@ -82,11 +85,27 @@ export default function WalletPage() {
 
   const handleSelectMethod = (method: PaymentMethod) => {
     setSelectedMethod(method);
+    // Pre-fill account number if previously saved (simulated)
+    const saved = localStorage.getItem(`pref_${method.id}`);
+    setAccountNumber(saved || user?.phoneNumber || '');
     setIsMethodsDialogOpen(false);
-    
-    if (method.isBrandPay) {
-      handleBrandPay(method);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const handleConfirmCheckout = () => {
+    if (!accountNumber) {
+      toast({ title: "Account Required", description: "Please enter your account or phone number.", variant: "destructive" });
+      return;
+    }
+
+    if (saveForFuture && selectedMethod) {
+      localStorage.setItem(`pref_${selectedMethod.id}`, accountNumber);
+    }
+
+    if (selectedMethod?.isBrandPay) {
+      handleBrandPay(selectedMethod);
     } else {
+      setIsDetailsDialogOpen(false);
       setIsManualDialogOpen(true);
     }
   };
@@ -98,16 +117,27 @@ export default function WalletPage() {
     }
 
     const amount = parseFloat(depositAmount);
+    setIsProcessing(true);
+    
     (window as any).BrandPay.openCheckout({
       amount,
       currency: 'MWK',
-      customerPhone: user?.phoneNumber || '',
-      metadata: { statementDescription: 'Wallet Refill', fields: [{ fieldName: 'userId', fieldValue: user?.id }] },
+      customerPhone: accountNumber,
+      metadata: { 
+        statementDescription: 'Wallet Refill', 
+        fields: [{ fieldName: 'userId', fieldValue: user?.id }] 
+      },
       onSuccess: () => {
         const currentBalance = user?.walletBalance || 0;
         updateUser({ walletBalance: currentBalance + amount });
         addTransaction(amount, 'COMPLETED', `Refill via ${method.name}`);
         toast({ title: "Refill Successful", description: `MK ${amount.toLocaleString()} credited.` });
+        setIsDetailsDialogOpen(false);
+        setIsProcessing(false);
+      },
+      onFailure: (err: any) => {
+        setIsProcessing(false);
+        toast({ title: "Transaction Failed", description: err || "System error.", variant: "destructive" });
       }
     });
   };
@@ -118,18 +148,13 @@ export default function WalletPage() {
       return;
     }
 
-    setIsUploading(true);
-    // Simulate upload delay
+    setIsProcessing(true);
     setTimeout(() => {
       const amount = parseFloat(depositAmount);
       addTransaction(amount, 'PENDING_VERIFICATION', `Manual Deposit via ${selectedMethod?.name}`, manualReference);
       
-      if (saveMethod && selectedMethod) {
-        // Persistence logic for preferred methods could go here
-      }
-
       setIsManualDialogOpen(false);
-      setIsUploading(false);
+      setIsProcessing(false);
       setManualReference('');
       toast({ title: "Proof Submitted", description: "Admin will verify your settlement shortly." });
     }, 1500);
@@ -143,7 +168,7 @@ export default function WalletPage() {
       amount,
       type: 'DEPOSIT',
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      description: desc,
+      description: ref ? `${desc}: ${ref}` : desc,
       status,
       paymentMethodId: selectedMethod?.id
     };
@@ -182,7 +207,7 @@ export default function WalletPage() {
                 <Label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Refill Amount</Label>
                 <div className="flex gap-2">
                   <Input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} className="bg-slate-950 border-white/5 h-10 font-black text-white" />
-                  <Button onClick={handleInitiateRefill} className="bg-primary hover:bg-primary/90 h-10 px-6 font-bold uppercase tracking-widest text-xs">Initiate Refill</Button>
+                  <Button onClick={handleInitiateRefill} className="bg-primary hover:bg-primary/90 h-10 px-6 font-bold uppercase tracking-widest text-xs rounded-[5px]">Initiate Refill</Button>
                 </div>
               </div>
             </div>
@@ -204,11 +229,9 @@ export default function WalletPage() {
 
       <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
         <CardHeader className="px-8 pt-8 pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-black text-white flex items-center gap-3 uppercase tracking-tight">
-              <History className="h-5 w-5 text-primary" /> Activity Ledger
-            </CardTitle>
-          </div>
+          <CardTitle className="text-lg font-black text-white flex items-center gap-3 uppercase tracking-tight">
+            <History className="h-5 w-5 text-primary" /> Activity Ledger
+          </CardTitle>
         </CardHeader>
         <CardContent className="px-8 pb-8">
           <div className="space-y-2">
@@ -237,11 +260,11 @@ export default function WalletPage() {
         </CardContent>
       </Card>
 
-      {/* Payment Selection Dialog */}
+      {/* Payment Selection Dialog (2 per row) */}
       <Dialog open={isMethodsDialogOpen} onOpenChange={setIsMethodsDialogOpen}>
         <DialogContent className="bg-slate-950 border-white/5 text-white max-w-lg rounded-[5px]">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black flex items-center gap-2"><Zap className="h-5 w-5 text-primary" /> Select Channel</DialogTitle>
+            <DialogTitle className="text-xl font-black flex items-center gap-2 uppercase tracking-tighter"><Zap className="h-5 w-5 text-primary" /> Select Channel</DialogTitle>
             <DialogDescription className="text-slate-500 text-xs">Choose how you want to settle this utility refill.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-4">
@@ -249,7 +272,7 @@ export default function WalletPage() {
               <Card key={m.id} className="bg-slate-900 border-white/5 hover:border-primary/50 transition-all cursor-pointer p-4 group relative overflow-hidden" onClick={() => handleSelectMethod(m)}>
                 <div className="flex items-start justify-between">
                   <div className="p-2 bg-slate-950 rounded-[5px] text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                    {m.type === 'MOBILE_MONEY' ? <Smartphone className="h-5 w-5" /> : <CreditCard className="h-5 w-5" />}
+                    {m.type === 'MOBILE_MONEY' ? <Smartphone className="h-5 w-5" /> : m.type === 'BANK' ? <CreditCard className="h-5 w-5" /> : <Wallet className="h-5 w-5" />}
                   </div>
                   {m.isBrandPay && <Zap className="h-3 w-3 text-primary fill-current" />}
                 </div>
@@ -263,14 +286,56 @@ export default function WalletPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Confirmation & Detail Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black uppercase tracking-tight">Confirm Settlement</DialogTitle>
+            <DialogDescription className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">
+              Review details for {selectedMethod?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-6">
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-[5px] flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-500 uppercase">Amount</span>
+              <span className="text-xl font-black text-white">MK {parseFloat(depositAmount).toLocaleString()}</span>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest px-1">Account / Phone Number</Label>
+              <Input 
+                value={accountNumber} 
+                onChange={e => setAccountNumber(e.target.value)} 
+                className="bg-slate-900 border-white/5 h-11 font-mono text-primary text-center text-lg" 
+                placeholder="0XXXXXXXXX"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 px-1">
+              <Checkbox id="save-future" checked={saveForFuture} onCheckedChange={(v: any) => setSaveForFuture(v)} />
+              <Label htmlFor="save-future" className="text-[10px] text-slate-500 font-bold uppercase">Save as future billing number</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={handleConfirmCheckout} 
+              disabled={isProcessing} 
+              className="w-full bg-primary hover:bg-primary/90 font-black uppercase tracking-widest h-11 rounded-[5px] text-xs gap-2"
+            >
+              {isProcessing ? <Zap className="h-4 w-4 animate-pulse" /> : "Confirm & Proceed"} <ArrowRight className="h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Manual Verification Dialog */}
       <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
         <DialogContent className="bg-slate-950 border-white/10 text-white max-w-md rounded-[5px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><ShieldAlert className="h-5 w-5 text-primary" /> Manual Verification</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 uppercase tracking-tighter"><ShieldAlert className="h-5 w-5 text-primary" /> Manual Audit Proof</DialogTitle>
           </DialogHeader>
           <div className="space-y-6 py-4">
-            <div className="p-4 bg-primary/5 border border-primary/20 rounded-[5px] space-y-2">
+            <div className="p-4 bg-slate-900 border border-white/5 rounded-[5px] space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
                 <FileText className="h-3 w-3" /> Settlement Instructions
               </Label>
@@ -280,27 +345,22 @@ export default function WalletPage() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">Transaction Reference</Label>
-                <Input value={manualReference} onChange={e => setManualReference(e.target.value)} className="bg-slate-900 border-white/5 h-10 font-mono text-primary" placeholder="e.g. TR-9001-XXXX" />
+                <Input value={manualReference} onChange={e => setManualReference(e.target.value)} className="bg-slate-900 border-white/5 h-10 font-mono text-primary" placeholder="e.g. TR-XXXX-XXXX" />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">Upload Receipt (Photo/PDF)</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">Upload Receipt Image</Label>
                 <div className="border-2 border-dashed border-white/5 rounded-[5px] p-8 text-center bg-slate-900/50 hover:bg-slate-900 transition-colors cursor-pointer relative group">
                   <UploadCloud className="h-8 w-8 text-slate-700 mx-auto mb-2 group-hover:text-primary transition-colors" />
-                  <p className="text-[10px] font-bold text-slate-500 uppercase">Click or Drag to Upload</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Click or Drag digital receipt</p>
                   <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" />
                 </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Checkbox id="save-pref" checked={saveMethod} onCheckedChange={(v: any) => setSaveMethod(v)} />
-                <Label htmlFor="save-pref" className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Save reference for future billing</Label>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleManualVerification} disabled={isUploading} className="w-full bg-primary font-black uppercase tracking-widest h-11 rounded-[5px]">
-              {isUploading ? "Uploading Protocol..." : "Submit for Admin Review"}
+            <Button onClick={handleManualVerification} disabled={isProcessing} className="w-full bg-primary font-black uppercase tracking-widest h-11 rounded-[5px]">
+              {isProcessing ? "Submitting Audit Proof..." : "Submit for Admin Review"}
             </Button>
           </DialogFooter>
         </DialogContent>

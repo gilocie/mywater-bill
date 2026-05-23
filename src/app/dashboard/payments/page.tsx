@@ -45,7 +45,7 @@ export default function PaymentMethodsPage() {
         const defaults: PaymentMethod[] = [
           { id: '1', name: 'Airtel Money', type: 'MOBILE_MONEY', provider: 'Airtel', active: true, isBrandPay: true },
           { id: '2', name: 'TNM Mpamba', type: 'MOBILE_MONEY', provider: 'TNM', active: true, isBrandPay: true },
-          { id: '3', name: 'Standard Bank', type: 'BANK', provider: 'Standard Bank', active: true, isBrandPay: false, accountNumber: '9000123456', manualInstructions: 'Deposit to Account: 9000123456. Branch: Blantyre. Use your Meter Number as reference.' },
+          { id: '3', name: 'Standard Bank', type: 'BANK', provider: 'Standard Bank', active: true, isBrandPay: false, accountNumber: '9000123456', manualInstructions: 'Deposit to Account: 9000123456. Branch: Victoria Avenue. Use your Meter Number as reference.' },
           { id: '4', name: 'Utility Wallet', type: 'WALLET', provider: 'MWB', active: true, isBrandPay: true }
         ];
         localStorage.setItem('mywater_payment_methods', JSON.stringify(defaults));
@@ -69,11 +69,17 @@ export default function PaymentMethodsPage() {
       }
       handleSaveMethod();
     } else {
-      if (!newMethod.name || !newMethod.accountNumber) {
-        toast({ title: "Identity Required", description: "Please provide channel name and account details.", variant: "destructive" });
-        return;
+      // Manual Mode
+      if (currentStep === 1) {
+        if (!newMethod.name || !newMethod.accountNumber) {
+          toast({ title: "Identity Required", description: "Please provide channel name and account details.", variant: "destructive" });
+          return;
+        }
+        setCurrentStep(2);
+      } else {
+        // Correctly handle final step commit
+        handleSaveMethod();
       }
-      setCurrentStep(2);
     }
   };
 
@@ -165,11 +171,11 @@ export default function PaymentMethodsPage() {
                     <div className="space-y-4">
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Channel Name</Label>
-                        <Input value={newMethod.name} onChange={e => setNewMethod({...newMethod, name: e.target.value})} className="bg-slate-800 border-white/5 h-9" placeholder="e.g. Standard Bank" />
+                        <Input value={newMethod.name || ''} onChange={e => setNewMethod({...newMethod, name: e.target.value})} className="bg-slate-800 border-white/5 h-9" placeholder="e.g. Standard Bank" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Account Number</Label>
-                        <Input value={newMethod.accountNumber} onChange={e => setNewMethod({...newMethod, accountNumber: e.target.value})} className="bg-slate-800 border-white/5 h-9" placeholder="Account Identifier" />
+                        <Input value={newMethod.accountNumber || ''} onChange={e => setNewMethod({...newMethod, accountNumber: e.target.value})} className="bg-slate-800 border-white/5 h-9" placeholder="Account Identifier" />
                       </div>
                     </div>
                   )}
@@ -179,7 +185,7 @@ export default function PaymentMethodsPage() {
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Settlement Instructions</Label>
                     <Textarea 
-                      value={newMethod.manualInstructions} 
+                      value={newMethod.manualInstructions || ''} 
                       onChange={e => setNewMethod({...newMethod, manualInstructions: e.target.value})} 
                       className="bg-slate-800 border-white/5 min-h-[120px] text-xs" 
                       placeholder="Explain how the customer should pay (Bank Name, Branch, Reference Type)..." 
