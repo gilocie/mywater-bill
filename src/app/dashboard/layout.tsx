@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap } from 'lucide-react';
+import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, ExternalLink, Eye, EyeOff, Settings2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -37,14 +37,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [portalDialogOpen, setPortalDialogOpen] = useState(false);
   
   // Profile state
   const [newName, setNewName] = useState('');
   
   // Settings state
-  const [newRate, setNewRate] = useState('2.5');
+  const [newRate, setNewRate] = useState(waterRate.toString());
   const [pawapayKey, setPawapayKey] = useState('');
   const [pawapayMode, setPawapayMode] = useState('sandbox');
+  const [portalUrl, setPortalUrl] = useState('https://dashboard.pawapay.io');
+  const [tempPortalUrl, setTempPortalUrl] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -65,6 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setNewRate(waterRate.toString());
       setPawapayKey(localStorage.getItem('mywater_pawapay_key') || '');
       setPawapayMode(localStorage.getItem('mywater_pawapay_mode') || 'sandbox');
+      setPortalUrl(localStorage.getItem('mywater_portal_url') || 'https://dashboard.pawapay.io');
     }
   }, [user, waterRate]);
 
@@ -80,6 +85,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setWaterRate(rate);
       localStorage.setItem('mywater_pawapay_key', pawapayKey);
       localStorage.setItem('mywater_pawapay_mode', pawapayMode);
+      localStorage.setItem('mywater_portal_url', portalUrl);
       setSettingsDialogOpen(false);
       toast({ 
         title: "Configuration Saved", 
@@ -230,21 +236,57 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <DropdownMenuSeparator className="bg-white/5" />
 
             <div className="space-y-4">
-              <Label className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2">
-                <Zap className="h-3 w-3" /> BrandPay / pawaPay Settings
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2">
+                  <Zap className="h-3 w-3" /> BrandPay / pawaPay Settings
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7 text-slate-500 hover:text-white bg-slate-800/50 rounded-[5px]"
+                    onClick={() => {
+                      setTempPortalUrl(portalUrl);
+                      setPortalDialogOpen(true);
+                    }}
+                    title="Configure Portal"
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                  </Button>
+                  {portalUrl && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7 text-primary hover:text-white bg-primary/10 rounded-[5px]"
+                      onClick={() => window.open(portalUrl, '_blank')}
+                      title="Launch Portal"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
               
               <div className="space-y-3 p-4 bg-primary/5 border border-primary/10 rounded-[5px]">
                 <div className="space-y-1.5">
                   <Label htmlFor="pawapay-key" className="text-[9px] font-bold uppercase text-slate-500">API Key</Label>
-                  <Input 
-                    id="pawapay-key" 
-                    type="password"
-                    value={pawapayKey} 
-                    onChange={(e) => setPawapayKey(e.target.value)}
-                    placeholder="PAWAPAY_API_KEY"
-                    className="bg-slate-950 border-white/5 h-9 text-sm font-mono" 
-                  />
+                  <div className="relative">
+                    <Input 
+                      id="pawapay-key" 
+                      type={showApiKey ? "text" : "password"}
+                      value={pawapayKey} 
+                      onChange={(e) => setPawapayKey(e.target.value)}
+                      placeholder="PAWAPAY_API_KEY"
+                      className="bg-slate-950 border-white/5 h-9 text-sm font-mono pr-10" 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                    >
+                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="space-y-1.5">
@@ -268,6 +310,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <DialogFooter>
             <Button onClick={handleUpdateSettings} className="w-full gap-2 rounded-[5px] h-9 text-xs font-bold uppercase tracking-widest bg-primary hover:bg-primary/90">
               <Save className="h-4 w-4" /> Apply Global Settings
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Portal Shortcut Config Dialog */}
+      <Dialog open={portalDialogOpen} onOpenChange={setPortalDialogOpen}>
+        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold flex items-center gap-2 text-primary">
+              <Settings2 className="h-4 w-4" /> Configure Portal Shortcut
+            </DialogTitle>
+            <DialogDescription className="text-[10px] text-slate-500">Set the dashboard URL for your gateway provider or sandbox environment.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-bold uppercase text-slate-500 tracking-widest">Portal Destination URL</Label>
+              <Input 
+                value={tempPortalUrl} 
+                onChange={(e) => setTempPortalUrl(e.target.value)}
+                placeholder="https://dashboard.pawapay.io"
+                className="bg-slate-950 border-white/5 h-9 text-xs text-white"
+              />
+            </div>
+            <p className="text-[8px] text-slate-600 italic">Example: https://sandbox.pawapay.io/login</p>
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={() => {
+                setPortalUrl(tempPortalUrl);
+                setPortalDialogOpen(false);
+                toast({ title: "Portal Linked", description: "System shortcut updated successfully." });
+              }}
+              className="w-full h-8 text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20"
+            >
+              Update Shortcut
             </Button>
           </DialogFooter>
         </DialogContent>
