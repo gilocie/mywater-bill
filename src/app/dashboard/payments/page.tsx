@@ -9,7 +9,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Plus, CreditCard, Smartphone, Wallet, Trash2, Zap, Info, ShieldCheck, ArrowRight, ArrowLeft, Save, FileText } from 'lucide-react';
+import { 
+  Plus, 
+  CreditCard, 
+  Smartphone, 
+  Wallet, 
+  Trash2, 
+  Zap, 
+  Info, 
+  ShieldCheck, 
+  ArrowRight, 
+  ArrowLeft, 
+  Save, 
+  FileText,
+  Pencil 
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,6 +39,8 @@ export default function PaymentMethodsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [integrationMode, setIntegrationMode] = useState<'brandpay' | 'manual'>('brandpay');
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   
   const [newMethod, setNewMethod] = useState<Partial<PaymentMethod>>({
     name: '',
@@ -83,20 +99,44 @@ export default function PaymentMethodsPage() {
   };
 
   const handleSaveMethod = () => {
-    const method: PaymentMethod = {
+    const methodData: PaymentMethod = {
       ...newMethod as PaymentMethod,
-      id: Date.now().toString(),
+      id: isEditMode && editingId ? editingId : Date.now().toString(),
       isBrandPay: integrationMode === 'brandpay' || newMethod.type === 'WALLET'
     };
     
-    saveMethods([...methods, method]);
+    let updated: PaymentMethod[];
+    if (isEditMode && editingId) {
+      updated = methods.map(m => m.id === editingId ? methodData : m);
+    } else {
+      updated = [...methods, methodData];
+    }
+
+    saveMethods(updated);
     setIsDialogOpen(false);
+    resetForm();
+    toast({ 
+      title: isEditMode ? "Channel Updated" : "Channel Provisioned", 
+      description: `${methodData.name} configuration synchronized.` 
+    });
+  };
+
+  const resetForm = () => {
     setCurrentStep(1);
-    toast({ title: "Channel Provisioned", description: `${method.name} is now active.` });
-    
+    setIsEditMode(false);
+    setEditingId(null);
     setNewMethod({
       name: '', type: 'MOBILE_MONEY', provider: '', active: true, isBrandPay: true, accountNumber: '', manualInstructions: ''
     });
+  };
+
+  const handleEdit = (method: PaymentMethod) => {
+    setNewMethod(method);
+    setIntegrationMode(method.isBrandPay ? 'brandpay' : 'manual');
+    setEditingId(method.id);
+    setIsEditMode(true);
+    setCurrentStep(1);
+    setIsDialogOpen(true);
   };
 
   const toggleStatus = (id: string) => {
@@ -118,7 +158,7 @@ export default function PaymentMethodsPage() {
           <h2 className="text-3xl font-bold tracking-tight text-white uppercase">Payment Gateway</h2>
           <p className="text-slate-400 font-medium">Provisioning and managing customer settlement channels.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(o) => { setIsDialogOpen(o); if(!o) setCurrentStep(1); }}>
+        <Dialog open={isDialogOpen} onOpenChange={(o) => { setIsDialogOpen(o); if(!o) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90 rounded-[5px] h-9 font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20">
               <Plus className="h-4 w-4 mr-2" /> Provision Channel
@@ -128,7 +168,7 @@ export default function PaymentMethodsPage() {
             <DialogHeader>
               <div className="flex items-center justify-between mb-2">
                 <DialogTitle className="flex items-center gap-2 text-lg">
-                  <Zap className="h-5 w-5 text-primary" /> Gateway Config
+                  <Zap className="h-5 w-5 text-primary" /> {isEditMode ? 'Update Channel' : 'Gateway Config'}
                 </DialogTitle>
                 <span className="text-[9px] font-bold text-slate-500 bg-slate-800 px-2 py-1 rounded">STEP {currentStep} OF 2</span>
               </div>
@@ -162,6 +202,7 @@ export default function PaymentMethodsPage() {
                           <SelectContent className="bg-slate-800 border-white/10 text-white">
                             <SelectItem value="AIRTEL">Airtel Money</SelectItem>
                             <SelectItem value="TNM">TNM Mpamba</SelectItem>
+                            <SelectItem value="MWB">Utility Wallet</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -201,7 +242,7 @@ export default function PaymentMethodsPage() {
                 </Button>
               )}
               <Button onClick={handleNextStep} className="flex-[2] bg-primary font-bold uppercase tracking-widest rounded-[5px] h-10">
-                {integrationMode === 'brandpay' || currentStep === 2 ? 'Commit Provisioning' : 'Continue to Details'} <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                {integrationMode === 'brandpay' || currentStep === 2 ? (isEditMode ? 'Save Changes' : 'Commit Provisioning') : 'Continue to Details'} <ArrowRight className="ml-2 h-3.5 w-3.5" />
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -245,11 +286,16 @@ export default function PaymentMethodsPage() {
                )}
               <div className="flex items-center justify-between">
                 <Badge variant={method.active ? "default" : "outline"} className={method.active ? "bg-green-500/10 text-green-500 border-green-500/20 font-bold" : "text-slate-600 border-white/5"}>
-                  {method.active ? 'READY' : 'OFFLINE'}
+                  {method.active ? 'ACTIVE' : 'OFFLINE'}
                 </Badge>
-                <Button variant="ghost" size="icon" onClick={() => deleteMethod(method.id)} className="opacity-0 group-hover:opacity-100 transition-all text-slate-700 hover:text-red-400">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <Button variant="ghost" size="icon" onClick={() => handleEdit(method)} className="h-8 w-8 text-slate-500 hover:text-white">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => deleteMethod(method.id)} className="h-8 w-8 text-slate-500 hover:text-red-400">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -258,3 +304,4 @@ export default function PaymentMethodsPage() {
     </div>
   );
 }
+
