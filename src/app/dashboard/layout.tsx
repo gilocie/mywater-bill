@@ -40,15 +40,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [portalDialogOpen, setPortalDialogOpen] = useState(false);
   const [testPurchaseDialogOpen, setTestPurchaseDialogOpen] = useState(false);
   
-  // Test Status state
   const [testStatus, setTestStatus] = useState<'idle' | 'processing' | 'success' | 'failure'>('idle');
   const [lastTestResult, setLastTestResult] = useState<any>(null);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
 
-  // Profile state
   const [newName, setNewName] = useState('');
   
-  // Settings state
   const [newRate, setNewRate] = useState(waterRate.toString());
   const [pawapayKey, setPawapayKey] = useState('');
   const [pawapayMode, setPawapayMode] = useState('sandbox');
@@ -56,7 +53,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [tempPortalUrl, setTempPortalUrl] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
 
-  // Test Purchase state
   const [testProduct, setTestProduct] = useState('Utility Connectivity Test');
   const [testPrice, setTestPrice] = useState('500');
 
@@ -98,7 +94,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setSettingsDialogOpen(false);
       toast({ 
         title: "Configuration Saved", 
-        description: "Global utility parameters and BrandPay settings synchronized." 
+        description: "Global utility parameters synchronized." 
       });
     }
   };
@@ -107,19 +103,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (typeof window === 'undefined' || !(window as any).BrandPay) {
       toast({
         title: "System Error",
-        description: "Payment gateway (BrandPay) is not initialized.",
+        description: "Payment gateway is not initialized.",
         variant: "destructive"
       });
       return;
     }
 
-    // Close settings dialog to ensure the SDK is interactive and not blocked by our own focus trap
     setTestPurchaseDialogOpen(false);
     setSettingsDialogOpen(false);
     
     toast({
-      title: "Initiating Gateway",
-      description: "Opening secure communication protocol...",
+      title: "Verifying Protocol",
+      description: "Initiating secure handshake...",
     });
 
     (window as any).BrandPay.openCheckout({
@@ -131,12 +126,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       country: 'MWI',
       metadata: {
         statementDescription: testProduct.substring(0, 22),
-        apiKey: pawapayKey,
-        mode: pawapayMode,
         fields: [
-          { fieldName: 'type', fieldValue: 'GATEWAY_TEST' },
-          { fieldName: 'apiKey', fieldValue: pawapayKey },
-          { fieldName: 'mode', fieldValue: pawapayMode }
+          { fieldName: 'type', fieldValue: 'GATEWAY_TEST' }
         ]
       },
       onSuccess: (result: any) => {
@@ -152,23 +143,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setTestStatus('failure');
         toast({
           title: "Test Failed",
-          description: error || "Could not complete test transaction.",
+          description: error || "Verification rejected.",
           variant: "destructive"
         });
       }
     });
   };
 
-  if (isLoading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="h-12 w-12 bg-primary/20 rounded-full" />
-          <p className="text-sm font-medium text-slate-400">Loading utility workspace...</p>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading || !user) return null;
 
   return (
     <SidebarProvider>
@@ -241,7 +223,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">Manage Profile</DialogTitle>
-            <DialogDescription className="text-slate-500 text-xs">Update your personal information and profile picture.</DialogDescription>
+            <DialogDescription className="text-slate-500 text-xs">Update your personal information.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex flex-col items-center gap-3 mb-4">
@@ -258,12 +240,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div className="space-y-2">
               <Label htmlFor="name" className="text-xs font-bold uppercase text-slate-500">Display Name</Label>
-              <Input 
-                id="name" 
-                value={newName} 
-                onChange={(e) => setNewName(e.target.value)}
-                className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm" 
-              />
+              <Input id="name" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm" />
             </div>
           </div>
           <DialogFooter>
@@ -278,21 +255,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <DialogContent className="bg-slate-900 border-white/5 text-white max-md rounded-[5px] overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> System Configuration</DialogTitle>
-            <DialogDescription className="text-slate-500 text-xs">Modify global utility parameters and payment gateways.</DialogDescription>
+            <DialogDescription className="text-slate-500 text-xs">Modify global utility parameters.</DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             <div className="space-y-3">
               <Label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Utility Parameters</Label>
               <div className="space-y-2">
                 <Label htmlFor="rate" className="text-[9px] font-bold uppercase text-slate-600">Water Rate (MK / Liter)</Label>
-                <Input 
-                  id="rate" 
-                  type="number"
-                  step="0.01"
-                  value={newRate} 
-                  onChange={(e) => setNewRate(e.target.value)}
-                  className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm" 
-                />
+                <Input id="rate" type="number" step="0.01" value={newRate} onChange={(e) => setNewRate(e.target.value)} className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm" />
               </div>
             </div>
 
@@ -301,30 +271,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2">
-                  <Zap className="h-3 w-3" /> BRANDPAY / PAWAPAY SETTINGS
+                  <Zap className="h-3 w-3" /> BRANDPAY SETTINGS
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-7 w-7 text-slate-500 hover:text-white bg-slate-800/50 rounded-[5px]"
-                    onClick={() => {
-                      setTempPortalUrl(portalUrl);
-                      setPortalDialogOpen(true);
-                    }}
-                    title="Configure Portal"
-                  >
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-white bg-slate-800/50 rounded-[5px]" onClick={() => { setTempPortalUrl(portalUrl); setPortalDialogOpen(true); }}>
                     <Settings2 className="h-3.5 w-3.5" />
                   </Button>
                   {portalUrl && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-7 px-3 text-[10px] font-bold uppercase tracking-widest text-primary hover:text-white bg-primary/10 rounded-[5px] gap-1.5"
-                      onClick={() => window.open(portalUrl, '_blank')}
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Get Key
+                    <Button variant="ghost" size="sm" className="h-7 px-3 text-[10px] font-bold uppercase tracking-widest text-primary hover:text-white bg-primary/10 rounded-[5px] gap-1.5" onClick={() => window.open(portalUrl, '_blank')}>
+                      <ExternalLink className="h-3.5 w-3.5" /> Get Key
                     </Button>
                   )}
                 </div>
@@ -334,29 +289,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="pawapay-key" className="text-[9px] font-bold uppercase text-slate-500">API Key</Label>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => setTestPurchaseDialogOpen(true)}
-                      className="h-6 px-2 text-[8px] font-black uppercase text-accent hover:text-white bg-accent/10 rounded-[3px] gap-1"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => setTestPurchaseDialogOpen(true)} className="h-6 px-2 text-[8px] font-black uppercase text-accent hover:text-white bg-accent/10 rounded-[3px] gap-1">
                       <PlayCircle className="h-2.5 w-2.5" /> Test Purchase
                     </Button>
                   </div>
                   <div className="relative">
-                    <Input 
-                      id="pawapay-key" 
-                      type={showApiKey ? "text" : "password"}
-                      value={pawapayKey} 
-                      onChange={(e) => setPawapayKey(e.target.value)}
-                      placeholder="PAWAPAY_API_KEY"
-                      className="bg-slate-950 border-white/5 h-9 text-sm font-mono pr-10" 
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
-                    >
+                    <Input id="pawapay-key" type={showApiKey ? "text" : "password"} value={pawapayKey} onChange={(e) => setPawapayKey(e.target.value)} placeholder="PAWAPAY_API_KEY" className="bg-slate-950 border-white/5 h-9 text-sm font-mono pr-10" />
+                    <button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">
                       {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
@@ -365,18 +304,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="space-y-1.5">
                   <Label className="text-[9px] font-bold uppercase text-slate-500">Operation Mode</Label>
                   <Select value={pawapayMode} onValueChange={setPawapayMode}>
-                    <SelectTrigger className="bg-slate-950 border-white/5 h-9 rounded-[5px]">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="bg-slate-950 border-white/5 h-9 rounded-[5px]"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-slate-900 border-white/10 text-white">
                       <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>
                       <SelectItem value="live">Live (Production)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="text-[8px] text-slate-600 italic leading-tight mt-2">
-                  Note: These settings must also be configured as environment variables (PAWAPAY_API_KEY, PAWAPAY_MODE) on the server for the backend routes to operate.
-                </p>
               </div>
             </div>
           </div>
@@ -392,31 +326,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold flex items-center gap-2 text-primary">
-              <Settings2 className="h-4 w-4" /> Configure Portal Shortcut
+              <Settings2 className="h-4 w-4" /> Configure Portal
             </DialogTitle>
-            <DialogDescription className="text-[10px] text-slate-500">Set the dashboard URL for your gateway provider or sandbox environment.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-[9px] font-bold uppercase text-slate-500 tracking-widest">Portal Destination URL</Label>
-              <Input 
-                value={tempPortalUrl} 
-                onChange={(e) => setTempPortalUrl(e.target.value)}
-                placeholder="https://dashboard.pawapay.io"
-                className="bg-slate-950 border-white/5 h-9 text-xs text-white"
-              />
+              <Label className="text-[9px] font-bold uppercase text-slate-500 tracking-widest">Destination URL</Label>
+              <Input value={tempPortalUrl} onChange={(e) => setTempPortalUrl(e.target.value)} placeholder="https://dashboard.pawapay.io" className="bg-slate-950 border-white/5 h-9 text-xs text-white" />
             </div>
-            <p className="text-[8px] text-slate-600 italic">Example: https://sandbox.pawapay.io/login</p>
           </div>
           <DialogFooter>
-            <Button 
-              onClick={() => {
-                setPortalUrl(tempPortalUrl);
-                setPortalDialogOpen(false);
-                toast({ title: "Portal Linked", description: "System shortcut updated successfully." });
-              }}
-              className="w-full h-8 text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20"
-            >
+            <Button onClick={() => { setPortalUrl(tempPortalUrl); setPortalDialogOpen(false); toast({ title: "Portal Linked", description: "System shortcut updated." }); }} className="w-full h-8 text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20">
               Update Shortcut
             </Button>
           </DialogFooter>
@@ -427,64 +347,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold flex items-center gap-2 text-accent">
-              <Zap className="h-4 w-4" /> Gateway Test Suite
+              <Zap className="h-4 w-4" /> Test Suite
             </DialogTitle>
-            <DialogDescription className="text-[10px] text-slate-500 uppercase font-black tracking-tight">Verify PawaPay communication protocols.</DialogDescription>
+            <DialogDescription className="text-[10px] text-slate-500 uppercase font-black tracking-tight">Verify gateway communication.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-[9px] font-bold uppercase text-slate-500">Test Product Name</Label>
-              <Input 
-                value={testProduct} 
-                onChange={(e) => setTestProduct(e.target.value)}
-                className="bg-slate-950 border-white/5 h-9 text-xs"
-              />
+              <Label className="text-[9px] font-bold uppercase text-slate-500">Test Product</Label>
+              <Input value={testProduct} onChange={(e) => setTestProduct(e.target.value)} className="bg-slate-950 border-white/5 h-9 text-xs" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[9px] font-bold uppercase text-slate-500">Amount (MK)</Label>
-              <Input 
-                type="number"
-                value={testPrice} 
-                onChange={(e) => setTestPrice(e.target.value)}
-                className="bg-slate-950 border-white/5 h-9 text-xs font-bold"
-              />
-            </div>
-            <div className="p-3 bg-white/5 rounded-[5px] border border-white/5">
-              <p className="text-[8px] text-slate-500 uppercase font-bold mb-1">Active Mode</p>
-              <div className="flex items-center gap-2">
-                <div className={cn("h-1.5 w-1.5 rounded-full", pawapayMode === 'live' ? 'bg-red-500' : 'bg-green-500')} />
-                <span className="text-[10px] font-black uppercase tracking-widest">{pawapayMode}</span>
-              </div>
+              <Input type="number" value={testPrice} onChange={(e) => setTestPrice(e.target.value)} className="bg-slate-950 border-white/5 h-9 text-xs font-bold" />
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              onClick={handleTestPurchase}
-              className="w-full h-10 text-[10px] font-bold uppercase tracking-widest bg-accent hover:bg-accent/90 text-white rounded-[5px] shadow-lg shadow-accent/20"
-            >
+            <Button onClick={handleTestPurchase} className="w-full h-10 text-[10px] font-bold uppercase tracking-widest bg-accent hover:bg-accent/90 text-white rounded-[5px] shadow-lg shadow-accent/20">
               Execute Test Purchase
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Test Status Dialog - Only triggers for final Success/Failure states */}
       <Dialog open={testStatus === 'success' || testStatus === 'failure'} onOpenChange={(open) => !open && setTestStatus('idle')}>
         <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] text-center py-10">
           {testStatus === 'success' && (
             <div className="animate-in fade-in zoom-in-95 duration-500">
               <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4 animate-bounce" />
-              <DialogTitle className="uppercase tracking-widest text-sm mb-1 text-green-500 font-black">Gateway Verified</DialogTitle>
-              <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Test purchase completed successfully.</p>
+              <DialogTitle className="uppercase tracking-widest text-sm mb-1 text-green-500 font-black">Verified</DialogTitle>
+              <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Test completed successfully.</p>
               <div className="flex flex-col gap-2">
-                <Button 
-                  onClick={() => {
-                    setTestStatus('idle');
-                    setReceiptDialogOpen(true);
-                  }}
-                  className="w-full bg-white/5 hover:bg-white/10 text-xs font-bold uppercase h-10 gap-2 border border-white/5"
-                >
-                  <FileText className="h-4 w-4 text-primary" /> View Test Receipt
+                <Button onClick={() => { setTestStatus('idle'); setReceiptDialogOpen(true); }} className="w-full bg-white/5 hover:bg-white/10 text-xs font-bold uppercase h-10 gap-2 border border-white/5">
+                  <FileText className="h-4 w-4 text-primary" /> View Receipt
                 </Button>
                 <Button variant="ghost" onClick={() => setTestStatus('idle')} className="text-[10px] text-slate-500 uppercase font-bold">Dismiss</Button>
               </div>
@@ -494,15 +388,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {testStatus === 'failure' && (
             <div className="animate-in fade-in zoom-in-95 duration-500">
               <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
-              <DialogTitle className="uppercase tracking-widest text-sm mb-1 text-destructive">Verification Failed</DialogTitle>
-              <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">The communication protocol was rejected.</p>
+              <DialogTitle className="uppercase tracking-widest text-sm mb-1 text-destructive">Failed</DialogTitle>
+              <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Communication protocol rejected.</p>
               <Button onClick={() => setTestStatus('idle')} className="w-full bg-destructive text-xs font-bold uppercase h-10">Retry Connection</Button>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Test Receipt Dialog */}
       <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm rounded-[5px] p-0 overflow-hidden">
           <div className="bg-primary/20 p-6 flex items-center justify-between border-b border-white/5">
@@ -512,7 +405,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
               <div>
                 <h3 className="text-sm font-black uppercase tracking-tighter">Test Receipt</h3>
-                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Gateway Verified</p>
+                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Success</p>
               </div>
             </div>
             <Zap className="h-4 w-4 text-primary fill-current opacity-50" />
@@ -520,7 +413,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           
           <div className="p-8 space-y-6">
             <div className="text-center space-y-1 pb-4 border-b border-dashed border-white/10">
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Transaction Total</p>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Total</p>
               <h4 className="text-4xl font-black text-white">
                 <span className="text-primary text-xl mr-1">MK</span>
                 {parseFloat(lastTestResult?.amount || '0').toLocaleString()}
@@ -533,18 +426,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <span className="text-white font-mono">{lastTestResult?.product}</span>
               </div>
               <div className="flex justify-between items-center text-[10px]">
-                <span className="text-slate-500 font-bold uppercase">Gateway</span>
-                <span className="text-primary font-bold">BRANDPAY / PAWAPAY</span>
-              </div>
-              <div className="flex justify-between items-center text-[10px]">
                 <span className="text-slate-500 font-bold uppercase">Timestamp</span>
                 <span className="text-white font-mono opacity-60">{lastTestResult?.date}</span>
               </div>
-            </div>
-
-            <div className="bg-slate-950 p-4 rounded-[5px] border border-white/5">
-              <p className="text-[8px] text-slate-500 font-bold uppercase mb-2">System Metadata</p>
-              <p className="text-[9px] text-primary font-mono leading-tight break-all">REF: {Math.random().toString(36).substring(2, 15).toUpperCase()}</p>
             </div>
           </div>
 
