@@ -114,8 +114,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
-    setTestStatus('processing');
     setTestPurchaseDialogOpen(false);
+    
+    // We use a non-blocking toast for initiation to ensure the SDK UI remains clickable
+    toast({
+      title: "Initiating Gateway",
+      description: "Opening secure communication protocol...",
+    });
 
     (window as any).BrandPay.openCheckout({
       amount: parseFloat(testPrice),
@@ -457,17 +462,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </DialogContent>
       </Dialog>
 
-      {/* Test Status Dialog */}
-      <Dialog open={testStatus !== 'idle'} onOpenChange={(open) => !open && setTestStatus('idle')}>
+      {/* Test Status Dialog - Only triggers for final Success/Failure states to prevent SDK interaction blocking */}
+      <Dialog open={testStatus === 'success' || testStatus === 'failure'} onOpenChange={(open) => !open && setTestStatus('idle')}>
         <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] text-center py-10">
-          {testStatus === 'processing' && (
-            <div className="animate-in fade-in zoom-in-95 duration-500">
-              <Loader2 className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
-              <DialogTitle className="uppercase tracking-widest text-sm mb-2">Gateway Handshake</DialogTitle>
-              <p className="text-[10px] text-slate-500 uppercase font-bold">Verifying communication protocol...</p>
-            </div>
-          )}
-          
           {testStatus === 'success' && (
             <div className="animate-in fade-in zoom-in-95 duration-500">
               <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4 animate-bounce" />
