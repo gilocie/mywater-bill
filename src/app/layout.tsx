@@ -3,6 +3,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { AuthProvider } from '@/components/providers/auth-provider';
 import { Toaster } from '@/components/ui/toaster';
+import Script from 'next/script';
 
 export const metadata: Metadata = {
   title: 'My Water Bill - Malawi Water Board',
@@ -26,6 +27,7 @@ export default function RootLayout({
           {children}
           <Toaster />
         </AuthProvider>
+        <Script src="https://cdn.jsdelivr.net/gh/gilocie/brandpay-1.0@main/brandpay-sdk.js" strategy="beforeInteractive" />
       </body>
     </html>
   );

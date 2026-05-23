@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut } from 'lucide-react';
+import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout, updateUser, waterRate, setWaterRate } = useAuth();
@@ -39,16 +40,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   
   // Profile state
   const [newName, setNewName] = useState(user?.name || '');
-  const [newAvatar, setNewAvatar] = useState('');
   
   // Settings state
   const [newRate, setNewRate] = useState(waterRate.toString());
+  const [pawapayKey, setPawapayKey] = useState(localStorage.getItem('mywater_pawapay_key') || '');
+  const [pawapayMode, setPawapayMode] = useState(localStorage.getItem('mywater_pawapay_mode') || 'sandbox');
 
   React.useEffect(() => {
     if (!isLoading && !user) {
       router.push('/');
     }
   }, [user, isLoading, router]);
+
+  React.useEffect(() => {
+    // Initialize BrandPay SDK on mount
+    if (typeof window !== 'undefined' && (window as any).BrandPay) {
+      (window as any).BrandPay.init({
+        checkoutUrl: window.location.origin
+      });
+    }
+  }, []);
 
   const handleUpdateProfile = () => {
     updateUser({ name: newName });
@@ -60,8 +71,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const rate = parseFloat(newRate);
     if (!isNaN(rate)) {
       setWaterRate(rate);
+      localStorage.setItem('mywater_pawapay_key', pawapayKey);
+      localStorage.setItem('mywater_pawapay_mode', pawapayMode);
       setSettingsDialogOpen(false);
-      toast({ title: "Settings Saved", description: "Global water rate updated successfully." });
+      toast({ 
+        title: "Configuration Saved", 
+        description: "Global utility parameters and BrandPay settings synchronized." 
+      });
     }
   };
 
@@ -183,15 +199,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* System Settings Dialog */}
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
-        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
+        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-md rounded-[5px] overflow-y-auto max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold">System Configuration</DialogTitle>
-            <DialogDescription className="text-slate-500 text-xs">Modify global utility parameters and billing rates.</DialogDescription>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> System Configuration</DialogTitle>
+            <DialogDescription className="text-slate-500 text-xs">Modify global utility parameters and payment gateways.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="rate" className="text-xs font-bold uppercase text-slate-500">Water Rate (MK / Liter)</Label>
-              <div className="flex gap-2">
+          <div className="space-y-6 py-4">
+            <div className="space-y-3">
+              <Label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Utility Parameters</Label>
+              <div className="space-y-2">
+                <Label htmlFor="rate" className="text-[9px] font-bold uppercase text-slate-600">Water Rate (MK / Liter)</Label>
                 <Input 
                   id="rate" 
                   type="number"
@@ -200,15 +217,49 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   onChange={(e) => setNewRate(e.target.value)}
                   className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm" 
                 />
-                <Button variant="outline" className="h-9 border-white/5 hover:bg-white/5 rounded-[5px] px-3">
-                  Update
-                </Button>
               </div>
-              <p className="text-[9px] text-slate-600 font-medium">This rate will be applied to all new invoices generated from this point forward.</p>
+            </div>
+
+            <DropdownMenuSeparator className="bg-white/5" />
+
+            <div className="space-y-4">
+              <Label className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2">
+                <Zap className="h-3 w-3" /> BrandPay / pawaPay Settings
+              </Label>
+              
+              <div className="space-y-3 p-4 bg-primary/5 border border-primary/10 rounded-[5px]">
+                <div className="space-y-1.5">
+                  <Label htmlFor="pawapay-key" className="text-[9px] font-bold uppercase text-slate-500">API Key</Label>
+                  <Input 
+                    id="pawapay-key" 
+                    type="password"
+                    value={pawapayKey} 
+                    onChange={(e) => setPawapayKey(e.target.value)}
+                    placeholder="PAWAPAY_API_KEY"
+                    className="bg-slate-950 border-white/5 h-9 text-sm font-mono" 
+                  />
+                </div>
+                
+                <div className="space-y-1.5">
+                  <Label className="text-[9px] font-bold uppercase text-slate-500">Operation Mode</Label>
+                  <Select value={pawapayMode} onValueChange={setPawapayMode}>
+                    <SelectTrigger className="bg-slate-950 border-white/5 h-9 rounded-[5px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-white/10 text-white">
+                      <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>
+                      <SelectItem value="live">Live (Production)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-[8px] text-slate-600 italic leading-tight mt-2">
+                  Note: These settings must also be configured as environment variables (PAWAPAY_API_KEY, PAWAPAY_MODE) on the server for the backend routes to operate.
+                </p>
+              </div>
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleUpdateSettings} className="w-full gap-2 rounded-[5px] h-9 text-xs font-bold uppercase tracking-widest bg-accent hover:bg-accent/90">
+            <Button onClick={handleUpdateSettings} className="w-full gap-2 rounded-[5px] h-9 text-xs font-bold uppercase tracking-widest bg-primary hover:bg-primary/90">
               <Save className="h-4 w-4" /> Apply Global Settings
             </Button>
           </DialogFooter>

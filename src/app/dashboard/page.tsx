@@ -38,13 +38,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Bill, User, PaymentMethod, Transaction } from '@/app/lib/mock-data';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
-import { Switch } from '@/components/ui/switch';
 
 export default function DashboardPage() {
   const { user, updateUser } = useAuth();
@@ -53,22 +50,7 @@ export default function DashboardPage() {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [allBills, setAllBills] = useState<Bill[]>([]);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   
-  // Payment Dialog State
-  const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
-  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
-  const [payAccountNum, setPayAccountNum] = useState('');
-  const [savePayMethod, setSavePayMethod] = useState(false);
-  
-  // Deposit Dialog State
-  const [isDepositDialogOpen, setIsDepositDialogOpen] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('');
-  const [depositAccountNum, setDepositAccountNum] = useState('');
-  const [saveDepositMethod, setSaveDepositMethod] = useState(false);
-  const [isDepositing, setIsDepositing] = useState(false);
-  const [selectedDepositMethodId, setSelectedDepositMethodId] = useState<string | null>(null);
-
   const [usageFilter, setUsageFilter] = useState<'month' | '3months' | 'year'>('month');
 
   useEffect(() => {
@@ -81,11 +63,6 @@ export default function DashboardPage() {
 
       const transStr = localStorage.getItem('mywater_all_transactions');
       if (transStr) setAllTransactions(JSON.parse(transStr));
-
-      const methodsStr = localStorage.getItem('mywater_payment_methods');
-      if (methodsStr) {
-        setPaymentMethods(JSON.parse(methodsStr).filter((m: PaymentMethod) => m.active));
-      }
     };
 
     loadData();
@@ -95,89 +72,68 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
-  const handlePayment = () => {
-    if (!selectedMethod || !user) return;
-    
-    const method = paymentMethods.find(m => m.id === selectedMethod);
-    const userBills = allBills.filter(b => b.customerId === user.id && b.status !== 'PAID');
-    const totalDue = userBills.reduce((sum, b) => sum + b.totalAmount, 0);
-
-    const updatedBills = allBills.map(b => 
-      (b.customerId === user.id && b.status !== 'PAID') ? { ...b, status: 'PAID' as const } : b
-    );
-    
-    localStorage.setItem('mywater_all_bills', JSON.stringify(updatedBills));
-    setAllBills(updatedBills);
-
-    const newTrans: Transaction = {
-      id: `tr-${Date.now()}`,
-      userId: user.id,
-      amount: totalDue,
-      type: 'BILL_PAYMENT',
-      date: new Date().toLocaleDateString('en-GB'),
-      description: `Utility Settlement via ${method?.name}`
-    };
-    const updatedTrans = [newTrans, ...allTransactions];
-    localStorage.setItem('mywater_all_transactions', JSON.stringify(updatedTrans));
-    setAllTransactions(updatedTrans);
-
-    if (method?.type === 'WALLET') {
-      updateUser({ walletBalance: (user.walletBalance || 0) - totalDue });
-    }
-
-    setIsPayDialogOpen(false);
-    setSelectedMethod(null);
-    setPayAccountNum('');
-    toast({
-      title: "Bill Settled",
-      description: `Payment of MK ${totalDue.toLocaleString()} successful.`,
-    });
-  };
-
-  const handleDeposit = () => {
-    if (!depositAmount || isNaN(Number(depositAmount)) || !selectedDepositMethodId || !user) {
+  const handleCheckout = (amount: number, type: 'DEPOSIT' | 'BILL_PAYMENT') => {
+    if (typeof window === 'undefined' || !(window as any).BrandPay) {
       toast({
-        title: "Incomplete Request",
-        description: "Please enter a valid amount and select a channel.",
+        title: "System Error",
+        description: "Payment gateway (BrandPay) is not initialized.",
         variant: "destructive"
       });
       return;
     }
-    
-    setIsDepositing(true);
-    const amount = parseFloat(depositAmount);
-    const method = paymentMethods.find(m => m.id === selectedDepositMethodId);
 
-    setTimeout(() => {
-      const currentBalance = user.walletBalance || 0;
-      updateUser({ walletBalance: currentBalance + amount });
+    (window as any).BrandPay.openCheckout({
+      amount: amount,
+      currency: 'MWK',
+      customerPhone: user.phoneNumber || '',
+      metadata: {
+        statementDescription: type === 'DEPOSIT' ? 'Wallet Refill' : 'Bill Settlement',
+        fields: [
+          { fieldName: 'userId', fieldValue: user.id },
+          { fieldName: 'type', fieldValue: type }
+        ]
+      },
+      onSuccess: (transaction: any) => {
+        // 1. Log Transaction
+        const newTrans: Transaction = {
+          id: `tr-${Date.now()}`,
+          userId: user.id,
+          amount: amount,
+          type: type,
+          date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          description: type === 'DEPOSIT' ? 'Wallet Refill via BrandPay' : 'Utility Settlement via BrandPay'
+        };
 
-      const newTrans: Transaction = {
-        id: `tr-${Date.now()}`,
-        userId: user.id,
-        amount: amount,
-        type: 'DEPOSIT',
-        date: new Date().toLocaleDateString('en-GB'),
-        description: `Wallet Refill via ${method?.name}`
-      };
+        const updatedTrans = [newTrans, ...allTransactions];
+        localStorage.setItem('mywater_all_transactions', JSON.stringify(updatedTrans));
+        setAllTransactions(updatedTrans);
 
-      const transStr = localStorage.getItem('mywater_all_transactions') || '[]';
-      const allTrans = JSON.parse(transStr);
-      localStorage.setItem('mywater_all_transactions', JSON.stringify([newTrans, ...allTrans]));
-      
-      setIsDepositing(false);
-      setDepositAmount('');
-      setDepositAccountNum('');
-      setSelectedDepositMethodId(null);
-      setIsDepositDialogOpen(false);
+        // 2. Update Balance / Bills
+        if (type === 'DEPOSIT') {
+          updateUser({ walletBalance: (user.walletBalance || 0) + amount });
+        } else {
+          const userBills = allBills.filter(b => b.customerId === user.id && b.status !== 'PAID');
+          const updatedBills = allBills.map(b => 
+            (b.customerId === user.id && b.status !== 'PAID') ? { ...b, status: 'PAID' as const } : b
+          );
+          localStorage.setItem('mywater_all_bills', JSON.stringify(updatedBills));
+          setAllBills(updatedBills);
+        }
 
-      toast({
-        title: "Balance Updated",
-        description: `MK ${amount.toLocaleString()} credited successfully.`,
-      });
-
-      window.dispatchEvent(new Event('storage'));
-    }, 1500);
+        toast({
+          title: "Transaction Successful",
+          description: `MK ${amount.toLocaleString()} ${type === 'DEPOSIT' ? 'credited to wallet' : 'settled'}.`,
+        });
+        window.dispatchEvent(new Event('storage'));
+      },
+      onFailure: (error: any) => {
+        toast({
+          title: "Payment Failed",
+          description: error || "Could not complete transaction.",
+          variant: "destructive"
+        });
+      }
+    });
   };
 
   // --- SUPER ADMIN VIEW ---
@@ -273,15 +229,6 @@ export default function DashboardPage() {
       (u.area === user.area || u.assignedStaffId === user.id || u.district === user.district)
     );
     
-    const criticalWarnings = assignedCustomers.filter(c => {
-      if (!c.suspensionGracePeriodDate) return false;
-      const graceDate = new Date(c.suspensionGracePeriodDate);
-      const today = new Date();
-      const diffTime = graceDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays === 1;
-    });
-
     return (
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -296,16 +243,6 @@ export default function DashboardPage() {
             <span className="text-[10px] font-bold uppercase tracking-widest text-white">Assigned: {user.area}</span>
           </div>
         </div>
-
-        {criticalWarnings.length > 0 && (
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-[5px] flex items-center gap-4 animate-pulse">
-            <AlertTriangle className="h-6 w-6 text-red-500" />
-            <div>
-              <p className="text-sm font-bold text-white">Disconnection Protocol Alert</p>
-              <p className="text-xs text-slate-400">{criticalWarnings.length} account(s) reaching grace limit.</p>
-            </div>
-          </div>
-        )}
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="shadow-sm border-white/5 bg-slate-800 text-white rounded-[5px]">
@@ -350,37 +287,17 @@ export default function DashboardPage() {
             <CardTitle className="text-lg font-bold text-white">Zone Registry</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {assignedCustomers.length > 0 ? assignedCustomers.map(customer => {
-               let graceDisplay = null;
-               if (customer.suspensionGracePeriodDate) {
-                 const graceDate = new Date(customer.suspensionGracePeriodDate);
-                 const today = new Date();
-                 const diffTime = graceDate.getTime() - today.getTime();
-                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                 graceDisplay = diffDays > 0 ? `${diffDays}d remaining` : 'Grace Expired';
-               }
-
-               return (
+            {assignedCustomers.length > 0 ? assignedCustomers.map(customer => (
                 <div key={customer.id} className="flex items-center justify-between p-4 border border-white/5 rounded-[5px] hover:bg-white/5 transition-all cursor-pointer" onClick={() => router.push(`/dashboard/customers/${customer.id}`)}>
                   <div className="flex items-center gap-4">
                     <div className="h-10 w-10 bg-primary/10 rounded-[5px] flex items-center justify-center text-primary relative">
                       <Droplets className="h-5 w-5" />
-                      {customer.suspensionStatus === 'WARNING' && <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-slate-900" />}
                     </div>
                     <div>
                       <p className="font-bold text-sm text-white">{customer.name}</p>
-                      <div className="flex items-center gap-3">
-                        <p className="text-xs text-slate-500 flex items-center gap-1">
-                          <MapPin className="h-3 w-3" /> {customer.address || customer.area}
-                        </p>
-                        {graceDisplay && (
-                          <span className={cn("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded", 
-                            graceDisplay === '1d remaining' ? "bg-red-500 text-white" : "bg-slate-800 text-slate-400"
-                          )}>
-                            {graceDisplay}
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-xs text-slate-500 flex items-center gap-1">
+                        <MapPin className="h-3 w-3" /> {customer.address || customer.area}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -388,8 +305,7 @@ export default function DashboardPage() {
                     <p className="text-[9px] text-slate-500 uppercase font-bold">Manage</p>
                   </div>
                 </div>
-               );
-            }) : (
+            )) : (
               <div className="text-center py-12">
                 <Users className="h-12 w-12 text-slate-800 mx-auto mb-2 opacity-20" />
                 <p className="text-sm text-slate-600 italic">No customers detected in your assigned area.</p>
@@ -456,80 +372,14 @@ export default function DashboardPage() {
               <CardTitle className="text-3xl font-black">MK {user.walletBalance?.toLocaleString() || '0'}</CardTitle>
             </CardHeader>
             <CardContent>
-              <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 border-none text-white h-7 text-[10px] font-bold uppercase rounded-[5px]">Refill Balance</Button>
-                </DialogTrigger>
-                <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px] max-w-sm">
-                  <DialogHeader>
-                    <DialogTitle className="text-xl font-black uppercase tracking-tight">Refill Wallet</DialogTitle>
-                    <DialogDescription className="text-slate-500 text-xs">Authorize a deposit from external channels.</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-5 py-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-[0.2em] px-1">Amount (MK)</label>
-                      <Input 
-                        placeholder="e.g. 5000" 
-                        type="number" 
-                        value={depositAmount} 
-                        onChange={e => setDepositAmount(e.target.value)} 
-                        className="bg-slate-950 border-white/5 h-12 text-lg font-black text-white rounded-[5px]" 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-[0.2em] px-1">Select Channel</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {paymentMethods.map(method => (
-                          <button 
-                            key={method.id} 
-                            onClick={() => setSelectedDepositMethodId(method.id)} 
-                            className={cn(
-                              "flex flex-col items-center justify-center p-3 border rounded-[5px] transition-all text-center gap-1.5", 
-                              selectedDepositMethodId === method.id ? "bg-primary/20 border-primary" : "bg-slate-950/50 border-white/5"
-                            )}
-                          >
-                            <div className="bg-slate-900 p-2 rounded-[5px]">
-                              {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : <CreditCard className="h-4 w-4 text-primary" />}
-                            </div>
-                            <div>
-                              <p className="text-[9px] font-black text-white uppercase">{method.name}</p>
-                              <p className="text-[8px] text-slate-500 font-bold">{method.provider}</p>
-                            </div>
-                            {selectedDepositMethodId === method.id && <CheckCircle2 className="h-3 w-3 text-primary" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {selectedDepositMethodId && (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Channel Number</label>
-                          <Input 
-                            placeholder="Phone or Account Number" 
-                            value={depositAccountNum}
-                            onChange={(e) => setDepositAccountNum(e.target.value)}
-                            className="bg-slate-950 border-white/5 h-10 text-sm rounded-[5px]"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-slate-950/50 border border-white/5 rounded-[5px]">
-                           <label className="text-[9px] font-bold text-slate-400 uppercase">Save as preferred channel</label>
-                           <Switch checked={saveDepositMethod} onCheckedChange={setSaveDepositMethod} className="scale-75" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <DialogFooter>
-                    <Button 
-                      className="w-full bg-primary h-12 rounded-[5px] font-black uppercase text-sm" 
-                      onClick={handleDeposit} 
-                      disabled={isDepositing || !selectedDepositMethodId || !depositAmount}
-                    >
-                      {isDepositing ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : "Authorize Payment"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <Button 
+                onClick={() => handleCheckout(5000, 'DEPOSIT')}
+                size="sm" 
+                variant="secondary" 
+                className="bg-white/10 hover:bg-white/20 border-none text-white h-7 text-[10px] font-bold uppercase rounded-[5px]"
+              >
+                Refill Balance
+              </Button>
             </CardContent>
           </Card>
 
@@ -551,64 +401,12 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className={`text-3xl font-black ${totalDue > 0 ? 'text-destructive' : 'text-green-500'}`}>MK {totalDue.toLocaleString()}</div>
-              <Dialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="mt-4 w-full h-8 bg-destructive text-[10px] font-bold uppercase rounded-[5px]">Pay Now</Button>
-                </DialogTrigger>
-                <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px] max-w-sm">
-                  <DialogHeader><DialogTitle className="text-xl font-black uppercase">Settle Bill</DialogTitle></DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="grid grid-cols-2 gap-2">
-                      {paymentMethods.map(method => (
-                        <button 
-                          key={method.id} 
-                          onClick={() => setSelectedMethod(method.id)} 
-                          className={cn(
-                            "flex flex-col items-center justify-center p-3 border rounded-[5px] transition-all text-center gap-1.5", 
-                            selectedMethod === method.id ? "bg-primary/20 border-primary" : "bg-slate-950/50 border-white/5"
-                          )}
-                        >
-                          <div className="bg-slate-900 p-2 rounded-[5px]">
-                            {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : <CreditCard className="h-4 w-4 text-primary" />}
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-black text-white uppercase">{method.name}</p>
-                            <p className="text-[8px] text-slate-500 font-bold">{method.provider}</p>
-                          </div>
-                          {selectedMethod === method.id && <CheckCircle2 className="h-3 w-3 text-primary" />}
-                        </button>
-                      ))}
-                    </div>
-
-                    {selectedMethod && (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Payment Identifier</label>
-                          <Input 
-                            placeholder="Enter Number or Account" 
-                            value={payAccountNum}
-                            onChange={(e) => setPayAccountNum(e.target.value)}
-                            className="bg-slate-950 border-white/5 h-10 text-sm rounded-[5px]"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-slate-950/50 border border-white/5 rounded-[5px]">
-                           <label className="text-[9px] font-bold text-slate-400 uppercase">Save for future billing</label>
-                           <Switch checked={savePayMethod} onCheckedChange={setSavePayMethod} className="scale-75" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <DialogFooter>
-                    <Button 
-                      disabled={!selectedMethod || !payAccountNum} 
-                      onClick={handlePayment} 
-                      className="w-full bg-primary h-12 rounded-[5px] font-black uppercase text-sm"
-                    >
-                      Authorize Transaction
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <Button 
+                onClick={() => handleCheckout(totalDue || 1000, 'BILL_PAYMENT')}
+                className="mt-4 w-full h-8 bg-destructive text-[10px] font-bold uppercase rounded-[5px]"
+              >
+                Pay Now
+              </Button>
             </CardContent>
           </Card>
 
