@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -59,8 +60,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Test Purchase state
   const [testProduct, setTestProduct] = useState('Admin Bill');
   const [testPrice, setTestPrice] = useState('500');
-  const [testPhone, setTestPhone] = useState('265991972336');
-  const [testProvider, setTestProvider] = useState('AIRTEL');
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -115,29 +114,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
-    if (!testPhone) {
-      toast({
-        title: "Validation Error",
-        description: "Please provide a phone number for the test purchase.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setTestStatus('processing');
     setTestPurchaseDialogOpen(false);
 
     (window as any).BrandPay.openCheckout({
       amount: parseFloat(testPrice),
       currency: 'MWK',
-      customerPhone: testPhone,
       metadata: {
         statementDescription: testProduct,
         fields: [
           { fieldName: 'type', fieldValue: 'GATEWAY_TEST' },
           { fieldName: 'apiKey', fieldValue: pawapayKey },
-          { fieldName: 'mode', fieldValue: pawapayMode },
-          { fieldName: 'correspondent', fieldValue: testProvider }
+          { fieldName: 'mode', fieldValue: pawapayMode }
         ]
       },
       onSuccess: (result: any) => {
@@ -145,8 +133,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ...result,
           product: testProduct,
           amount: testPrice,
-          phone: testPhone,
-          provider: testProvider,
           date: new Date().toLocaleString()
         });
         setTestStatus('success');
@@ -444,36 +430,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[9px] font-bold uppercase text-slate-500">Provider</Label>
-              <Select value={testProvider} onValueChange={setTestProvider}>
-                <SelectTrigger className="bg-slate-950 border-white/5 h-9 rounded-[5px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-white/10 text-white">
-                  <SelectItem value="AIRTEL">Airtel Money</SelectItem>
-                  <SelectItem value="TNM">TNM Mpamba</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-[9px] font-bold uppercase text-slate-500">Amount (MK)</Label>
-                <Input 
-                  type="number"
-                  value={testPrice} 
-                  onChange={(e) => setTestPrice(e.target.value)}
-                  className="bg-slate-950 border-white/5 h-9 text-xs font-bold"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[9px] font-bold uppercase text-slate-500">Test Phone</Label>
-                <Input 
-                  value={testPhone} 
-                  onChange={(e) => setTestPhone(e.target.value)}
-                  placeholder="265XXXXXXXXX"
-                  className="bg-slate-950 border-white/5 h-9 text-xs font-mono"
-                />
-              </div>
+              <Label className="text-[9px] font-bold uppercase text-slate-500">Amount (MK)</Label>
+              <Input 
+                type="number"
+                value={testPrice} 
+                onChange={(e) => setTestPrice(e.target.value)}
+                className="bg-slate-950 border-white/5 h-9 text-xs font-bold"
+              />
             </div>
             <div className="p-3 bg-white/5 rounded-[5px] border border-white/5">
               <p className="text-[8px] text-slate-500 uppercase font-bold mb-1">Active Mode</p>
@@ -569,14 +532,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="flex justify-between items-center text-[10px]">
                 <span className="text-slate-500 font-bold uppercase">Gateway</span>
                 <span className="text-primary font-bold">BRANDPAY / PAWAPAY</span>
-              </div>
-              <div className="flex justify-between items-center text-[10px]">
-                <span className="text-slate-500 font-bold uppercase">Provider</span>
-                <span className="text-white font-bold">{lastTestResult?.provider}</span>
-              </div>
-              <div className="flex justify-between items-center text-[10px]">
-                <span className="text-slate-500 font-bold uppercase">Customer</span>
-                <span className="text-white font-mono">{lastTestResult?.phone}</span>
               </div>
               <div className="flex justify-between items-center text-[10px]">
                 <span className="text-slate-500 font-bold uppercase">Timestamp</span>
