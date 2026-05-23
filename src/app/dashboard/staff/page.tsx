@@ -120,7 +120,7 @@ export default function StaffManagementPage() {
     if (!formData.password) {
       toast({
         title: "Security Required",
-        description: "Please set a password or generate a token for the agent.",
+        description: "Please set an access token for the agent.",
         variant: "destructive"
       });
       return;
@@ -144,7 +144,7 @@ export default function StaffManagementPage() {
     if (allUsers.find((u: User) => u.id === newStaff.id)) {
       toast({
         title: "Conflict",
-        description: "A staff member with this ID already exists.",
+        description: "A staff member with this identifier already exists.",
         variant: "destructive"
       });
       return;
@@ -159,8 +159,8 @@ export default function StaffManagementPage() {
     setFormData({ name: '', email: '', password: '', region: '', district: '', area: '', staffId: '' });
     
     toast({
-      title: "Staff Enrolled",
-      description: `${newStaff.name} has been assigned to ${newStaff.area} with ID: ${newStaff.id}`
+      title: "Staff Enrollment Success",
+      description: `${newStaff.name} assigned to territory: ${newStaff.area}`
     });
   };
 
@@ -170,11 +170,11 @@ export default function StaffManagementPage() {
   };
 
   const shareCredentials = (staff: User) => {
-    const text = `MWB Staff Credentials\nID: ${staff.id}\nEmail: ${staff.email}\nToken: ${staff.pin || 'Contact Admin'}`;
+    const text = `MWB Credentials\nID: ${staff.id}\nWork Email: ${staff.email}\nSecurity Token: ${staff.pin || 'Contact Admin'}`;
     navigator.clipboard.writeText(text);
     toast({
       title: "Credentials Copied",
-      description: "Secure token and ID ready for distribution.",
+      description: "Secure token ready for distribution.",
     });
   };
 
@@ -194,7 +194,7 @@ export default function StaffManagementPage() {
           <h2 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
             <ShieldCheck className="h-8 w-8 text-primary" /> Staff Management
           </h2>
-          <p className="text-slate-400 font-medium">Provisioning field operators and area administrators.</p>
+          <p className="text-slate-400 font-medium">Managing field operations and territorial oversight.</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -268,7 +268,7 @@ export default function StaffManagementPage() {
                     <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Assigned Area</label>
                     <div className="flex gap-2">
                       <Input 
-                        placeholder="Manual area or select" 
+                        placeholder="Area Name" 
                         className="bg-slate-800 border-white/5 h-9 text-sm rounded-[5px]"
                         value={formData.area || ''}
                         onChange={e => setFormData({...formData, area: e.target.value})}
@@ -284,12 +284,11 @@ export default function StaffManagementPage() {
                     </div>
                   </div>
                 </div>
-                <p className="text-[9px] text-slate-600 bg-slate-950/50 p-2 rounded italic">Staff will only see utility records matching their assigned territory.</p>
               </div>
             ) : (
               <div className="space-y-4 py-4 animate-in fade-in slide-in-from-right-2 duration-300">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Security Access Token</label>
+                  <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Access Token</label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Input 
@@ -311,12 +310,11 @@ export default function StaffManagementPage() {
                       <RefreshCw className="h-4 w-4 text-primary" />
                     </Button>
                   </div>
-                  <p className="text-[9px] text-slate-500 mt-1">This token will be used for dashboard authentication.</p>
                 </div>
                 <div className="p-4 bg-primary/5 border border-primary/10 rounded-[5px] flex items-center gap-3">
                   <ShieldAlert className="h-5 w-5 text-primary" />
                   <div>
-                    <p className="text-[10px] text-white font-bold uppercase tracking-tight">Access Control Warning</p>
+                    <p className="text-[10px] text-white font-bold uppercase tracking-tight">Security Protocol</p>
                     <p className="text-[9px] text-slate-500">Ensure this token is shared via encrypted channels only.</p>
                   </div>
                 </div>
@@ -348,7 +346,7 @@ export default function StaffManagementPage() {
           <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input 
-              placeholder="Search staff, IDs, areas..." 
+              placeholder="Search registry records..." 
               className="pl-9 bg-slate-950 border-white/5 text-white rounded-[5px] h-9 text-sm" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -362,7 +360,7 @@ export default function StaffManagementPage() {
                 <TableRow className="border-b border-white/5 hover:bg-transparent">
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Agent Identity</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10 text-center">Staff ID</TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Area Assignment</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Territory</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Role</TableHead>
                   <TableHead className="text-right text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Actions</TableHead>
                 </TableRow>
@@ -389,7 +387,7 @@ export default function StaffManagementPage() {
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         <MapPin className="h-3 w-3 text-primary opacity-60" />
-                        <span className="text-xs text-slate-300 font-medium">{staff.district || 'National'} • {staff.area || 'Global Oversight'}</span>
+                        <span className="text-xs text-slate-300 font-medium">{staff.district || 'National'} • {staff.area || 'Oversight'}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -406,7 +404,7 @@ export default function StaffManagementPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={5} className="h-32 text-center text-slate-600 italic text-sm">
-                      No matching field agents found in registry.
+                      No matching records found in registry.
                     </TableCell>
                   </TableRow>
                 )}

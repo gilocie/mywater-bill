@@ -81,7 +81,18 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         const found = users.find(u => u.id === id);
         setCustomer(found || null);
         if (found) {
-          setEditFormData(found);
+          setEditFormData({
+            ...found,
+            name: found.name || '',
+            meterNumber: found.meterNumber || '',
+            email: found.email || '',
+            phoneNumber: found.phoneNumber || '',
+            whatsappNumber: found.whatsappNumber || '',
+            address: found.address || '',
+            region: found.region || '',
+            district: found.district || '',
+            area: found.area || ''
+          });
         }
       }
 
@@ -104,7 +115,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const handleCreateInvoice = () => {
     const usage = parseFloat(invoiceUsage);
     if (isNaN(usage) || usage <= 0) {
-      toast({ title: "Invalid Input", variant: "destructive" });
+      toast({ title: "Invalid Input", description: "Please enter a valid usage amount.", variant: "destructive" });
       return;
     }
 
@@ -125,7 +136,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     
     setIsInvoiceDialogOpen(false);
     setInvoiceUsage('');
-    toast({ title: "Invoice Generated" });
+    toast({ title: "Invoice Generated", description: `Bill issued for ${usage} Litres.` });
   };
 
   const handleUpdateCustomer = () => {
@@ -133,7 +144,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
     window.dispatchEvent(new Event('storage'));
     setIsEditCustomerDialogOpen(false);
-    toast({ title: "Profile Updated" });
+    toast({ title: "Profile Updated", description: "Customer record has been synchronized." });
   };
 
   const handleSuspendService = () => {
@@ -151,19 +162,19 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     window.dispatchEvent(new Event('storage'));
     setIsSuspendDialogOpen(false);
     toast({
-      title: "Suspension Command Issued",
-      description: `Grace period set for ${days} days. Disconnection alert active.`
+      title: "Suspension Protocol Initialized",
+      description: `Grace period set for ${days} days. Countdown started.`
     });
   };
 
   const handleSendMessage = () => {
     if (!note) return;
-    toast({ title: "Message Logged" });
+    toast({ title: "Message Logged", description: "Agent field notes updated." });
     setNote('');
   };
 
-  if (loading) return <div className="h-96 flex items-center justify-center">Loading...</div>;
-  if (!customer) return <div className="h-96 text-center py-12">Customer record missing.</div>;
+  if (loading) return <div className="h-96 flex items-center justify-center text-slate-400">Loading utility record...</div>;
+  if (!customer) return <div className="h-96 text-center py-12 text-slate-500">Consumer record missing from registry.</div>;
 
   return (
     <div className="space-y-6">
@@ -293,11 +304,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Usage (Liters)</label>
-                        <Input type="number" value={invoiceUsage} onChange={(e) => setInvoiceUsage(e.target.value)} className="bg-slate-800 border-white/5" />
+                        <Input type="number" value={invoiceUsage} onChange={(e) => setInvoiceUsage(e.target.value)} className="bg-slate-800 border-white/5" placeholder="0" />
                       </div>
                       {invoiceUsage && (
                         <div className="p-4 bg-primary/10 border border-primary/20 rounded-[5px] flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-slate-400">Total</span>
+                          <span className="text-[10px] font-bold text-slate-400">Estimated Total</span>
                           <span className="text-xl font-black text-white">MK {(parseFloat(invoiceUsage) * waterRate).toLocaleString()}</span>
                         </div>
                       )}
@@ -313,7 +324,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[5px] max-w-lg overflow-y-auto max-h-[90vh]">
-                    <DialogHeader><DialogTitle>Edit Profile</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>Edit Profile Record</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
@@ -387,7 +398,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         </div>
                       </div>
                     </div>
-                    <DialogFooter><Button onClick={handleUpdateCustomer} className="w-full bg-primary font-bold uppercase tracking-widest h-10">Save Changes</Button></DialogFooter>
+                    <DialogFooter><Button onClick={handleUpdateCustomer} className="w-full bg-primary font-bold uppercase tracking-widest h-10">Commit Profile Update</Button></DialogFooter>
                   </DialogContent>
                 </Dialog>
               </div>
