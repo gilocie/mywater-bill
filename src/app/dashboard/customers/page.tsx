@@ -172,7 +172,16 @@ export default function CustomersPage() {
 
   const escapeCSV = (val: any) => {
     const str = String(val || '');
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    // Force text format for long numeric strings (Excel scientific notation fix)
+    // We use a tab character prefix which Excel respects as a text indicator
+    const isLongNumeric = /^\d{10,}$/.test(str);
+    const hasSpecialChars = str.includes(',') || str.includes('"') || str.includes('\n');
+    
+    if (isLongNumeric) {
+      return `"\t${str}"`;
+    }
+    
+    if (hasSpecialChars) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
@@ -214,8 +223,10 @@ export default function CustomersPage() {
       const lines = text.split('\n').filter(line => line.trim() !== '');
       
       const newCustomers: User[] = lines.slice(1).map((line, index) => {
-        // Simple regex to handle quoted commas
-        const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/^"|"$/g, '').replace(/""/g, '"'));
+        // Simple regex to handle quoted commas and Excel-formatted numeric strings
+        const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => 
+          v.replace(/^"|"$/g, '').replace(/""/g, '"').trim()
+        );
         return {
           id: `c-imp-${Date.now()}-${index}`,
           meterNumber: values[0] || '',
@@ -250,8 +261,8 @@ export default function CustomersPage() {
   const downloadTemplate = () => {
     const headers = ['MeterNumber', 'Name', 'Region', 'District', 'Area', 'Address', 'Phone', 'Email', 'InitialBalance'];
     const demoData = [
-      ['772211', 'Gift Nkhoma', 'Central', 'Lilongwe', 'Area 18', 'Plot 45, Near Mosque', '0888123456', 'gift@example.mw', '0'],
-      ['994433', 'Agness Banda', 'Southern', 'Blantyre', 'Chirimba', 'House 12, Main Road', '0999876543', 'agness@example.mw', '5000']
+      ['772211', 'Gift Nkhoma', 'Central', 'Lilongwe', 'Area 18', 'Plot 45, Near Mosque', '265888123456', 'gift@example.mw', '0'],
+      ['994433', 'Agness Banda', 'Southern', 'Blantyre', 'Chirimba', 'House 12, Main Road', '265999876543', 'agness@example.mw', '5000']
     ];
     const csvContent = [headers, ...demoData.map(row => row.map(cell => escapeCSV(cell)))].map(row => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

@@ -168,7 +168,16 @@ export default function StaffManagementPage() {
 
   const escapeCSV = (val: any) => {
     const str = String(val || '');
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    // Force text format for long numeric strings (Excel scientific notation fix)
+    // We use a tab character prefix which Excel respects as a text indicator
+    const isLongNumeric = /^\d{10,}$/.test(str);
+    const hasSpecialChars = str.includes(',') || str.includes('"') || str.includes('\n');
+    
+    if (isLongNumeric) {
+      return `"\t${str}"`;
+    }
+    
+    if (hasSpecialChars) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
@@ -204,7 +213,10 @@ export default function StaffManagementPage() {
       const lines = text.split('\n').filter(line => line.trim() !== '');
       
       const newStaff: User[] = lines.slice(1).map((line) => {
-        const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/^"|"$/g, '').replace(/""/g, '"'));
+        // Clean Excel-formatted values and handle potential tabs
+        const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => 
+          v.replace(/^"|"$/g, '').replace(/""/g, '"').trim()
+        );
         return {
           id: values[0] || `STF-${Date.now()}`,
           name: values[1] || 'Staff Member',
