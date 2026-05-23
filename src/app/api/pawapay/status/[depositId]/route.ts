@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { checkDepositStatus } from '@/lib/pawapay';
 
@@ -15,7 +14,11 @@ export async function OPTIONS() {
 export async function GET(request: Request, { params }: { params: Promise<{ depositId: string }> }) {
   try {
     const { depositId } = await params;
-    const statusArray = await checkDepositStatus(depositId);
+    const { searchParams } = new URL(request.url);
+    const apiKey = searchParams.get('apiKey') || undefined;
+    const mode = searchParams.get('mode') || undefined;
+
+    const statusArray = await checkDepositStatus(depositId, apiKey, mode);
     
     if (statusArray && statusArray.length > 0) {
       const paymentInfo = statusArray[0];
@@ -26,7 +29,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ depo
     }
     
     return NextResponse.json({ status: 'PENDING' }, { headers: corsHeaders });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch transaction status' }, { status: 500, headers: corsHeaders });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to fetch transaction status' }, { status: 500, headers: corsHeaders });
   }
 }

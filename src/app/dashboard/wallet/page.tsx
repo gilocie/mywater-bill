@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -9,30 +8,23 @@ import {
   CardContent, 
   CardHeader, 
   CardTitle,
-  CardDescription,
-  CardFooter
+  CardDescription
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
-  PlusCircle, 
   ArrowUpRight, 
   ArrowDownLeft, 
   History, 
   Info,
   Wallet,
-  ChevronRight,
-  Download,
   Smartphone,
   CreditCard,
   Zap,
-  CheckCircle2,
-  Clock,
   ShieldAlert,
   FileText,
   UploadCloud,
-  X,
   ArrowRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -48,7 +40,6 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   
-  // Checkout States
   const [isMethodsDialogOpen, setIsMethodsDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
@@ -124,7 +115,11 @@ export default function WalletPage() {
       customerPhone: accountNumber,
       metadata: { 
         statementDescription: 'Wallet Refill', 
-        fields: [{ fieldName: 'userId', fieldValue: user?.id }] 
+        fields: [
+          { fieldName: 'userId', fieldValue: user?.id },
+          { fieldName: 'apiKey', fieldValue: localStorage.getItem('mywater_pawapay_key') || '' },
+          { fieldName: 'mode', fieldValue: localStorage.getItem('mywater_pawapay_mode') || 'sandbox' }
+        ] 
       },
       onSuccess: () => {
         const currentBalance = user?.walletBalance || 0;
@@ -136,7 +131,7 @@ export default function WalletPage() {
       },
       onFailure: (err: any) => {
         setIsProcessing(false);
-        toast({ title: "Transaction Failed", description: err || "System error.", variant: "destructive" });
+        toast({ title: "Payment Failed", description: err || "System error.", variant: "destructive" });
       }
     });
   };

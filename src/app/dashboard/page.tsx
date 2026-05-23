@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -90,11 +89,12 @@ export default function DashboardPage() {
         statementDescription: type === 'DEPOSIT' ? 'Wallet Refill' : 'Bill Settlement',
         fields: [
           { fieldName: 'userId', fieldValue: user.id },
-          { fieldName: 'type', fieldValue: type }
+          { fieldName: 'type', fieldValue: type },
+          { fieldName: 'apiKey', fieldValue: localStorage.getItem('mywater_pawapay_key') || '' },
+          { fieldName: 'mode', fieldValue: localStorage.getItem('mywater_pawapay_mode') || 'sandbox' }
         ]
       },
       onSuccess: (transaction: any) => {
-        // 1. Log Transaction
         const newTrans: Transaction = {
           id: `tr-${Date.now()}`,
           userId: user.id,
@@ -108,11 +108,9 @@ export default function DashboardPage() {
         localStorage.setItem('mywater_all_transactions', JSON.stringify(updatedTrans));
         setAllTransactions(updatedTrans);
 
-        // 2. Update Balance / Bills
         if (type === 'DEPOSIT') {
           updateUser({ walletBalance: (user.walletBalance || 0) + amount });
         } else {
-          const userBills = allBills.filter(b => b.customerId === user.id && b.status !== 'PAID');
           const updatedBills = allBills.map(b => 
             (b.customerId === user.id && b.status !== 'PAID') ? { ...b, status: 'PAID' as const } : b
           );
@@ -136,7 +134,6 @@ export default function DashboardPage() {
     });
   };
 
-  // --- SUPER ADMIN VIEW ---
   if (user.role === 'SUPER_ADMIN') {
     const totalCustomers = allUsers.filter(u => u.role === 'CUSTOMER').length;
     const totalRevenue = allBills.filter(b => b.status === 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
@@ -222,7 +219,6 @@ export default function DashboardPage() {
     );
   }
 
-  // --- DISTRICT STAFF VIEW ---
   if (user.role === 'DISTRICT_STAFF') {
     const assignedCustomers = allUsers.filter(u => 
       u.role === 'CUSTOMER' && 
@@ -317,7 +313,6 @@ export default function DashboardPage() {
     );
   }
 
-  // --- CUSTOMER VIEW ---
   if (user.role === 'CUSTOMER') {
     const userBills = allBills.filter(b => b.customerId === user.id);
     const pendingBills = userBills.filter(b => b.status !== 'PAID');

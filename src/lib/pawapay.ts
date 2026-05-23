@@ -1,21 +1,24 @@
-
 import { v4 as uuidv4 } from 'uuid';
 
-const isLive = process.env.PAWAPAY_MODE === 'live';
-const BASE_URL = isLive ? 'https://api.pawapay.io' : 'https://api.sandbox.pawapay.io';
-const API_KEY = process.env.PAWAPAY_API_KEY;
-
-const getHeaders = () => ({
-  'Authorization': `Bearer ${API_KEY}`,
+const getHeaders = (apiKey: string) => ({
+  'Authorization': `Bearer ${apiKey}`,
   'Content-Type': 'application/json'
 });
 
-export async function getCountryConfig(countryCode = 'MWI') {
-  if (!API_KEY) throw new Error('PAWAPAY_API_KEY is not configured on server.');
+const getBaseUrl = (mode?: string) => {
+  const isLive = (mode || process.env.PAWAPAY_MODE) === 'live';
+  return isLive ? 'https://api.pawapay.io' : 'https://api.sandbox.pawapay.io';
+};
+
+export async function getCountryConfig(countryCode = 'MWI', apiKey?: string, mode?: string) {
+  const finalKey = apiKey || process.env.PAWAPAY_API_KEY;
+  if (!finalKey) throw new Error('PAWAPAY_API_KEY is not configured on server.');
   
-  const response = await fetch(`${BASE_URL}/v2/active-conf?country=${countryCode}&operationType=DEPOSIT`, {
+  const baseUrl = getBaseUrl(mode);
+  
+  const response = await fetch(`${baseUrl}/v2/active-conf?country=${countryCode}&operationType=DEPOSIT`, {
     method: 'GET',
-    headers: getHeaders()
+    headers: getHeaders(finalKey)
   });
 
   if (!response.ok) throw new Error('Failed to fetch pawaPay config.');
@@ -45,11 +48,13 @@ export async function getCountryConfig(countryCode = 'MWI') {
 }
 
 export async function initiateDeposit(payload: any) {
-  if (!API_KEY) throw new Error('PAWAPAY_API_KEY is not configured on server.');
+  const apiKey = payload.apiKey || process.env.PAWAPAY_API_KEY;
+  if (!apiKey) throw new Error('PAWAPAY_API_KEY is not configured on server.');
   
+  const baseUrl = getBaseUrl(payload.mode);
   const depositId = uuidv4().toUpperCase();
   
-  let phone = payload.customerPhone.replace(/^0+/, '');
+  let phone = (payload.customerPhone || '').replace(/^0+/, '');
   const prefix = '265';
   if (!phone.startsWith(prefix) && payload.country === 'MWI') {
     phone = `${prefix}${phone}`;
@@ -70,9 +75,9 @@ export async function initiateDeposit(payload: any) {
     metadata: payload.metadata || []
   };
 
-  const response = await fetch(`${BASE_URL}/v2/deposits`, {
+  const response = await fetch(`${baseUrl}/v2/deposits`, {
     method: 'POST',
-    headers: getHeaders(),
+    headers: getHeaders(apiKey),
     body: JSON.stringify(requestBody)
   });
 
@@ -86,12 +91,15 @@ export async function initiateDeposit(payload: any) {
   return { success: true, depositId, status: responseData.status };
 }
 
-export async function checkDepositStatus(depositId: string) {
-  if (!API_KEY) throw new Error('PAWAPAY_API_KEY is not configured on server.');
+export async function checkDepositStatus(depositId: string, apiKey?: string, mode?: string) {
+  const finalKey = apiKey || process.env.PAWAPAY_API_KEY;
+  if (!finalKey) throw new Error('PAWAPAY_API_KEY is not configured on server.');
   
-  const response = await fetch(`${BASE_URL}/v2/deposits/${depositId}`, {
+  const baseUrl = getBaseUrl(mode);
+  
+  const response = await fetch(`${baseUrl}/v2/deposits/${depositId}`, {
     method: 'GET',
-    headers: getHeaders()
+    headers: getHeaders(finalKey)
   });
   if (response.ok) {
     const statusData = await response.json();
