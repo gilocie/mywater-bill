@@ -37,7 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 
 export default function BillingPage() {
-  const { user } = useAuth();
+  const { user, waterRate } = useAuth();
   const { toast } = useToast();
   const [bills, setBills] = useState<Bill[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,7 +111,7 @@ export default function BillingPage() {
         <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
           <CardHeader className="pb-2">
             <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-500">System Rate</CardDescription>
-            <CardTitle className="text-xl text-primary font-black">MK {localStorage.getItem('mywater_rate') || '2.50'}</CardTitle>
+            <CardTitle className="text-xl text-primary font-black">MK {waterRate}</CardTitle>
           </CardHeader>
         </Card>
       </div>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
@@ -39,27 +39,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   
   // Profile state
-  const [newName, setNewName] = useState(user?.name || '');
+  const [newName, setNewName] = useState('');
   
   // Settings state
-  const [newRate, setNewRate] = useState(waterRate.toString());
-  const [pawapayKey, setPawapayKey] = useState(localStorage.getItem('mywater_pawapay_key') || '');
-  const [pawapayMode, setPawapayMode] = useState(localStorage.getItem('mywater_pawapay_mode') || 'sandbox');
+  const [newRate, setNewRate] = useState('2.5');
+  const [pawapayKey, setPawapayKey] = useState('');
+  const [pawapayMode, setPawapayMode] = useState('sandbox');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isLoading && !user) {
       router.push('/');
     }
   }, [user, isLoading, router]);
 
-  React.useEffect(() => {
-    // Initialize BrandPay SDK on mount
-    if (typeof window !== 'undefined' && (window as any).BrandPay) {
-      (window as any).BrandPay.init({
-        checkoutUrl: window.location.origin
-      });
+  useEffect(() => {
+    // Initialize state and SDK on mount (Client-only)
+    if (typeof window !== 'undefined') {
+      if ((window as any).BrandPay) {
+        (window as any).BrandPay.init({
+          checkoutUrl: window.location.origin
+        });
+      }
+      
+      setNewName(user?.name || '');
+      setNewRate(waterRate.toString());
+      setPawapayKey(localStorage.getItem('mywater_pawapay_key') || '');
+      setPawapayMode(localStorage.getItem('mywater_pawapay_mode') || 'sandbox');
     }
-  }, []);
+  }, [user, waterRate]);
 
   const handleUpdateProfile = () => {
     updateUser({ name: newName });
