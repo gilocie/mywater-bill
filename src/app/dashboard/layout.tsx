@@ -25,7 +25,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/dialog";
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -269,7 +269,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </Dialog>
 
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
-        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-md rounded-[5px] overflow-y-auto max-h-[90vh]">
+        <DialogContent className="bg-slate-900 border-white/5 text-white max-md rounded-[5px] overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> System Configuration</DialogTitle>
             <DialogDescription className="text-slate-500 text-xs">Modify global utility parameters and payment gateways.</DialogDescription>
