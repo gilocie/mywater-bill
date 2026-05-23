@@ -1,10 +1,10 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
-import { User, REGIONS, DISTRICTS, AREAS } from '@/app/lib/mock-data';
+import { User, DISTRICTS } from '@/app/lib/mock-data';
 import { 
   Table, 
   TableBody, 
@@ -26,13 +26,7 @@ import {
   Search, 
   MapPin,
   Smartphone,
-  Mail,
-  RefreshCw,
-  ArrowRight,
-  ArrowLeft,
-  MessageSquare,
   Download,
-  Upload,
   FileSpreadsheet,
   Trash2,
   Loader2
@@ -55,20 +49,16 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
-import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export default function CustomersPage() {
   const { user } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [customers, setCustomers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(false);
   
   // Selection & Deletion State
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -78,12 +68,11 @@ export default function CustomersPage() {
   const [formData, setFormData] = useState({
     name: '',
     meterNumber: '',
-    region: '',
+    region: 'Southern',
     district: '',
     area: '',
     address: '',
     phone: '',
-    whatsapp: '',
     email: ''
   });
 
@@ -133,7 +122,6 @@ export default function CustomersPage() {
     setDeleteProgress(0);
 
     if (isBulk) {
-      // Jumping progress simulation
       const simulateProgress = async () => {
         const jumps = [15, 42, 68, 89, 100];
         for (const jump of jumps) {
@@ -174,7 +162,6 @@ export default function CustomersPage() {
       meterNumber: formData.meterNumber,
       walletBalance: 0,
       phoneNumber: formData.phone,
-      whatsappNumber: whatsappSameAsPhone ? formData.phone : formData.whatsapp,
       assignedStaffId: user?.id
     };
 
@@ -203,7 +190,7 @@ export default function CustomersPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `customer_registry_${Date.now()}.csv`;
+    a.download = `customers_${Date.now()}.csv`;
     a.click();
   };
 
@@ -215,7 +202,7 @@ export default function CustomersPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'mwb_customer_template.csv';
+    a.download = 'customer_template.csv';
     a.click();
   };
 
@@ -223,7 +210,7 @@ export default function CustomersPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white uppercase">Customer Registry</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-white uppercase">Customers</h2>
           <p className="text-slate-400 font-medium">Managing utility consumers and active service points.</p>
         </div>
         
@@ -271,7 +258,7 @@ export default function CustomersPage() {
             
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={exportToCSV} className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2 text-white">
-                <Download className="h-3.5 w-3.5" /> Export Ledger
+                <Download className="h-3.5 w-3.5" /> Export Agents
               </Button>
               <Button variant="default" size="sm" onClick={downloadTemplate} className="h-8 bg-primary hover:bg-primary/90 text-[10px] text-white uppercase font-bold tracking-tight gap-1.5 rounded-[5px]">
                 <FileSpreadsheet className="h-3.5 w-3.5" /> Download Template
@@ -357,7 +344,7 @@ export default function CustomersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Customer Dialog... */}
+      {/* Add Customer Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-xl bg-slate-900 border-white/5 text-white rounded-[5px]">
           <DialogHeader>

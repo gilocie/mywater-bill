@@ -13,12 +13,8 @@ import {
   LogOut,
   BellRing,
   UserCheck,
-  Building2,
-  Map,
-  CreditCard,
-  ClipboardList,
-  MapPin,
-  ShieldCheck
+  ShieldCheck,
+  CreditCard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/providers/auth-provider';
@@ -45,7 +41,7 @@ export function SidebarNav() {
       items: [
         { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
         { icon: Users, label: 'Customers', href: '/dashboard/customers', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF'] },
-        { icon: UserCheck, label: 'Staff Registry', href: '/dashboard/staff', roles: ['SUPER_ADMIN'] },
+        { icon: UserCheck, label: 'Staff', href: '/dashboard/staff', roles: ['SUPER_ADMIN'] },
         { icon: Receipt, label: 'Ledger Audit', href: '/dashboard/billing', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
       ]
     },

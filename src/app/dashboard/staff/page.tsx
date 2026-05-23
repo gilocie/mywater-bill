@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/providers/auth-provider';
-import { User, REGIONS, DISTRICTS, AREAS } from '@/app/lib/mock-data';
+import { User, DISTRICTS } from '@/app/lib/mock-data';
 import { 
   Table, 
   TableBody, 
@@ -23,22 +23,14 @@ import { Badge } from '@/components/ui/badge';
 import { 
   UserPlus, 
   MapPin, 
-  Mail,
-  Copy,
-  Search,
-  RefreshCw,
-  ArrowRight,
-  ArrowLeft,
-  ShieldCheck,
-  ShieldAlert,
+  Search, 
+  ShieldCheck, 
   User as UserIcon,
-  Eye,
-  EyeOff,
-  Upload,
   Download,
   FileSpreadsheet,
   Trash2,
-  Loader2
+  Loader2,
+  Edit2
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -68,11 +60,22 @@ export default function StaffManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [staffList, setStaffList] = useState<User[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<User | null>(null);
   
   // Selection & Deletion
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteProgress, setDeleteProgress] = useState(0);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    role: 'DISTRICT_STAFF' as any,
+    district: '',
+    area: '',
+    password: 'password'
+  });
 
   useEffect(() => {
     const loadStaff = () => {
@@ -138,10 +141,67 @@ export default function StaffManagementPage() {
     toast({ title: "Staff Purged", description: `Removed ${selectedIds.length} agents.` });
   };
 
+  const handleRegisterStaff = () => {
+    const newStaff: User = {
+      id: `s-${Date.now()}`,
+      name: formData.name,
+      email: formData.email,
+      role: formData.role,
+      district: formData.district,
+      area: formData.area,
+      walletBalance: 0,
+      pin: formData.password
+    };
+
+    const usersStr = localStorage.getItem('mywater_all_users') || '[]';
+    const allUsers = JSON.parse(usersStr);
+    localStorage.setItem('mywater_all_users', JSON.stringify([...allUsers, newStaff]));
+    window.dispatchEvent(new Event('storage'));
+
+    setIsDialogOpen(false);
+    toast({ title: "Registered", description: `${newStaff.name} enrolled.` });
+  };
+
+  const handleEditStaff = (staff: User) => {
+    setEditingStaff(staff);
+    setFormData({
+      name: staff.name,
+      email: staff.email,
+      role: staff.role,
+      district: staff.district || '',
+      area: staff.area || '',
+      password: staff.pin || 'password'
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdateStaff = () => {
+    if (!editingStaff) return;
+    
+    const usersStr = localStorage.getItem('mywater_all_users') || '[]';
+    const allUsers: User[] = JSON.parse(usersStr);
+    const updatedUsers = allUsers.map(u => u.id === editingStaff.id ? {
+      ...u,
+      name: formData.name,
+      email: formData.email,
+      role: formData.role,
+      district: formData.district,
+      area: formData.area,
+      pin: formData.password
+    } : u);
+    
+    localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+    window.dispatchEvent(new Event('storage'));
+
+    setIsEditOpen(false);
+    setEditingStaff(null);
+    toast({ title: "Updated", description: "Agent identity updated." });
+  };
+
   const exportToCSV = () => {
     const headers = ['StaffID', 'Name', 'Email', 'Role', 'District', 'Area'];
     const rows = staffList.map(s => [
-      `"\t${s.id}"`, // Text formatting
+      `"\t${s.id}"`, 
       `"${s.name}"`,
       `"${s.email}"`,
       `"${s.role}"`,
@@ -153,7 +213,7 @@ export default function StaffManagementPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `staff_registry_${Date.now()}.csv`;
+    a.download = `staff_${Date.now()}.csv`;
     a.click();
   };
 
@@ -165,7 +225,7 @@ export default function StaffManagementPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'mwb_staff_template.csv';
+    a.download = 'staff_template.csv';
     a.click();
   };
 
@@ -176,7 +236,7 @@ export default function StaffManagementPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3 uppercase">
-            <ShieldCheck className="h-8 w-8 text-primary" /> Staff Management
+            <ShieldCheck className="h-8 w-8 text-primary" /> Staff
           </h2>
           <p className="text-slate-400 font-medium">Managing field operations and territorial oversight.</p>
         </div>
@@ -245,6 +305,7 @@ export default function StaffManagementPage() {
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10 text-center">Staff ID</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Territory</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Role</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -275,10 +336,15 @@ export default function StaffManagementPage() {
                         {staff.role.replace('_', ' ')}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-white" onClick={() => handleEditStaff(staff)}>
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center text-slate-600 italic text-sm">No records found.</TableCell>
+                    <TableCell colSpan={6} className="h-32 text-center text-slate-600 italic text-sm">No records found.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -287,7 +353,7 @@ export default function StaffManagementPage() {
         </CardContent>
       </Card>
 
-      {/* Bulk Delete Progress */}
+      {/* Deletion Progress */}
       <Dialog open={isDeleting} onOpenChange={() => {}}>
         <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] text-center py-10">
           <Loader2 className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
@@ -300,6 +366,97 @@ export default function StaffManagementPage() {
               <span>{deleteProgress}%</span>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Register Staff Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-xl bg-slate-900 border-white/5 text-white rounded-[5px]">
+          <DialogHeader>
+            <DialogTitle>Register Field Agent</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div className="col-span-2 space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">Name</label>
+              <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="bg-slate-800 border-none h-9" />
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">Email</label>
+              <Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="bg-slate-800 border-none h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">Role</label>
+              <Select onValueChange={v => setFormData({...formData, role: v})} value={formData.role}>
+                <SelectTrigger className="bg-slate-800 border-none h-9"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-slate-800 border-white/10 text-white">
+                  <SelectItem value="DISTRICT_STAFF">District Staff</SelectItem>
+                  <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">District</label>
+              <Select onValueChange={v => setFormData({...formData, district: v})} value={formData.district}>
+                <SelectTrigger className="bg-slate-800 border-none h-9"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-slate-800 border-white/10 text-white">
+                  {DISTRICTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">Area</label>
+              <Input value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} className="bg-slate-800 border-none h-9" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleRegisterStaff} className="w-full bg-primary h-10 font-bold uppercase">Complete Enrollment</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Staff Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-xl bg-slate-900 border-white/5 text-white rounded-[5px]">
+          <DialogHeader>
+            <DialogTitle>Edit Agent Identity</DialogTitle>
+            <DialogDescription className="text-[10px] text-slate-500 uppercase font-bold">Modify access levels and territory assignment.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div className="col-span-2 space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">Name</label>
+              <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="bg-slate-800 border-none h-9" />
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">Email</label>
+              <Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="bg-slate-800 border-none h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">Role</label>
+              <Select onValueChange={v => setFormData({...formData, role: v})} value={formData.role}>
+                <SelectTrigger className="bg-slate-800 border-none h-9"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-slate-800 border-white/10 text-white">
+                  <SelectItem value="DISTRICT_STAFF">District Staff</SelectItem>
+                  <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">District</label>
+              <Select onValueChange={v => setFormData({...formData, district: v})} value={formData.district}>
+                <SelectTrigger className="bg-slate-800 border-none h-9"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-slate-800 border-white/10 text-white">
+                  {DISTRICTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">Area</label>
+              <Input value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} className="bg-slate-800 border-none h-9" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUpdateStaff} className="w-full bg-primary h-10 font-bold uppercase">Update Identity</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

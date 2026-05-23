@@ -4,7 +4,7 @@
 import React, { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
-import { User, Bill, REGIONS, DISTRICTS, AREAS } from '@/app/lib/mock-data';
+import { User, Bill } from '@/app/lib/mock-data';
 import { 
   Card, 
   CardContent, 
@@ -17,17 +17,13 @@ import { Badge } from '@/components/ui/badge';
 import { 
   ArrowLeft, 
   Droplets, 
-  Receipt, 
   MapPin, 
   Power,
-  Clock,
   MessageSquare,
   BarChart3,
   Send,
   Edit,
   ShieldAlert,
-  Phone,
-  Mail,
   Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -49,13 +45,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from '@/lib/utils';
 
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { user: authUser, waterRate } = useAuth();
+  const { user: authUser } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -106,7 +99,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   return (
     <div className="space-y-6">
       <Button variant="ghost" className="gap-2 -ml-2 text-slate-400 hover:text-primary transition-colors h-8 px-2 rounded-[5px]" onClick={() => router.back()}>
-        <ArrowLeft className="h-4 w-4" /> Back to Registry
+        <ArrowLeft className="h-4 w-4" /> Back to Customers
       </Button>
 
       <div className="flex flex-col md:flex-row items-start gap-6">
@@ -218,14 +211,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Operational Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 px-5 pb-4">
-              <div className="grid grid-cols-2 gap-2">
-                <Button className="w-full bg-primary hover:bg-primary/90 gap-2 h-9 text-[10px] font-bold uppercase rounded-[5px]">
-                  <Receipt className="h-3.5 w-3.5" /> Issue Invoice
-                </Button>
-                <Button variant="outline" className="w-full border-white/5 bg-slate-800 text-white hover:bg-slate-700 gap-2 h-9 text-[10px] font-bold uppercase rounded-[5px]">
-                  <Edit className="h-3.5 w-3.5" /> Edit Profile
-                </Button>
-              </div>
+              <Button variant="outline" className="w-full border-white/5 bg-slate-800 text-white hover:bg-slate-700 gap-2 h-9 text-[10px] font-bold uppercase rounded-[5px]">
+                <Edit className="h-3.5 w-3.5" /> Edit Profile
+              </Button>
               <Button variant="destructive" className="w-full gap-2 h-9 text-[10px] font-bold uppercase rounded-[5px] bg-red-500 hover:bg-red-600">
                 <Power className="h-3.5 w-3.5" /> Suspend Service
               </Button>
