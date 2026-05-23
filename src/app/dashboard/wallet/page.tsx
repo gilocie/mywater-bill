@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -110,18 +109,25 @@ export default function WalletPage() {
     const amount = parseFloat(depositAmount);
     setIsProcessing(true);
     const productName = 'Utility Wallet Refill';
+    const apiKey = localStorage.getItem('mywater_pawapay_key') || '';
+    const mode = localStorage.getItem('mywater_pawapay_mode') || 'sandbox';
     
     (window as any).BrandPay.openCheckout({
       amount,
       currency: 'MWK',
       title: productName,
       customerPhone: accountNumber,
-      apiKey: localStorage.getItem('mywater_pawapay_key') || '', // Moved out of metadata
-      mode: localStorage.getItem('mywater_pawapay_mode') || 'sandbox',
+      apiKey,
+      mode,
+      country: 'MWI',
       metadata: { 
         statementDescription: productName.substring(0, 22), 
+        apiKey,
+        mode,
         fields: [
-          { fieldName: 'userId', fieldValue: user?.id }
+          { fieldName: 'userId', fieldValue: user?.id },
+          { fieldName: 'apiKey', fieldValue: apiKey },
+          { fieldName: 'mode', fieldValue: mode }
         ] 
       },
       onSuccess: () => {

@@ -15,10 +15,38 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Extract dynamic credentials from payload metadata or body
-    const metadataFields = body.metadata?.fields || body.metadata || [];
-    const apiKey = body.apiKey || metadataFields.find((f: any) => f.fieldName === 'apiKey')?.fieldValue;
-    const mode = body.mode || metadataFields.find((f: any) => f.fieldName === 'mode')?.fieldValue;
+    // Robust extraction for dynamic credentials
+    // Checks top-level, metadata object, and metadata fields array
+    let apiKey = body.apiKey;
+    let mode = body.mode;
+
+    const metadata = body.metadata || {};
+
+    if (!apiKey) {
+      if (typeof metadata === 'object' && !Array.isArray(metadata)) {
+        apiKey = metadata.apiKey;
+        if (!apiKey && Array.isArray(metadata.fields)) {
+          const field = metadata.fields.find((f: any) => f.fieldName === 'apiKey' || f.name === 'apiKey');
+          if (field) apiKey = field.fieldValue || field.value;
+        }
+      } else if (Array.isArray(metadata)) {
+        const field = metadata.find((f: any) => f.fieldName === 'apiKey' || f.name === 'apiKey');
+        if (field) apiKey = field.fieldValue || field.value;
+      }
+    }
+
+    if (!mode) {
+      if (typeof metadata === 'object' && !Array.isArray(metadata)) {
+        mode = metadata.mode;
+        if (!mode && Array.isArray(metadata.fields)) {
+          const field = metadata.fields.find((f: any) => f.fieldName === 'mode' || f.name === 'mode');
+          if (field) mode = field.fieldValue || field.value;
+        }
+      } else if (Array.isArray(metadata)) {
+        const field = metadata.find((f: any) => f.fieldName === 'mode' || f.name === 'mode');
+        if (field) mode = field.fieldValue || field.value;
+      }
+    }
     
     if (body.action === 'getConfig') {
       const config = await getCountryConfig(body.country || 'MWI', apiKey, mode);

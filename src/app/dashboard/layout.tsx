@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -127,12 +126,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       amount: parseFloat(testPrice),
       currency: 'MWK',
       title: testProduct,
-      apiKey: pawapayKey, // Pass at top level to avoid metadata length limits
-      mode: pawapayMode,   // Pass at top level
+      apiKey: pawapayKey,
+      mode: pawapayMode,
+      country: 'MWI',
       metadata: {
         statementDescription: testProduct.substring(0, 22),
+        apiKey: pawapayKey,
+        mode: pawapayMode,
         fields: [
-          { fieldName: 'type', fieldValue: 'GATEWAY_TEST' }
+          { fieldName: 'type', fieldValue: 'GATEWAY_TEST' },
+          { fieldName: 'apiKey', fieldValue: pawapayKey },
+          { fieldName: 'mode', fieldValue: pawapayMode }
         ]
       },
       onSuccess: (result: any) => {

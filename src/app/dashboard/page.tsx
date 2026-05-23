@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -83,19 +82,26 @@ export default function DashboardPage() {
     }
 
     const productName = type === 'DEPOSIT' ? 'Wallet Refill' : 'Bill Settlement';
+    const apiKey = localStorage.getItem('mywater_pawapay_key') || '';
+    const mode = localStorage.getItem('mywater_pawapay_mode') || 'sandbox';
 
     (window as any).BrandPay.openCheckout({
       amount: amount,
       currency: 'MWK',
       title: productName,
       customerPhone: user.phoneNumber || '',
-      apiKey: localStorage.getItem('mywater_pawapay_key') || '', // Moved out of metadata to avoid length limits
-      mode: localStorage.getItem('mywater_pawapay_mode') || 'sandbox',
+      apiKey,
+      mode,
+      country: 'MWI',
       metadata: {
         statementDescription: productName.substring(0, 22),
+        apiKey,
+        mode,
         fields: [
           { fieldName: 'userId', fieldValue: user.id },
-          { fieldName: 'type', fieldValue: type }
+          { fieldName: 'type', fieldValue: type },
+          { fieldName: 'apiKey', fieldValue: apiKey },
+          { fieldName: 'mode', fieldValue: mode }
         ]
       },
       onSuccess: (transaction: any) => {
