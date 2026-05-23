@@ -89,13 +89,13 @@ export default function DashboardPage() {
       currency: 'MWK',
       title: productName,
       customerPhone: user.phoneNumber || '',
+      apiKey: localStorage.getItem('mywater_pawapay_key') || '', // Moved out of metadata to avoid length limits
+      mode: localStorage.getItem('mywater_pawapay_mode') || 'sandbox',
       metadata: {
-        statementDescription: productName,
+        statementDescription: productName.substring(0, 22),
         fields: [
           { fieldName: 'userId', fieldValue: user.id },
-          { fieldName: 'type', fieldValue: type },
-          { fieldName: 'apiKey', fieldValue: localStorage.getItem('mywater_pawapay_key') || '' },
-          { fieldName: 'mode', fieldValue: localStorage.getItem('mywater_pawapay_mode') || 'sandbox' }
+          { fieldName: 'type', fieldValue: type }
         ]
       },
       onSuccess: (transaction: any) => {

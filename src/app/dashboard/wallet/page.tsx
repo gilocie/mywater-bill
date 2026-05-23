@@ -116,12 +116,12 @@ export default function WalletPage() {
       currency: 'MWK',
       title: productName,
       customerPhone: accountNumber,
+      apiKey: localStorage.getItem('mywater_pawapay_key') || '', // Moved out of metadata
+      mode: localStorage.getItem('mywater_pawapay_mode') || 'sandbox',
       metadata: { 
-        statementDescription: productName, 
+        statementDescription: productName.substring(0, 22), 
         fields: [
-          { fieldName: 'userId', fieldValue: user?.id },
-          { fieldName: 'apiKey', fieldValue: localStorage.getItem('mywater_pawapay_key') || '' },
-          { fieldName: 'mode', fieldValue: localStorage.getItem('mywater_pawapay_mode') || 'sandbox' }
+          { fieldName: 'userId', fieldValue: user?.id }
         ] 
       },
       onSuccess: () => {

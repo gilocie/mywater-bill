@@ -114,7 +114,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
+    // Close settings dialog to ensure the SDK is interactive and not blocked by our own focus trap
     setTestPurchaseDialogOpen(false);
+    setSettingsDialogOpen(false);
     
     toast({
       title: "Initiating Gateway",
@@ -125,12 +127,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       amount: parseFloat(testPrice),
       currency: 'MWK',
       title: testProduct,
+      apiKey: pawapayKey, // Pass at top level to avoid metadata length limits
+      mode: pawapayMode,   // Pass at top level
       metadata: {
-        statementDescription: testProduct,
+        statementDescription: testProduct.substring(0, 22),
         fields: [
-          { fieldName: 'type', fieldValue: 'GATEWAY_TEST' },
-          { fieldName: 'apiKey', fieldValue: pawapayKey },
-          { fieldName: 'mode', fieldValue: pawapayMode }
+          { fieldName: 'type', fieldValue: 'GATEWAY_TEST' }
         ]
       },
       onSuccess: (result: any) => {
