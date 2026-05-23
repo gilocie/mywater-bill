@@ -6,22 +6,25 @@ const getHeaders = (apiKey: string) => ({
 });
 
 const getBaseUrl = (mode?: string) => {
-  const isLive = (mode || process.env.PAWAPAY_MODE) === 'live';
+  const isLive = mode === 'live';
   return isLive ? 'https://api.pawapay.io' : 'https://api.sandbox.pawapay.io';
 };
 
 export async function getCountryConfig(countryCode = 'MWI', apiKey?: string, mode?: string) {
-  const finalKey = apiKey || process.env.PAWAPAY_API_KEY;
-  if (!finalKey) throw new Error('PAWAPAY_API_KEY is not configured on server.');
+  if (!apiKey) throw new Error('API Key missing for config request.');
   
   const baseUrl = getBaseUrl(mode);
   
   const response = await fetch(`${baseUrl}/v2/active-conf?country=${countryCode}&operationType=DEPOSIT`, {
     method: 'GET',
-    headers: getHeaders(finalKey)
+    headers: getHeaders(apiKey)
   });
 
-  if (!response.ok) throw new Error('Failed to fetch pawaPay config.');
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.errorMessage || 'Failed to fetch pawaPay configuration from server.');
+  }
+
   const data = await response.json();
   const countryData = data.countries.find((c: any) => c.country === countryCode);
 
@@ -48,15 +51,15 @@ export async function getCountryConfig(countryCode = 'MWI', apiKey?: string, mod
 }
 
 export async function initiateDeposit(payload: any) {
-  const apiKey = payload.apiKey || process.env.PAWAPAY_API_KEY;
-  if (!apiKey) throw new Error('PAWAPAY_API_KEY is not configured on server.');
+  const apiKey = payload.apiKey;
+  if (!apiKey) throw new Error('API Key missing for deposit request.');
   
   const baseUrl = getBaseUrl(payload.mode);
   const depositId = uuidv4().toUpperCase();
   
   let phone = (payload.customerPhone || '').replace(/^0+/, '');
   const prefix = '265';
-  if (!phone.startsWith(prefix) && payload.country === 'MWI') {
+  if (!phone.startsWith(prefix) && (payload.country === 'MWI' || !payload.country)) {
     phone = `${prefix}${phone}`;
   }
 
@@ -71,7 +74,7 @@ export async function initiateDeposit(payload: any) {
         provider: payload.correspondent
       }
     },
-    customerMessage: (payload.statementDescription || '').substring(0, 22),
+    customerMessage: (payload.title || payload.statementDescription || 'Utility Payment').substring(0, 22),
     metadata: payload.metadata || []
   };
 
@@ -84,7 +87,7 @@ export async function initiateDeposit(payload: any) {
   const responseData = await response.json();
 
   if (!response.ok || responseData.status === 'REJECTED') {
-    const errorMsg = responseData.failureReason?.failureMessage || responseData.errorMessage || "Failed to initiate payment";
+    const errorMsg = responseData.failureReason?.failureMessage || responseData.errorMessage || "Payment initialization rejected by gateway.";
     return { success: false, message: errorMsg };
   }
 
@@ -92,14 +95,13 @@ export async function initiateDeposit(payload: any) {
 }
 
 export async function checkDepositStatus(depositId: string, apiKey?: string, mode?: string) {
-  const finalKey = apiKey || process.env.PAWAPAY_API_KEY;
-  if (!finalKey) throw new Error('PAWAPAY_API_KEY is not configured on server.');
+  if (!apiKey) throw new Error('API Key missing for status check.');
   
   const baseUrl = getBaseUrl(mode);
   
   const response = await fetch(`${baseUrl}/v2/deposits/${depositId}`, {
     method: 'GET',
-    headers: getHeaders(finalKey)
+    headers: getHeaders(apiKey)
   });
   if (response.ok) {
     const statusData = await response.json();

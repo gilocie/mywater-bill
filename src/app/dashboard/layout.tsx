@@ -53,7 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [tempPortalUrl, setTempPortalUrl] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
 
-  const [testProduct, setTestProduct] = useState('Utility Connectivity Test');
+  const [testProduct, setTestProduct] = useState('Gateway Connectivity Test');
   const [testPrice, setTestPrice] = useState('500');
 
   useEffect(() => {
@@ -109,12 +109,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
+    // Close settings and form to avoid non-clickable overlays
     setTestPurchaseDialogOpen(false);
     setSettingsDialogOpen(false);
     
     toast({
-      title: "Verifying Protocol",
-      description: "Initiating secure handshake...",
+      title: "Verifying Gateway",
+      description: `Initiating test for: ${testProduct}`,
     });
 
     (window as any).BrandPay.openCheckout({
@@ -142,7 +143,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       onFailure: (error: any) => {
         setTestStatus('failure');
         toast({
-          title: "Test Failed",
+          title: "Gateway Test Failed",
           description: error || "Verification rejected.",
           variant: "destructive"
         });
@@ -255,7 +256,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <DialogContent className="bg-slate-900 border-white/5 text-white max-md rounded-[5px] overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> System Configuration</DialogTitle>
-            <DialogDescription className="text-slate-500 text-xs">Modify global utility parameters.</DialogDescription>
+            <DialogDescription className="text-slate-500 text-xs">Modify global utility parameters and gateway credentials.</DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             <div className="space-y-3">
@@ -271,7 +272,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2">
-                  <Zap className="h-3 w-3" /> BRANDPAY SETTINGS
+                  <Zap className="h-3 w-3" /> BRANDPAY GATEWAY
                 </Label>
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-white bg-slate-800/50 rounded-[5px]" onClick={() => { setTempPortalUrl(portalUrl); setPortalDialogOpen(true); }}>
@@ -279,7 +280,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Button>
                   {portalUrl && (
                     <Button variant="ghost" size="sm" className="h-7 px-3 text-[10px] font-bold uppercase tracking-widest text-primary hover:text-white bg-primary/10 rounded-[5px] gap-1.5" onClick={() => window.open(portalUrl, '_blank')}>
-                      <ExternalLink className="h-3.5 w-3.5" /> Get Key
+                      <ExternalLink className="h-3.5 w-3.5" /> Portal
                     </Button>
                   )}
                 </div>
@@ -290,7 +291,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className="flex items-center justify-between">
                     <Label htmlFor="pawapay-key" className="text-[9px] font-bold uppercase text-slate-500">API Key</Label>
                     <Button variant="ghost" size="sm" onClick={() => setTestPurchaseDialogOpen(true)} className="h-6 px-2 text-[8px] font-black uppercase text-accent hover:text-white bg-accent/10 rounded-[3px] gap-1">
-                      <PlayCircle className="h-2.5 w-2.5" /> Test Purchase
+                      <PlayCircle className="h-2.5 w-2.5" /> Start Test
                     </Button>
                   </div>
                   <div className="relative">
@@ -311,12 +312,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="pt-2 border-t border-white/5">
+                  <p className="text-[8px] text-slate-500 uppercase font-bold mb-1">Active Mode</p>
+                  <div className="flex items-center gap-2">
+                    <div className={cn("h-1.5 w-1.5 rounded-full", pawapayMode === 'live' ? 'bg-red-500' : 'bg-green-500')} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">{pawapayMode}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button onClick={handleUpdateSettings} className="w-full gap-2 rounded-[5px] h-9 text-xs font-bold uppercase tracking-widest bg-primary hover:bg-primary/90">
-              <Save className="h-4 w-4" /> Apply Global Settings
+              <Save className="h-4 w-4" /> Save Configuration
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -347,23 +356,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold flex items-center gap-2 text-accent">
-              <Zap className="h-4 w-4" /> Test Suite
+              <Zap className="h-4 w-4" /> Gateway Test Suite
             </DialogTitle>
-            <DialogDescription className="text-[10px] text-slate-500 uppercase font-black tracking-tight">Verify gateway communication.</DialogDescription>
+            <DialogDescription className="text-[10px] text-slate-500 uppercase font-black tracking-tight">Execute a live verification against the current API key.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-[9px] font-bold uppercase text-slate-500">Test Product</Label>
-              <Input value={testProduct} onChange={(e) => setTestProduct(e.target.value)} className="bg-slate-950 border-white/5 h-9 text-xs" />
+              <Label className="text-[9px] font-bold uppercase text-slate-500">Test Product Name</Label>
+              <Input value={testProduct} onChange={(e) => setTestProduct(e.target.value)} className="bg-slate-950 border-white/5 h-9 text-xs" placeholder="e.g. Utility Verification" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[9px] font-bold uppercase text-slate-500">Amount (MK)</Label>
+              <Label className="text-[9px] font-bold uppercase text-slate-500">Amount (MWK)</Label>
               <Input type="number" value={testPrice} onChange={(e) => setTestPrice(e.target.value)} className="bg-slate-950 border-white/5 h-9 text-xs font-bold" />
             </div>
           </div>
           <DialogFooter>
             <Button onClick={handleTestPurchase} className="w-full h-10 text-[10px] font-bold uppercase tracking-widest bg-accent hover:bg-accent/90 text-white rounded-[5px] shadow-lg shadow-accent/20">
-              Execute Test Purchase
+              Execute Gateway Test
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -374,11 +383,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {testStatus === 'success' && (
             <div className="animate-in fade-in zoom-in-95 duration-500">
               <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4 animate-bounce" />
-              <DialogTitle className="uppercase tracking-widest text-sm mb-1 text-green-500 font-black">Verified</DialogTitle>
-              <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Test completed successfully.</p>
+              <DialogTitle className="uppercase tracking-widest text-sm mb-1 text-green-500 font-black">Gateway Verified</DialogTitle>
+              <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Communication protocol successfully established.</p>
               <div className="flex flex-col gap-2">
                 <Button onClick={() => { setTestStatus('idle'); setReceiptDialogOpen(true); }} className="w-full bg-white/5 hover:bg-white/10 text-xs font-bold uppercase h-10 gap-2 border border-white/5">
-                  <FileText className="h-4 w-4 text-primary" /> View Receipt
+                  <FileText className="h-4 w-4 text-primary" /> View Test Receipt
                 </Button>
                 <Button variant="ghost" onClick={() => setTestStatus('idle')} className="text-[10px] text-slate-500 uppercase font-bold">Dismiss</Button>
               </div>
@@ -388,9 +397,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {testStatus === 'failure' && (
             <div className="animate-in fade-in zoom-in-95 duration-500">
               <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
-              <DialogTitle className="uppercase tracking-widest text-sm mb-1 text-destructive">Failed</DialogTitle>
-              <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Communication protocol rejected.</p>
-              <Button onClick={() => setTestStatus('idle')} className="w-full bg-destructive text-xs font-bold uppercase h-10">Retry Connection</Button>
+              <DialogTitle className="uppercase tracking-widest text-sm mb-1 text-destructive">Verification Failed</DialogTitle>
+              <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">The gateway rejected the communication protocol.</p>
+              <Button onClick={() => setTestStatus('idle')} className="w-full bg-destructive text-xs font-bold uppercase h-10">Re-configure & Retry</Button>
             </div>
           )}
         </DialogContent>
@@ -405,7 +414,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
               <div>
                 <h3 className="text-sm font-black uppercase tracking-tighter">Test Receipt</h3>
-                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Success</p>
+                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Success Protocol</p>
               </div>
             </div>
             <Zap className="h-4 w-4 text-primary fill-current opacity-50" />
@@ -413,7 +422,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           
           <div className="p-8 space-y-6">
             <div className="text-center space-y-1 pb-4 border-b border-dashed border-white/10">
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Total</p>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Validated Amount</p>
               <h4 className="text-4xl font-black text-white">
                 <span className="text-primary text-xl mr-1">MK</span>
                 {parseFloat(lastTestResult?.amount || '0').toLocaleString()}
@@ -429,6 +438,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <span className="text-slate-500 font-bold uppercase">Timestamp</span>
                 <span className="text-white font-mono opacity-60">{lastTestResult?.date}</span>
               </div>
+              <div className="flex justify-between items-center text-[10px]">
+                <span className="text-slate-500 font-bold uppercase">Protocol</span>
+                <span className="text-green-500 font-mono font-bold">PAWAPAY-v2</span>
+              </div>
             </div>
           </div>
 
@@ -437,7 +450,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Printer className="h-3.5 w-3.5" /> Print
             </Button>
             <Button className="flex-1 h-9 bg-primary text-[10px] font-bold uppercase gap-2 rounded-[5px]">
-              <Download className="h-3.5 w-3.5" /> Save PDF
+              <Download className="h-3.5 w-3.5" /> Save Audit PDF
             </Button>
           </div>
         </DialogContent>
