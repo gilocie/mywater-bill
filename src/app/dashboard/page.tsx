@@ -153,7 +153,7 @@ export default function DashboardPage() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full -mr-12 -mt-12 blur-2xl" />
             <CardHeader className="pb-2">
               <CardDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Total Revenue</CardDescription>
-              <CardTitle className="text-4xl font-black">MK {(totalRevenue / 1000).toFixed(1)}K</CardTitle>
+              <CardTitle className="text-4xl font-black">MK {totalRevenue.toLocaleString()}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-xs text-green-400 flex items-center gap-1 mt-1 font-bold">

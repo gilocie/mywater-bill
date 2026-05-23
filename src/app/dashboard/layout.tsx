@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, ExternalLink, Eye, EyeOff, Settings2 } from 'lucide-react';
+import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, ExternalLink, Eye, EyeOff, Settings2, PlayCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,6 +37,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [portalDialogOpen, setPortalDialogOpen] = useState(false);
+  const [testPurchaseDialogOpen, setTestPurchaseDialogOpen] = useState(false);
   
   // Profile state
   const [newName, setNewName] = useState('');
@@ -49,6 +49,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [portalUrl, setPortalUrl] = useState('https://dashboard.pawapay.io');
   const [tempPortalUrl, setTempPortalUrl] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
+
+  // Test Purchase state
+  const [testProduct, setTestProduct] = useState('Gateway Performance Test');
+  const [testPrice, setTestPrice] = useState('500');
+  const [testPhone, setTestPhone] = useState('');
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -91,6 +96,55 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         description: "Global utility parameters and BrandPay settings synchronized." 
       });
     }
+  };
+
+  const handleTestPurchase = () => {
+    if (typeof window === 'undefined' || !(window as any).BrandPay) {
+      toast({
+        title: "System Error",
+        description: "Payment gateway (BrandPay) is not initialized.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!testPhone) {
+      toast({
+        title: "Validation Error",
+        description: "Please provide a phone number for the test purchase.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setTestPurchaseDialogOpen(false);
+
+    (window as any).BrandPay.openCheckout({
+      amount: parseFloat(testPrice),
+      currency: 'MWK',
+      customerPhone: testPhone,
+      metadata: {
+        statementDescription: testProduct,
+        fields: [
+          { fieldName: 'type', fieldValue: 'GATEWAY_TEST' },
+          { fieldName: 'apiKey', fieldValue: pawapayKey },
+          { fieldName: 'mode', fieldValue: pawapayMode }
+        ]
+      },
+      onSuccess: () => {
+        toast({
+          title: "Test Successful",
+          description: "The payment gateway communication is verified.",
+        });
+      },
+      onFailure: (error: any) => {
+        toast({
+          title: "Test Failed",
+          description: error || "Could not complete test transaction.",
+          variant: "destructive"
+        });
+      }
+    });
   };
 
   if (isLoading || !user) {
@@ -266,7 +320,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               
               <div className="space-y-3 p-4 bg-primary/5 border border-primary/10 rounded-[5px]">
                 <div className="space-y-1.5">
-                  <Label htmlFor="pawapay-key" className="text-[9px] font-bold uppercase text-slate-500">API Key</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="pawapay-key" className="text-[9px] font-bold uppercase text-slate-500">API Key</Label>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setTestPurchaseDialogOpen(true)}
+                      className="h-6 px-2 text-[8px] font-black uppercase text-accent hover:text-white bg-accent/10 rounded-[3px] gap-1"
+                    >
+                      <PlayCircle className="h-2.5 w-2.5" /> Test Purchase
+                    </Button>
+                  </div>
                   <div className="relative">
                     <Input 
                       id="pawapay-key" 
@@ -342,6 +406,62 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               className="w-full h-8 text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20"
             >
               Update Shortcut
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={testPurchaseDialogOpen} onOpenChange={setTestPurchaseDialogOpen}>
+        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold flex items-center gap-2 text-accent">
+              <Zap className="h-4 w-4" /> Gateway Test Suite
+            </DialogTitle>
+            <DialogDescription className="text-[10px] text-slate-500 uppercase font-black tracking-tight">Verify PawaPay communication protocols.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-bold uppercase text-slate-500">Test Product Name</Label>
+              <Input 
+                value={testProduct} 
+                onChange={(e) => setTestProduct(e.target.value)}
+                className="bg-slate-950 border-white/5 h-9 text-xs"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-bold uppercase text-slate-500">Amount (MK)</Label>
+                <Input 
+                  type="number"
+                  value={testPrice} 
+                  onChange={(e) => setTestPrice(e.target.value)}
+                  className="bg-slate-950 border-white/5 h-9 text-xs font-bold"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-bold uppercase text-slate-500">Test Phone</Label>
+                <Input 
+                  value={testPhone} 
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  placeholder="265XXXXXXXXX"
+                  className="bg-slate-950 border-white/5 h-9 text-xs font-mono"
+                />
+              </div>
+            </div>
+            <div className="p-3 bg-white/5 rounded-[5px] border border-white/5">
+              <p className="text-[8px] text-slate-500 uppercase font-bold mb-1">Active Mode</p>
+              <div className="flex items-center gap-2">
+                <div className={cn("h-1.5 w-1.5 rounded-full", pawapayMode === 'live' ? 'bg-red-500' : 'bg-green-500')} />
+                <span className="text-[10px] font-black uppercase tracking-widest">{pawapayMode}</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={handleTestPurchase}
+              className="w-full h-10 text-[10px] font-bold uppercase tracking-widest bg-accent hover:bg-accent/90 text-white rounded-[5px] shadow-lg shadow-accent/20"
+            >
+              Execute Test Purchase
             </Button>
           </DialogFooter>
         </DialogContent>
