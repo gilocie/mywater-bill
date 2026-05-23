@@ -85,7 +85,6 @@ export default function WalletPage() {
 
   const handleSelectMethod = (method: PaymentMethod) => {
     setSelectedMethod(method);
-    // Pre-fill account number if previously saved (simulated)
     const saved = localStorage.getItem(`pref_${method.id}`);
     setAccountNumber(saved || user?.phoneNumber || '');
     setIsMethodsDialogOpen(false);
@@ -221,7 +220,7 @@ export default function WalletPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-[10px] space-y-4 px-6 pb-6 text-slate-500 font-medium leading-relaxed">
-            <p><strong className="text-white">Integrated (SDK):</strong> Real-time processing via Mobile Money PIN prompt.</p>
+            <p><strong className="text-white">Integrated (Brandpay):</strong> Real-time processing via Mobile Money PIN prompt.</p>
             <p><strong className="text-white">Manual:</strong> Require bank/field transfer followed by admin verification of digital receipts.</p>
           </CardContent>
         </Card>
@@ -260,7 +259,6 @@ export default function WalletPage() {
         </CardContent>
       </Card>
 
-      {/* Payment Selection Dialog (2 per row) */}
       <Dialog open={isMethodsDialogOpen} onOpenChange={setIsMethodsDialogOpen}>
         <DialogContent className="bg-slate-950 border-white/5 text-white max-w-lg rounded-[5px]">
           <DialogHeader>
@@ -278,7 +276,7 @@ export default function WalletPage() {
                 </div>
                 <div className="mt-4">
                   <p className="text-sm font-black text-white">{m.name}</p>
-                  <p className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-1">{m.isBrandPay ? 'Automated SDK' : 'Manual Settlement'}</p>
+                  <p className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-1">{m.isBrandPay ? 'Automated Brandpay' : 'Manual Settlement'}</p>
                 </div>
               </Card>
             ))}
@@ -286,7 +284,6 @@ export default function WalletPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation & Detail Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px]">
           <DialogHeader>
@@ -328,7 +325,6 @@ export default function WalletPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Manual Verification Dialog */}
       <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
         <DialogContent className="bg-slate-950 border-white/10 text-white max-w-md rounded-[5px]">
           <DialogHeader>

@@ -64,7 +64,7 @@ export default function PaymentMethodsPage() {
   const handleNextStep = () => {
     if (integrationMode === 'brandpay') {
       if (!newMethod.provider) {
-        toast({ title: "Provider Required", description: "Please select a BrandPay provider.", variant: "destructive" });
+        toast({ title: "Provider Required", description: "Please select a Brandpay provider.", variant: "destructive" });
         return;
       }
       handleSaveMethod();
@@ -77,7 +77,6 @@ export default function PaymentMethodsPage() {
         }
         setCurrentStep(2);
       } else {
-        // Correctly handle final step commit
         handleSaveMethod();
       }
     }
@@ -145,7 +144,7 @@ export default function PaymentMethodsPage() {
                     <RadioGroup value={integrationMode} onValueChange={(v: any) => setIntegrationMode(v)} className="grid grid-cols-2 gap-3">
                       <div className={`flex items-center gap-3 p-3 rounded-[5px] border transition-all cursor-pointer ${integrationMode === 'brandpay' ? 'bg-primary/10 border-primary' : 'bg-slate-950 border-white/5'}`} onClick={() => setIntegrationMode('brandpay')}>
                         <Zap className={integrationMode === 'brandpay' ? 'text-primary' : 'text-slate-600'} />
-                        <span className="text-xs font-bold uppercase">SDK</span>
+                        <span className="text-xs font-bold uppercase">Brandpay</span>
                       </div>
                       <div className={`flex items-center gap-3 p-3 rounded-[5px] border transition-all cursor-pointer ${integrationMode === 'manual' ? 'bg-primary/10 border-primary' : 'bg-slate-950 border-white/5'}`} onClick={() => setIntegrationMode('manual')}>
                         <CreditCard className={integrationMode === 'manual' ? 'text-primary' : 'text-slate-600'} />
@@ -157,7 +156,7 @@ export default function PaymentMethodsPage() {
                   {integrationMode === 'brandpay' ? (
                     <div className="space-y-4">
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">SDK Provider</Label>
+                        <Label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Brandpay Provider</Label>
                         <Select value={newMethod.provider} onValueChange={(v) => setNewMethod({...newMethod, provider: v, name: v === 'AIRTEL' ? 'Airtel Money' : 'TNM Mpamba', type: 'MOBILE_MONEY'})}>
                           <SelectTrigger className="bg-slate-800 border-white/5"><SelectValue placeholder="Select Provider" /></SelectTrigger>
                           <SelectContent className="bg-slate-800 border-white/10 text-white">
@@ -224,7 +223,7 @@ export default function PaymentMethodsPage() {
                   {method.isBrandPay && (
                     <div className="flex items-center gap-1.5 bg-primary/10 px-2 py-1 rounded-[5px] border border-primary/20">
                       <Zap className="h-3 w-3 text-primary fill-current" />
-                      <span className="text-[8px] font-black uppercase text-primary">SDK</span>
+                      <span className="text-[8px] font-black uppercase text-primary">Brandpay</span>
                     </div>
                   )}
                   <Switch checked={method.active} onCheckedChange={() => toggleStatus(method.id)} className="scale-75" />
