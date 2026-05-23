@@ -167,7 +167,7 @@ export default function StaffManagementPage() {
   };
 
   const exportToCSV = () => {
-    const headers = ['Staff ID', 'Name', 'Email', 'Role', 'District', 'Area'];
+    const headers = ['StaffID', 'Name', 'Email', 'Role', 'District', 'Area'];
     const rows = staffList.map(s => [
       s.id,
       s.name,
@@ -225,7 +225,11 @@ export default function StaffManagementPage() {
 
   const downloadTemplate = () => {
     const headers = ['StaffID', 'Name', 'Email', 'Role', 'District', 'Area'];
-    const csvContent = headers.join(",") + "\n";
+    const demoData = [
+      ['882299', 'Kondwani Phiri', 'kondwani@mwb.mw', 'DISTRICT_STAFF', 'Lilongwe', 'Area 18'],
+      ['443311', 'Chimwemwe Banda', 'chimwemwe@mwb.mw', 'DISTRICT_STAFF', 'Blantyre', 'Chirimba']
+    ];
+    const csvContent = [headers, ...demoData].map(row => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -448,7 +452,7 @@ export default function StaffManagementPage() {
                 variant="default" 
                 size="sm" 
                 onClick={downloadTemplate}
-                className="h-8 bg-primary hover:bg-primary/90 text-[10px] text-white uppercase font-bold tracking-tight gap-1.5 rounded-[5px]"
+                className="h-8 bg-primary hover:bg-primary/90 text-[10px] text-white uppercase font-bold tracking-tight gap-1.5 rounded-[5px] border-none shadow-lg shadow-primary/20"
               >
                 <FileSpreadsheet className="h-3.5 w-3.5" /> Download Template
               </Button>
@@ -462,7 +466,7 @@ export default function StaffManagementPage() {
                 <TableRow className="border-b border-white/5 hover:bg-transparent">
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Agent Identity</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10 text-center">Staff ID</TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Territory</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Territory (Dist/Area)</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Role</TableHead>
                   <TableHead className="text-right text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Actions</TableHead>
                 </TableRow>
@@ -489,7 +493,7 @@ export default function StaffManagementPage() {
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         <MapPin className="h-3 w-3 text-primary opacity-60" />
-                        <span className="text-xs text-slate-300 font-medium">{staff.district || 'National'} • {staff.area || 'Oversight'}</span>
+                        <span className="text-xs text-slate-300 font-bold">{staff.district || 'National'} > {staff.area || 'Oversight'}</span>
                       </div>
                     </TableCell>
                     <TableCell>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
-import { User, REGIONS, DISTRICTS } from '@/app/lib/mock-data';
+import { User, REGIONS, DISTRICTS, AREAS } from '@/app/lib/mock-data';
 import { 
   Table, 
   TableBody, 
@@ -71,6 +71,7 @@ export default function CustomersPage() {
     meterNumber: '',
     region: '',
     district: '',
+    area: '',
     address: '',
     phone: '',
     whatsapp: '',
@@ -99,10 +100,10 @@ export default function CustomersPage() {
 
   const handleNextStep = () => {
     if (currentStep === 1) {
-      if (!formData.name || !formData.meterNumber || !formData.region || !formData.district) {
+      if (!formData.name || !formData.meterNumber || !formData.region || !formData.district || !formData.area) {
         toast({
           title: "Identity Required",
-          description: "Please complete the identity and location details before proceeding.",
+          description: "Please complete the identity and location details (including Area) before proceeding.",
           variant: "destructive"
         });
         return;
@@ -132,6 +133,7 @@ export default function CustomersPage() {
       role: 'CUSTOMER',
       region: formData.region,
       district: formData.district,
+      area: formData.area,
       address: formData.address,
       meterNumber: formData.meterNumber,
       walletBalance: 0,
@@ -152,6 +154,7 @@ export default function CustomersPage() {
       meterNumber: '',
       region: '',
       district: '',
+      area: '',
       address: '',
       phone: '',
       whatsapp: '',
@@ -168,12 +171,13 @@ export default function CustomersPage() {
   };
 
   const exportToCSV = () => {
-    const headers = ['Meter Number', 'Name', 'Region', 'District', 'Address', 'Phone', 'Email', 'Wallet Balance'];
+    const headers = ['Meter Number', 'Name', 'Region', 'District', 'Area', 'Address', 'Phone', 'Email', 'Wallet Balance'];
     const rows = customers.map(c => [
       c.meterNumber || '',
       c.name,
       c.region || '',
       c.district || '',
+      c.area || '',
       c.address || '',
       c.phoneNumber || '',
       c.email || '',
@@ -200,20 +204,20 @@ export default function CustomersPage() {
     reader.onload = (event) => {
       const text = event.target?.result as string;
       const lines = text.split('\n').filter(line => line.trim() !== '');
-      const headers = lines[0].split(',');
       
       const newCustomers: User[] = lines.slice(1).map((line, index) => {
         const values = line.split(',');
         return {
           id: `c-imp-${Date.now()}-${index}`,
-          name: values[1] || 'Unknown',
           meterNumber: values[0] || '',
+          name: values[1] || 'Unknown',
           region: values[2] || '',
           district: values[3] || '',
-          address: values[4] || '',
-          phoneNumber: values[5] || '',
-          email: values[6] || '',
-          walletBalance: parseFloat(values[7] || '0'),
+          area: values[4] || '',
+          address: values[5] || '',
+          phoneNumber: values[6] || '',
+          email: values[7] || '',
+          walletBalance: parseFloat(values[8] || '0'),
           role: 'CUSTOMER',
           assignedStaffId: user?.id
         };
@@ -222,7 +226,7 @@ export default function CustomersPage() {
       const usersStr = localStorage.getItem('mywater_all_users');
       const allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
       const updatedUsers = [...allUsers, ...newCustomers];
-      localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+      localStorage.setItem('mywater_all_users', JSON.stringify(updatedAllUsers));
       setCustomers(updatedUsers.filter(u => u.role === 'CUSTOMER'));
 
       toast({
@@ -235,8 +239,12 @@ export default function CustomersPage() {
   };
 
   const downloadTemplate = () => {
-    const headers = ['MeterNumber', 'Name', 'Region', 'District', 'Address', 'Phone', 'Email', 'InitialBalance'];
-    const csvContent = headers.join(",") + "\n";
+    const headers = ['MeterNumber', 'Name', 'Region', 'District', 'Area', 'Address', 'Phone', 'Email', 'InitialBalance'];
+    const demoData = [
+      ['772211', 'Gift Nkhoma', 'Central', 'Lilongwe', 'Area 18', 'Plot 45, Near Mosque', '0888123456', 'gift@example.mw', '0'],
+      ['994433', 'Agness Banda', 'Southern', 'Blantyre', 'Chirimba', 'House 12, Main Road', '0999876543', 'agness@example.mw', '5000']
+    ];
+    const csvContent = [headers, ...demoData].map(row => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -255,7 +263,8 @@ export default function CustomersPage() {
     return (
       customer.name.toLowerCase().includes(searchLower) ||
       (customer.meterNumber?.toLowerCase().includes(searchLower)) ||
-      (customer.district?.toLowerCase().includes(searchLower))
+      (customer.district?.toLowerCase().includes(searchLower)) ||
+      (customer.area?.toLowerCase().includes(searchLower))
     );
   });
 
@@ -301,7 +310,7 @@ export default function CustomersPage() {
                     />
                   </div>
                   <div className="col-span-2 space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Meter Number</label>
+                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Meter Number (Flexible)</label>
                     <div className="flex gap-2">
                       <Input 
                         placeholder="Identifier (No Rules)" 
@@ -336,10 +345,29 @@ export default function CustomersPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-2 space-y-1.5">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Area</label>
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="e.g. Area 18" 
+                        value={formData.area} 
+                        onChange={(e) => setFormData(prev => ({ ...prev, area: e.target.value }))}
+                        className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm"
+                      />
+                      <Select onValueChange={(v) => setFormData(prev => ({ ...prev, area: v }))}>
+                        <SelectTrigger className="bg-slate-800 border-white/5 rounded-[5px] h-9 w-10 p-0 flex items-center justify-center">
+                          <MapPin className="h-4 w-4 opacity-40" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-white/10 text-white">
+                          {AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Detailed Address</label>
                     <Input 
-                      placeholder="House #, Street Name, Landmark" 
+                      placeholder="Plot #, Street Name" 
                       className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm"
                       value={formData.address}
                       onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
@@ -462,7 +490,7 @@ export default function CustomersPage() {
                 variant="default" 
                 size="sm" 
                 onClick={downloadTemplate}
-                className="h-8 bg-primary hover:bg-primary/90 text-[10px] text-white uppercase font-bold tracking-tight gap-1.5 rounded-[5px]"
+                className="h-8 bg-primary hover:bg-primary/90 text-[10px] text-white uppercase font-bold tracking-tight gap-1.5 rounded-[5px] border-none shadow-lg shadow-primary/20"
               >
                 <FileSpreadsheet className="h-3.5 w-3.5" /> Download Template
               </Button>
@@ -476,7 +504,7 @@ export default function CustomersPage() {
                 <TableRow className="hover:bg-transparent border-b border-white/5">
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Meter #</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Customer</TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Location</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Location (Dist/Area/Addr)</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Contact</TableHead>
                   <TableHead className="text-right text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Actions</TableHead>
                 </TableRow>
@@ -489,9 +517,11 @@ export default function CustomersPage() {
                       <div className="font-bold text-white text-sm">{customer.name}</div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <MapPin className="h-3.5 w-3.5 text-primary opacity-70" />
-                        {customer.district}{customer.address ? `, ${customer.address}` : ''}
+                      <div className="flex flex-col gap-0.5 text-xs text-slate-400">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-300">
+                          <MapPin className="h-3 w-3 text-primary" /> {customer.district} > {customer.area}
+                        </div>
+                        <span className="text-[10px] opacity-70 ml-4.5">{customer.address || 'No detailed address'}</span>
                       </div>
                     </TableCell>
                     <TableCell>
