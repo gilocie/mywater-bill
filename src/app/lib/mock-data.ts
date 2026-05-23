@@ -46,6 +46,8 @@ export interface PaymentMethod {
   type: 'MOBILE_MONEY' | 'BANK' | 'WALLET';
   provider: string;
   active: boolean;
+  isBrandPay?: boolean;
+  accountNumber?: string;
 }
 
 export const REGIONS = ['Northern', 'Central', 'Southern'];
