@@ -39,12 +39,15 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 
 export default function WalletPage() {
   const { user, updateUser } = useAuth();
   const { toast } = useToast();
   
   const [depositAmount, setDepositAmount] = useState('');
+  const [depositAccountNum, setDepositAccountNum] = useState('');
+  const [saveMethod, setSaveMethod] = useState(false);
   const [isDepositing, setIsDepositing] = useState(false);
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -108,6 +111,7 @@ export default function WalletPage() {
       
       setIsDepositing(false);
       setDepositAmount('');
+      setDepositAccountNum('');
       setSelectedMethodId(null);
       setIsDialogOpen(false);
 
@@ -176,46 +180,62 @@ export default function WalletPage() {
 
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase text-slate-500 tracking-[0.2em] px-1">Select Channel</label>
-                    <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
                       {paymentMethods.length > 0 ? paymentMethods.map(method => (
                         <button 
                           key={method.id}
                           onClick={() => setSelectedMethodId(method.id)}
                           className={cn(
-                            "flex items-center justify-between p-4 border rounded-[5px] transition-all text-left",
+                            "flex flex-col items-center justify-center p-3 border rounded-[5px] transition-all text-center gap-1.5",
                             selectedMethodId === method.id 
                               ? "bg-primary/20 border-primary ring-1 ring-primary/50" 
                               : "bg-slate-950/50 border-white/5 hover:bg-white/5"
                           )}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="bg-slate-900 p-2 rounded-[5px]">
-                              {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : 
-                               method.type === 'BANK' ? <CreditCard className="h-4 w-4 text-primary" /> : 
-                               <Wallet className="h-4 w-4 text-primary" />}
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-black text-white uppercase">{method.name}</p>
-                              <p className="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">{method.provider}</p>
-                            </div>
+                          <div className="bg-slate-900 p-2 rounded-[5px]">
+                            {method.type === 'MOBILE_MONEY' ? <Smartphone className="h-4 w-4 text-primary" /> : 
+                             method.type === 'BANK' ? <CreditCard className="h-4 w-4 text-primary" /> : 
+                             <Wallet className="h-4 w-4 text-primary" />}
                           </div>
-                          {selectedMethodId === method.id && <CheckCircle2 className="h-4 w-4 text-primary animate-in zoom-in" />}
+                          <div>
+                            <p className="text-[10px] font-black text-white uppercase">{method.name}</p>
+                            <p className="text-[8px] text-slate-500 uppercase font-bold tracking-tighter">{method.provider}</p>
+                          </div>
+                          {selectedMethodId === method.id && <CheckCircle2 className="h-3 w-3 text-primary animate-in zoom-in" />}
                         </button>
                       )) : (
-                        <div className="p-4 bg-slate-950/50 border border-white/5 rounded-[5px] text-center italic text-[10px] text-slate-600">
+                        <div className="col-span-2 p-4 bg-slate-950/50 border border-white/5 rounded-[5px] text-center italic text-[10px] text-slate-600">
                           No active payment channels available.
                         </div>
                       )}
                     </div>
                   </div>
+
+                  {selectedMethodId && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Account Number / Phone</label>
+                        <Input 
+                          placeholder="Enter details..." 
+                          value={depositAccountNum}
+                          onChange={(e) => setDepositAccountNum(e.target.value)}
+                          className="bg-slate-950 border-white/5 h-10 text-sm rounded-[5px]"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-slate-950/50 border border-white/5 rounded-[5px]">
+                         <label className="text-[9px] font-bold text-slate-400 uppercase">Save as preferred method</label>
+                         <Switch checked={saveMethod} onCheckedChange={setSaveMethod} className="scale-75" />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button 
                     className="w-full bg-primary hover:bg-primary/90 font-black uppercase tracking-widest h-12 rounded-[5px] text-sm shadow-2xl" 
                     onClick={handleDeposit} 
-                    disabled={isDepositing || !selectedMethodId || !depositAmount}
+                    disabled={isDepositing || !selectedMethodId || !depositAmount || !depositAccountNum}
                   >
-                    {isDepositing ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : "Authorize Push Payment"}
+                    {isDepositing ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : "Confirm Deposit"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
