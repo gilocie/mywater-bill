@@ -189,7 +189,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <CardHeader className="pb-4 pt-6 px-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-2xl font-black text-white">{customer.name}</CardTitle>
+                  <CardTitle className="text-2xl font-black text-white uppercase">{customer.name}</CardTitle>
                   <CardDescription className="flex items-center gap-2 mt-1 text-slate-400 font-medium">
                     <MapPin className="h-3.5 w-3.5 text-primary" /> {customer.district}{customer.address ? `, ${customer.address}` : ''}
                   </CardDescription>
@@ -332,8 +332,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                           <Input value={editFormData.name || ''} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} placeholder="Name" className="bg-slate-800 border-white/5" />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Meter Number</label>
-                          <Input value={editFormData.meterNumber || ''} onChange={(e) => setEditFormData({...editFormData, meterNumber: e.target.value.toUpperCase()})} placeholder="MTR-XXXX" className="bg-slate-800 border-white/5" />
+                          <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Meter Identifier</label>
+                          <Input value={editFormData.meterNumber || ''} onChange={(e) => setEditFormData({...editFormData, meterNumber: e.target.value})} placeholder="Flexible ID" className="bg-slate-800 border-white/5" />
                         </div>
                       </div>
                       

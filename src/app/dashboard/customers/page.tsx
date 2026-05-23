@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { User, REGIONS, DISTRICTS } from '@/app/lib/mock-data';
@@ -30,7 +30,10 @@ import {
   RefreshCw,
   ArrowRight,
   ArrowLeft,
-  MessageSquare
+  MessageSquare,
+  Download,
+  Upload,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -38,7 +41,8 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogTrigger,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from '@/components/ui/dialog';
 import { 
   Select, 
@@ -50,12 +54,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 
 export default function CustomersPage() {
   const { user } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [customers, setCustomers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -63,7 +67,6 @@ export default function CustomersPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(false);
   
-  // Registration Form State
   const [formData, setFormData] = useState({
     name: '',
     meterNumber: '',
@@ -75,7 +78,6 @@ export default function CustomersPage() {
     email: ''
   });
 
-  // Load customers from localStorage
   useEffect(() => {
     const loadCustomers = () => {
       const usersStr = localStorage.getItem('mywater_all_users');
@@ -90,7 +92,6 @@ export default function CustomersPage() {
     return () => window.removeEventListener('storage', loadCustomers);
   }, []);
 
-  // Sync WhatsApp if toggle is on
   useEffect(() => {
     if (whatsappSameAsPhone) {
       setFormData(prev => ({ ...prev, whatsapp: prev.phone }));
@@ -140,16 +141,13 @@ export default function CustomersPage() {
       assignedStaffId: user?.id
     };
 
-    // Update localStorage
     const usersStr = localStorage.getItem('mywater_all_users');
     const allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
     const updatedUsers = [...allUsers, newCustomer];
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
 
-    // Update local state
     setCustomers(updatedUsers.filter(u => u.role === 'CUSTOMER'));
     
-    // Reset form and close dialog
     setFormData({
       name: '',
       meterNumber: '',
@@ -170,10 +168,87 @@ export default function CustomersPage() {
     });
   };
 
+  const exportToCSV = () => {
+    const headers = ['Meter Number', 'Name', 'Region', 'District', 'Address', 'Phone', 'Email', 'Wallet Balance'];
+    const rows = customers.map(c => [
+      c.meterNumber || '',
+      c.name,
+      c.region || '',
+      c.district || '',
+      c.address || '',
+      c.phoneNumber || '',
+      c.email || '',
+      c.walletBalance || 0
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `customer_registry_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      const headers = lines[0].split(',');
+      
+      const newCustomers: User[] = lines.slice(1).map((line, index) => {
+        const values = line.split(',');
+        return {
+          id: `c-imp-${Date.now()}-${index}`,
+          name: values[1] || 'Unknown',
+          meterNumber: values[0] || '',
+          region: values[2] || '',
+          district: values[3] || '',
+          address: values[4] || '',
+          phoneNumber: values[5] || '',
+          email: values[6] || '',
+          walletBalance: parseFloat(values[7] || '0'),
+          role: 'CUSTOMER',
+          assignedStaffId: user?.id
+        };
+      });
+
+      const usersStr = localStorage.getItem('mywater_all_users');
+      const allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
+      const updatedUsers = [...allUsers, ...newCustomers];
+      localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+      setCustomers(updatedUsers.filter(u => u.role === 'CUSTOMER'));
+
+      toast({
+        title: "Import Successful",
+        description: `Imported ${newCustomers.length} customer records.`
+      });
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const downloadTemplate = () => {
+    const headers = ['MeterNumber', 'Name', 'Region', 'District', 'Address', 'Phone', 'Email', 'InitialBalance'];
+    const csvContent = headers.join(",") + "\n";
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "mwb_customer_template.csv");
+    link.click();
+  };
+
   const generateMeter = () => {
-    const m = `MTR-${Math.floor(1000 + Math.random() * 9000)}`;
+    const m = `${Math.floor(100000 + Math.random() * 900000)}`;
     setFormData(prev => ({ ...prev, meterNumber: m }));
-    toast({ title: "Meter Assigned", description: `Unique ID: ${m}` });
   };
 
   const displayCustomers = customers.filter(customer => {
@@ -189,11 +264,11 @@ export default function CustomersPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Customer Registry</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-white uppercase">Customer Registry</h2>
           <p className="text-slate-400 font-medium">Managing utility consumers and active service points.</p>
         </div>
         
-        {user?.role !== 'CUSTOMER' && (
+        <div className="flex items-center gap-2">
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) {
@@ -216,7 +291,6 @@ export default function CustomersPage() {
               </DialogHeader>
 
               {currentStep === 1 ? (
-                /* STEP 1: IDENTITY & LOCATION */
                 <div className="grid grid-cols-2 gap-4 py-4 animate-in fade-in slide-in-from-right-2 duration-300">
                   <div className="col-span-2 space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Full Name</label>
@@ -231,9 +305,9 @@ export default function CustomersPage() {
                     <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Meter Number</label>
                     <div className="flex gap-2">
                       <Input 
-                        placeholder="MTR-XXXX" 
+                        placeholder="Identifier (No Rules)" 
                         value={formData.meterNumber} 
-                        onChange={(e) => setFormData(prev => ({ ...prev, meterNumber: e.target.value.toUpperCase() }))}
+                        onChange={(e) => setFormData(prev => ({ ...prev, meterNumber: e.target.value }))}
                         className="bg-slate-800 border-white/5 rounded-[5px] font-mono font-bold text-primary h-9"
                       />
                       <Button variant="outline" size="icon" onClick={generateMeter} className="border-white/5 bg-slate-800 hover:bg-slate-700 rounded-[5px] h-9 w-9">
@@ -274,12 +348,9 @@ export default function CustomersPage() {
                   </div>
                 </div>
               ) : (
-                /* STEP 2: CONTACT DETAILS */
                 <div className="grid grid-cols-2 gap-4 py-4 animate-in fade-in slide-in-from-right-2 duration-300">
                   <div className="col-span-2 space-y-1.5">
-                    <div className="flex items-center justify-between px-1">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Phone Number</label>
-                    </div>
+                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Phone Number</label>
                     <Input 
                       placeholder="+265..." 
                       className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm"
@@ -348,19 +419,55 @@ export default function CustomersPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        )}
+        </div>
       </div>
 
       <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
         <CardHeader className="pb-3 pt-6 px-6">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-            <Input 
-              placeholder="Search records, meters, districts..." 
-              className="pl-9 bg-slate-900 border-white/5 text-white rounded-[5px] h-9 text-sm" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="relative w-full md:w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <Input 
+                placeholder="Search records, meters, districts..." 
+                className="pl-9 bg-slate-950 border-white/5 text-white rounded-[5px] h-9 text-sm" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleImportCSV} 
+                className="hidden" 
+                accept=".csv"
+              />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fileInputRef.current?.click()}
+                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2"
+              >
+                <Upload className="h-3.5 w-3.5" /> Import CSV
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={exportToCSV}
+                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2"
+              >
+                <Download className="h-3.5 w-3.5" /> Export Ledger
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={downloadTemplate}
+                className="h-8 text-[9px] text-slate-500 hover:text-white uppercase font-bold tracking-tight"
+              >
+                Template
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-6 pt-0">
