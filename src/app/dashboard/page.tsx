@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -81,12 +82,15 @@ export default function DashboardPage() {
       return;
     }
 
+    const productName = type === 'DEPOSIT' ? 'Wallet Refill' : 'Bill Settlement';
+
     (window as any).BrandPay.openCheckout({
       amount: amount,
       currency: 'MWK',
+      title: productName,
       customerPhone: user.phoneNumber || '',
       metadata: {
-        statementDescription: type === 'DEPOSIT' ? 'Wallet Refill' : 'Bill Settlement',
+        statementDescription: productName,
         fields: [
           { fieldName: 'userId', fieldValue: user.id },
           { fieldName: 'type', fieldValue: type },

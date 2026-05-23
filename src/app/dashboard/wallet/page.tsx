@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -29,7 +30,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export default function WalletPage() {
@@ -108,13 +109,15 @@ export default function WalletPage() {
 
     const amount = parseFloat(depositAmount);
     setIsProcessing(true);
+    const productName = 'Utility Wallet Refill';
     
     (window as any).BrandPay.openCheckout({
       amount,
       currency: 'MWK',
+      title: productName,
       customerPhone: accountNumber,
       metadata: { 
-        statementDescription: 'Wallet Refill', 
+        statementDescription: productName, 
         fields: [
           { fieldName: 'userId', fieldValue: user?.id },
           { fieldName: 'apiKey', fieldValue: localStorage.getItem('mywater_pawapay_key') || '' },

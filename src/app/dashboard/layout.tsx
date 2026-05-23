@@ -25,7 +25,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -58,7 +58,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showApiKey, setShowApiKey] = useState(false);
 
   // Test Purchase state
-  const [testProduct, setTestProduct] = useState('Admin Bill');
+  const [testProduct, setTestProduct] = useState('Utility Connectivity Test');
   const [testPrice, setTestPrice] = useState('500');
 
   useEffect(() => {
@@ -116,7 +116,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     setTestPurchaseDialogOpen(false);
     
-    // We use a non-blocking toast for initiation to ensure the SDK UI remains clickable
     toast({
       title: "Initiating Gateway",
       description: "Opening secure communication protocol...",
@@ -125,6 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     (window as any).BrandPay.openCheckout({
       amount: parseFloat(testPrice),
       currency: 'MWK',
+      title: testProduct,
       metadata: {
         statementDescription: testProduct,
         fields: [
@@ -462,7 +462,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </DialogContent>
       </Dialog>
 
-      {/* Test Status Dialog - Only triggers for final Success/Failure states to prevent SDK interaction blocking */}
+      {/* Test Status Dialog - Only triggers for final Success/Failure states */}
       <Dialog open={testStatus === 'success' || testStatus === 'failure'} onOpenChange={(open) => !open && setTestStatus('idle')}>
         <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] text-center py-10">
           {testStatus === 'success' && (
