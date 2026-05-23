@@ -57,7 +57,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [user, isLoading, router]);
 
   useEffect(() => {
-    // Initialize state and SDK on mount (Client-only)
     if (typeof window !== 'undefined') {
       if ((window as any).BrandPay) {
         (window as any).BrandPay.init({
@@ -172,7 +171,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </SidebarInset>
 
-      {/* Profile Management Dialog */}
       <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
         <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
           <DialogHeader>
@@ -210,7 +208,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </DialogContent>
       </Dialog>
 
-      {/* System Settings Dialog */}
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
         <DialogContent className="bg-slate-900 border-white/5 text-white max-w-md rounded-[5px] overflow-y-auto max-h-[90vh]">
           <DialogHeader>
@@ -238,7 +235,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2">
-                  <Zap className="h-3 w-3" /> BrandPay / pawaPay Settings
+                  <Zap className="h-3 w-3" /> BRANDPAY / PAWAPAY SETTINGS
                 </Label>
                 <div className="flex items-center gap-2">
                   <Button 
@@ -256,12 +253,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {portalUrl && (
                     <Button 
                       variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7 text-primary hover:text-white bg-primary/10 rounded-[5px]"
+                      size="sm" 
+                      className="h-7 px-3 text-[10px] font-bold uppercase tracking-widest text-primary hover:text-white bg-primary/10 rounded-[5px] gap-1.5"
                       onClick={() => window.open(portalUrl, '_blank')}
-                      title="Launch Portal"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
+                      Get Key
                     </Button>
                   )}
                 </div>
@@ -315,7 +312,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </DialogContent>
       </Dialog>
 
-      {/* Portal Shortcut Config Dialog */}
       <Dialog open={portalDialogOpen} onOpenChange={setPortalDialogOpen}>
         <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
           <DialogHeader>
