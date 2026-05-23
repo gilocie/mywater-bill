@@ -226,7 +226,7 @@ export default function CustomersPage() {
       const usersStr = localStorage.getItem('mywater_all_users');
       const allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
       const updatedUsers = [...allUsers, ...newCustomers];
-      localStorage.setItem('mywater_all_users', JSON.stringify(updatedAllUsers));
+      localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
       setCustomers(updatedUsers.filter(u => u.role === 'CUSTOMER'));
 
       toast({
@@ -519,7 +519,7 @@ export default function CustomersPage() {
                     <TableCell>
                       <div className="flex flex-col gap-0.5 text-xs text-slate-400">
                         <div className="flex items-center gap-1.5 font-bold text-slate-300">
-                          <MapPin className="h-3 w-3 text-primary" /> {customer.district} > {customer.area}
+                          <MapPin className="h-3 w-3 text-primary" /> {customer.district} {">"} {customer.area}
                         </div>
                         <span className="text-[10px] opacity-70 ml-4.5">{customer.address || 'No detailed address'}</span>
                       </div>

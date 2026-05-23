@@ -493,7 +493,7 @@ export default function StaffManagementPage() {
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         <MapPin className="h-3 w-3 text-primary opacity-60" />
-                        <span className="text-xs text-slate-300 font-bold">{staff.district || 'National'} > {staff.area || 'Oversight'}</span>
+                        <span className="text-xs text-slate-300 font-bold">{staff.district || 'National'} {">"} {staff.area || 'Oversight'}</span>
                       </div>
                     </TableCell>
                     <TableCell>
