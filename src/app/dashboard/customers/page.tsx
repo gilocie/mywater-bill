@@ -276,7 +276,7 @@ export default function CustomersPage() {
             }
           }}>
             <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 gap-2 rounded-[5px] h-9 font-bold uppercase tracking-wider text-xs">
+              <Button className="bg-primary hover:bg-primary/90 gap-2 rounded-[5px] h-9 font-bold uppercase tracking-wider text-xs text-white">
                 <Plus className="h-4 w-4" /> Add Customer
               </Button>
             </DialogTrigger>
@@ -402,14 +402,14 @@ export default function CustomersPage() {
                 
                 {currentStep === 1 ? (
                   <Button 
-                    className="w-full bg-slate-800 hover:bg-slate-700 font-bold uppercase tracking-widest h-10 rounded-[5px] text-xs" 
+                    className="w-full bg-slate-800 hover:bg-slate-700 font-bold uppercase tracking-widest h-10 rounded-[5px] text-xs text-white" 
                     onClick={handleNextStep}
                   >
                     Continue to Contact <ArrowRight className="h-3 w-3 ml-2" />
                   </Button>
                 ) : (
                   <Button 
-                    className="flex-[2] bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px] text-xs" 
+                    className="flex-[2] bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px] text-xs text-white" 
                     onClick={handleAddCustomer}
                   >
                     Complete Registration
@@ -446,7 +446,7 @@ export default function CustomersPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => fileInputRef.current?.click()}
-                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2"
+                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2 text-white"
               >
                 <Upload className="h-3.5 w-3.5" /> Import CSV
               </Button>
@@ -454,15 +454,15 @@ export default function CustomersPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={exportToCSV}
-                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2"
+                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2 text-white"
               >
                 <Download className="h-3.5 w-3.5" /> Export Ledger
               </Button>
               <Button 
-                variant="ghost" 
+                variant="default" 
                 size="sm" 
                 onClick={downloadTemplate}
-                className="h-8 text-[9px] text-primary hover:text-primary/80 uppercase font-bold tracking-tight gap-1.5"
+                className="h-8 bg-primary hover:bg-primary/90 text-[10px] text-white uppercase font-bold tracking-tight gap-1.5 rounded-[5px]"
               >
                 <FileSpreadsheet className="h-3.5 w-3.5" /> Download Template
               </Button>
@@ -512,7 +512,7 @@ export default function CustomersPage() {
                       <Button 
                         variant="default" 
                         size="sm" 
-                        className="text-[10px] h-7 bg-primary hover:bg-primary/90 font-bold uppercase tracking-wider rounded-[5px] px-3"
+                        className="text-[10px] h-7 bg-primary hover:bg-primary/90 font-bold uppercase tracking-wider rounded-[5px] px-3 text-white"
                         onClick={() => router.push(`/dashboard/customers/${customer.id}`)}
                       >
                         Inspect Record

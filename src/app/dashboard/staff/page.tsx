@@ -276,7 +276,7 @@ export default function StaffManagementPage() {
             }
           }}>
             <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 gap-2 rounded-[5px] h-9 font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20">
+              <Button className="bg-primary hover:bg-primary/90 gap-2 rounded-[5px] h-9 font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20 text-white">
                 <UserPlus className="h-4 w-4" /> Register Field Agent
               </Button>
             </DialogTrigger>
@@ -394,7 +394,7 @@ export default function StaffManagementPage() {
 
               <DialogFooter className="border-t border-white/5 pt-4">
                 {currentStep === 1 ? (
-                  <Button className="w-full bg-slate-800 hover:bg-slate-700 font-bold uppercase tracking-widest h-10 rounded-[5px] text-[10px]" onClick={handleNextStep}>
+                  <Button className="w-full bg-slate-800 hover:bg-slate-700 font-bold uppercase tracking-widest h-10 rounded-[5px] text-[10px] text-white" onClick={handleNextStep}>
                     Continue to Security <ArrowRight className="ml-2 h-3.5 w-3.5" />
                   </Button>
                 ) : (
@@ -402,7 +402,7 @@ export default function StaffManagementPage() {
                     <Button variant="outline" className="flex-1 border-white/5 h-10 text-[10px] rounded-[5px] font-bold uppercase" onClick={() => setCurrentStep(1)}>
                       <ArrowLeft className="mr-2 h-3.5 w-3.5" /> Back
                     </Button>
-                    <Button className="flex-[2] bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px] text-[10px] shadow-lg shadow-primary/20" onClick={handleRegisterStaff}>
+                    <Button className="flex-[2] bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px] text-[10px] shadow-lg shadow-primary/20 text-white" onClick={handleRegisterStaff}>
                       Commit Enrollment
                     </Button>
                   </div>
@@ -432,7 +432,7 @@ export default function StaffManagementPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => fileInputRef.current?.click()}
-                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2"
+                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2 text-white"
               >
                 <Upload className="h-3.5 w-3.5" /> Bulk Import
               </Button>
@@ -440,15 +440,15 @@ export default function StaffManagementPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={exportToCSV}
-                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2"
+                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2 text-white"
               >
                 <Download className="h-3.5 w-3.5" /> Export Agents
               </Button>
               <Button 
-                variant="ghost" 
+                variant="default" 
                 size="sm" 
                 onClick={downloadTemplate}
-                className="h-8 text-[9px] text-primary hover:text-primary/80 uppercase font-bold tracking-tight gap-1.5"
+                className="h-8 bg-primary hover:bg-primary/90 text-[10px] text-white uppercase font-bold tracking-tight gap-1.5 rounded-[5px]"
               >
                 <FileSpreadsheet className="h-3.5 w-3.5" /> Download Template
               </Button>
