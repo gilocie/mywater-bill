@@ -166,15 +166,23 @@ export default function StaffManagementPage() {
     });
   };
 
+  const escapeCSV = (val: any) => {
+    const str = String(val || '');
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
   const exportToCSV = () => {
     const headers = ['StaffID', 'Name', 'Email', 'Role', 'District', 'Area'];
     const rows = staffList.map(s => [
-      s.id,
-      s.name,
-      s.email,
-      s.role,
-      s.district || '',
-      s.area || ''
+      escapeCSV(s.id),
+      escapeCSV(s.name),
+      escapeCSV(s.email),
+      escapeCSV(s.role),
+      escapeCSV(s.district),
+      escapeCSV(s.area)
     ]);
 
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -196,7 +204,7 @@ export default function StaffManagementPage() {
       const lines = text.split('\n').filter(line => line.trim() !== '');
       
       const newStaff: User[] = lines.slice(1).map((line) => {
-        const values = line.split(',');
+        const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/^"|"$/g, '').replace(/""/g, '"'));
         return {
           id: values[0] || `STF-${Date.now()}`,
           name: values[1] || 'Staff Member',
@@ -229,7 +237,7 @@ export default function StaffManagementPage() {
       ['882299', 'Kondwani Phiri', 'kondwani@mwb.mw', 'DISTRICT_STAFF', 'Lilongwe', 'Area 18'],
       ['443311', 'Chimwemwe Banda', 'chimwemwe@mwb.mw', 'DISTRICT_STAFF', 'Blantyre', 'Chirimba']
     ];
-    const csvContent = [headers, ...demoData].map(row => row.join(",")).join("\n");
+    const csvContent = [headers, ...demoData.map(row => row.map(cell => escapeCSV(cell)))].map(row => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -493,7 +501,7 @@ export default function StaffManagementPage() {
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         <MapPin className="h-3 w-3 text-primary opacity-60" />
-                        <span className="text-xs text-slate-300 font-bold">{staff.district || 'National'} {">"} {staff.area || 'Oversight'}</span>
+                        <span className="text-xs text-slate-300 font-bold">{staff.district || 'National'} {' > '} {staff.area || 'Oversight'}</span>
                       </div>
                     </TableCell>
                     <TableCell>

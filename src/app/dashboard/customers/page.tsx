@@ -170,17 +170,25 @@ export default function CustomersPage() {
     });
   };
 
+  const escapeCSV = (val: any) => {
+    const str = String(val || '');
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
   const exportToCSV = () => {
     const headers = ['Meter Number', 'Name', 'Region', 'District', 'Area', 'Address', 'Phone', 'Email', 'Wallet Balance'];
     const rows = customers.map(c => [
-      c.meterNumber || '',
-      c.name,
-      c.region || '',
-      c.district || '',
-      c.area || '',
-      c.address || '',
-      c.phoneNumber || '',
-      c.email || '',
+      escapeCSV(c.meterNumber),
+      escapeCSV(c.name),
+      escapeCSV(c.region),
+      escapeCSV(c.district),
+      escapeCSV(c.area),
+      escapeCSV(c.address),
+      escapeCSV(c.phoneNumber),
+      escapeCSV(c.email),
       c.walletBalance || 0
     ]);
 
@@ -206,7 +214,8 @@ export default function CustomersPage() {
       const lines = text.split('\n').filter(line => line.trim() !== '');
       
       const newCustomers: User[] = lines.slice(1).map((line, index) => {
-        const values = line.split(',');
+        // Simple regex to handle quoted commas
+        const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/^"|"$/g, '').replace(/""/g, '"'));
         return {
           id: `c-imp-${Date.now()}-${index}`,
           meterNumber: values[0] || '',
@@ -244,7 +253,7 @@ export default function CustomersPage() {
       ['772211', 'Gift Nkhoma', 'Central', 'Lilongwe', 'Area 18', 'Plot 45, Near Mosque', '0888123456', 'gift@example.mw', '0'],
       ['994433', 'Agness Banda', 'Southern', 'Blantyre', 'Chirimba', 'House 12, Main Road', '0999876543', 'agness@example.mw', '5000']
     ];
-    const csvContent = [headers, ...demoData].map(row => row.join(",")).join("\n");
+    const csvContent = [headers, ...demoData.map(row => row.map(cell => escapeCSV(cell)))].map(row => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -519,7 +528,7 @@ export default function CustomersPage() {
                     <TableCell>
                       <div className="flex flex-col gap-0.5 text-xs text-slate-400">
                         <div className="flex items-center gap-1.5 font-bold text-slate-300">
-                          <MapPin className="h-3 w-3 text-primary" /> {customer.district} {">"} {customer.area}
+                          <MapPin className="h-3 w-3 text-primary" /> {customer.district} {'>'} {customer.area}
                         </div>
                         <span className="text-[10px] opacity-70 ml-4.5">{customer.address || 'No detailed address'}</span>
                       </div>
