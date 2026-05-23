@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, ExternalLink, Eye, EyeOff, Settings2, PlayCircle } from 'lucide-react';
+import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, ExternalLink, Eye, EyeOff, Settings2, PlayCircle, Loader2, CheckCircle2, XCircle, FileText, Printer, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -40,6 +40,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [portalDialogOpen, setPortalDialogOpen] = useState(false);
   const [testPurchaseDialogOpen, setTestPurchaseDialogOpen] = useState(false);
   
+  // Test Status state
+  const [testStatus, setTestStatus] = useState<'idle' | 'processing' | 'success' | 'failure'>('idle');
+  const [lastTestResult, setLastTestResult] = useState<any>(null);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+
   // Profile state
   const [newName, setNewName] = useState('');
   
@@ -52,9 +57,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showApiKey, setShowApiKey] = useState(false);
 
   // Test Purchase state
-  const [testProduct, setTestProduct] = useState('Gateway Performance Test');
+  const [testProduct, setTestProduct] = useState('Admin Bill');
   const [testPrice, setTestPrice] = useState('500');
-  const [testPhone, setTestPhone] = useState('');
+  const [testPhone, setTestPhone] = useState('265991972336');
   const [testProvider, setTestProvider] = useState('AIRTEL');
 
   useEffect(() => {
@@ -119,6 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
+    setTestStatus('processing');
     setTestPurchaseDialogOpen(false);
 
     (window as any).BrandPay.openCheckout({
@@ -134,13 +140,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           { fieldName: 'correspondent', fieldValue: testProvider }
         ]
       },
-      onSuccess: () => {
-        toast({
-          title: "Test Successful",
-          description: "The payment gateway communication is verified.",
+      onSuccess: (result: any) => {
+        setLastTestResult({
+          ...result,
+          product: testProduct,
+          amount: testPrice,
+          phone: testPhone,
+          provider: testProvider,
+          date: new Date().toLocaleString()
         });
+        setTestStatus('success');
       },
       onFailure: (error: any) => {
+        setTestStatus('failure');
         toast({
           title: "Test Failed",
           description: error || "Could not complete test transaction.",
@@ -479,6 +491,113 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               Execute Test Purchase
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Status Dialog */}
+      <Dialog open={testStatus !== 'idle'} onOpenChange={(open) => !open && setTestStatus('idle')}>
+        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] text-center py-10">
+          {testStatus === 'processing' && (
+            <div className="animate-in fade-in zoom-in-95 duration-500">
+              <Loader2 className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
+              <DialogTitle className="uppercase tracking-widest text-sm mb-2">Gateway Handshake</DialogTitle>
+              <p className="text-[10px] text-slate-500 uppercase font-bold">Verifying communication protocol...</p>
+            </div>
+          )}
+          
+          {testStatus === 'success' && (
+            <div className="animate-in fade-in zoom-in-95 duration-500">
+              <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4 animate-bounce" />
+              <DialogTitle className="uppercase tracking-widest text-sm mb-1 text-green-500 font-black">Gateway Verified</DialogTitle>
+              <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Test purchase completed successfully.</p>
+              <div className="flex flex-col gap-2">
+                <Button 
+                  onClick={() => {
+                    setTestStatus('idle');
+                    setReceiptDialogOpen(true);
+                  }}
+                  className="w-full bg-white/5 hover:bg-white/10 text-xs font-bold uppercase h-10 gap-2 border border-white/5"
+                >
+                  <FileText className="h-4 w-4 text-primary" /> View Test Receipt
+                </Button>
+                <Button variant="ghost" onClick={() => setTestStatus('idle')} className="text-[10px] text-slate-500 uppercase font-bold">Dismiss</Button>
+              </div>
+            </div>
+          )}
+
+          {testStatus === 'failure' && (
+            <div className="animate-in fade-in zoom-in-95 duration-500">
+              <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
+              <DialogTitle className="uppercase tracking-widest text-sm mb-1 text-destructive">Verification Failed</DialogTitle>
+              <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">The communication protocol was rejected.</p>
+              <Button onClick={() => setTestStatus('idle')} className="w-full bg-destructive text-xs font-bold uppercase h-10">Retry Connection</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Receipt Dialog */}
+      <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm rounded-[5px] p-0 overflow-hidden">
+          <div className="bg-primary/20 p-6 flex items-center justify-between border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary p-2 rounded-[5px]">
+                <FileText className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-tighter">Test Receipt</h3>
+                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Gateway Verified</p>
+              </div>
+            </div>
+            <Zap className="h-4 w-4 text-primary fill-current opacity-50" />
+          </div>
+          
+          <div className="p-8 space-y-6">
+            <div className="text-center space-y-1 pb-4 border-b border-dashed border-white/10">
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Transaction Total</p>
+              <h4 className="text-4xl font-black text-white">
+                <span className="text-primary text-xl mr-1">MK</span>
+                {parseFloat(lastTestResult?.amount || '0').toLocaleString()}
+              </h4>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-[10px]">
+                <span className="text-slate-500 font-bold uppercase">Product</span>
+                <span className="text-white font-mono">{lastTestResult?.product}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px]">
+                <span className="text-slate-500 font-bold uppercase">Gateway</span>
+                <span className="text-primary font-bold">BRANDPAY / PAWAPAY</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px]">
+                <span className="text-slate-500 font-bold uppercase">Provider</span>
+                <span className="text-white font-bold">{lastTestResult?.provider}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px]">
+                <span className="text-slate-500 font-bold uppercase">Customer</span>
+                <span className="text-white font-mono">{lastTestResult?.phone}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px]">
+                <span className="text-slate-500 font-bold uppercase">Timestamp</span>
+                <span className="text-white font-mono opacity-60">{lastTestResult?.date}</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-[5px] border border-white/5">
+              <p className="text-[8px] text-slate-500 font-bold uppercase mb-2">System Metadata</p>
+              <p className="text-[9px] text-primary font-mono leading-tight break-all">REF: {Math.random().toString(36).substring(2, 15).toUpperCase()}</p>
+            </div>
+          </div>
+
+          <div className="p-4 bg-slate-950 flex gap-2">
+            <Button variant="outline" className="flex-1 h-9 text-[10px] font-bold uppercase border-white/5 gap-2 rounded-[5px]">
+              <Printer className="h-3.5 w-3.5" /> Print
+            </Button>
+            <Button className="flex-1 h-9 bg-primary text-[10px] font-bold uppercase gap-2 rounded-[5px]">
+              <Download className="h-3.5 w-3.5" /> Save PDF
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </SidebarProvider>
