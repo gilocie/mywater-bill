@@ -15,9 +15,18 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Extract credentials from top-level or metadata (fallback)
-    const apiKey = body.apiKey || process.env.PAWAPAY_API_KEY;
-    const mode = body.mode || process.env.PAWAPAY_MODE || 'sandbox';
+    // Robust extraction: Check top-level, then look inside metadata fields
+    let apiKey = body.apiKey || process.env.PAWAPAY_API_KEY;
+    
+    if (!apiKey && body.metadata?.fields) {
+      const field = body.metadata.fields.find((f: any) => f.fieldName === 'apiKey');
+      if (field) apiKey = field.fieldValue;
+    }
+
+    const mode = body.mode || 
+                 body.metadata?.fields?.find((f: any) => f.fieldName === 'mode')?.fieldValue || 
+                 process.env.PAWAPAY_MODE || 
+                 'sandbox';
 
     if (!apiKey) {
       return NextResponse.json({ 
@@ -30,7 +39,7 @@ export async function POST(request: Request) {
       return NextResponse.json(config, { headers: corsHeaders });
     }
     
-    // Clean metadata to avoid length errors
+    // Clean metadata to avoid length errors (PawaPay limit is 64 chars per field)
     const cleanMetadata = (body.metadata?.fields || []).filter((f: any) => 
       !['apiKey', 'mode'].includes(f.fieldName)
     );

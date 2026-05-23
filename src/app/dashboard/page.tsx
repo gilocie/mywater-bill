@@ -83,6 +83,7 @@ export default function DashboardPage() {
       amount: amount,
       currency: 'MWK',
       title: productName,
+      productName: productName,
       customerPhone: user.phoneNumber || '',
       apiKey,
       mode,
@@ -91,7 +92,9 @@ export default function DashboardPage() {
         statementDescription: productName.substring(0, 22),
         fields: [
           { fieldName: 'userId', fieldValue: user.id },
-          { fieldName: 'type', fieldValue: type }
+          { fieldName: 'type', fieldValue: type },
+          { fieldName: 'apiKey', fieldValue: apiKey },
+          { fieldName: 'mode', fieldValue: mode }
         ]
       },
       onSuccess: () => {

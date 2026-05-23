@@ -103,6 +103,7 @@ export default function WalletPage() {
       amount,
       currency: 'MWK',
       title: productName,
+      productName: productName,
       customerPhone: accountNumber,
       apiKey,
       mode,
@@ -110,7 +111,9 @@ export default function WalletPage() {
       metadata: { 
         statementDescription: productName.substring(0, 22), 
         fields: [
-          { fieldName: 'userId', fieldValue: user?.id }
+          { fieldName: 'userId', fieldValue: user?.id },
+          { fieldName: 'apiKey', fieldValue: apiKey },
+          { fieldName: 'mode', fieldValue: mode }
         ] 
       },
       onSuccess: () => {

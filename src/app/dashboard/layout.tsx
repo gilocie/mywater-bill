@@ -109,7 +109,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
-    // Close settings and form to avoid non-clickable overlays
+    // Close settings to ensure focus and interactivity on the gateway
     setTestPurchaseDialogOpen(false);
     setSettingsDialogOpen(false);
     
@@ -122,13 +122,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       amount: parseFloat(testPrice),
       currency: 'MWK',
       title: testProduct,
+      productName: testProduct,
       apiKey: pawapayKey,
       mode: pawapayMode,
       country: 'MWI',
       metadata: {
         statementDescription: testProduct.substring(0, 22),
         fields: [
-          { fieldName: 'type', fieldValue: 'GATEWAY_TEST' }
+          { fieldName: 'type', fieldValue: 'GATEWAY_TEST' },
+          { fieldName: 'apiKey', fieldValue: pawapayKey },
+          { fieldName: 'mode', fieldValue: pawapayMode }
         ]
       },
       onSuccess: (result: any) => {
