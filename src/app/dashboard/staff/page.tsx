@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -35,7 +36,9 @@ import {
   EyeOff,
   Upload,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -56,28 +59,20 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function StaffManagementPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [staffList, setStaffList] = useState<User[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [showPassword, setShowPassword] = useState(false);
-  const [availableAreas, setAvailableAreas] = useState<string[]>(AREAS);
-
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    region: '',
-    district: '',
-    area: '',
-    staffId: ''
-  });
+  
+  // Selection & Deletion
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState(0);
 
   useEffect(() => {
     const loadStaff = () => {
@@ -85,13 +80,6 @@ export default function StaffManagementPage() {
       if (usersStr) {
         const allUsers: User[] = JSON.parse(usersStr);
         setStaffList(allUsers.filter(u => u.role === 'DISTRICT_STAFF' || u.role === 'SUPER_ADMIN'));
-        
-        const customerAreas = allUsers
-          .filter(u => u.role === 'CUSTOMER' && u.area)
-          .map(u => u.area as string);
-        
-        const uniqueAreas = Array.from(new Set([...AREAS, ...customerAreas]));
-        setAvailableAreas(uniqueAreas);
       }
     };
     loadStaff();
@@ -99,185 +87,87 @@ export default function StaffManagementPage() {
     return () => window.removeEventListener('storage', loadStaff);
   }, []);
 
-  const generateStaffId = () => {
-    const id = `${Math.floor(100000 + Math.random() * 900000)}`;
-    setFormData(prev => ({ ...prev, staffId: id }));
-  };
+  const displayStaff = staffList.filter(s => 
+    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    s.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const handleNextStep = () => {
-    if (currentStep === 1) {
-      if (!formData.name || !formData.email || !formData.area || !formData.staffId) {
-        toast({
-          title: "Incomplete Profile",
-          description: "Please provide identity, Staff ID, and area assignments.",
-          variant: "destructive"
-        });
-        return;
-      }
-      setCurrentStep(2);
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(displayStaff.map(s => s.id));
+    } else {
+      setSelectedIds([]);
     }
   };
 
-  const handleRegisterStaff = () => {
-    if (!formData.password) {
-      toast({
-        title: "Security Required",
-        description: "Please set an access token for the agent.",
-        variant: "destructive"
-      });
-      return;
+  const handleSelectRow = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(i => i !== id));
     }
+  };
 
-    const newStaff: User = {
-      id: formData.staffId,
-      name: formData.name,
-      email: formData.email,
-      role: 'DISTRICT_STAFF',
-      region: formData.region,
-      district: formData.district,
-      area: formData.area,
-      pin: formData.password,
-      walletBalance: 0
-    };
+  const handleBulkDelete = async () => {
+    const isBulk = selectedIds.length > 2;
+    setIsDeleting(true);
+    setDeleteProgress(0);
+
+    if (isBulk) {
+      const simulateProgress = async () => {
+        const jumps = [20, 45, 75, 95, 100];
+        for (const jump of jumps) {
+          await new Promise(r => setTimeout(r, Math.random() * 400 + 150));
+          setDeleteProgress(jump);
+        }
+      };
+      await simulateProgress();
+    }
 
     const usersStr = localStorage.getItem('mywater_all_users') || '[]';
-    const allUsers = JSON.parse(usersStr);
-    
-    if (allUsers.find((u: User) => u.id === newStaff.id)) {
-      toast({
-        title: "Conflict",
-        description: "A staff member with this identifier already exists.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    localStorage.setItem('mywater_all_users', JSON.stringify([...allUsers, newStaff]));
+    const allUsers: User[] = JSON.parse(usersStr);
+    const updatedUsers = allUsers.filter(u => !selectedIds.includes(u.id));
+    localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
     window.dispatchEvent(new Event('storage'));
 
-    setIsDialogOpen(false);
-    setCurrentStep(1);
-    setShowPassword(false);
-    setFormData({ name: '', email: '', password: '', region: '', district: '', area: '', staffId: '' });
-    
-    toast({
-      title: "Staff Enrollment Success",
-      description: `${newStaff.name} assigned to territory: ${newStaff.area}`
-    });
-  };
+    setSelectedIds([]);
+    setIsDeleting(false);
+    setDeleteProgress(0);
 
-  const escapeCSV = (val: any) => {
-    const str = String(val || '');
-    // Force text format for long numeric strings (Excel scientific notation fix)
-    // We use a tab character prefix which Excel respects as a text indicator
-    const isLongNumeric = /^\d{10,}$/.test(str);
-    const hasSpecialChars = str.includes(',') || str.includes('"') || str.includes('\n');
-    
-    if (isLongNumeric) {
-      return `"\t${str}"`;
-    }
-    
-    if (hasSpecialChars) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
+    toast({ title: "Staff Purged", description: `Removed ${selectedIds.length} agents.` });
   };
 
   const exportToCSV = () => {
     const headers = ['StaffID', 'Name', 'Email', 'Role', 'District', 'Area'];
     const rows = staffList.map(s => [
-      escapeCSV(s.id),
-      escapeCSV(s.name),
-      escapeCSV(s.email),
-      escapeCSV(s.role),
-      escapeCSV(s.district),
-      escapeCSV(s.area)
+      `"\t${s.id}"`, // Text formatting
+      `"${s.name}"`,
+      `"${s.email}"`,
+      `"${s.role}"`,
+      `"${s.district}"`,
+      `"${s.area}"`
     ]);
-
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `staff_registry_${new Date().toISOString().split('T')[0]}.csv`);
-    link.click();
-  };
-
-  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split('\n').filter(line => line.trim() !== '');
-      
-      const newStaff: User[] = lines.slice(1).map((line) => {
-        // Clean Excel-formatted values and handle potential tabs
-        const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => 
-          v.replace(/^"|"$/g, '').replace(/""/g, '"').trim()
-        );
-        return {
-          id: values[0] || `STF-${Date.now()}`,
-          name: values[1] || 'Staff Member',
-          email: values[2] || '',
-          role: 'DISTRICT_STAFF',
-          district: values[4] || '',
-          area: values[5] || '',
-          pin: 'password',
-          walletBalance: 0
-        };
-      });
-
-      const usersStr = localStorage.getItem('mywater_all_users') || '[]';
-      const allUsers = JSON.parse(usersStr);
-      localStorage.setItem('mywater_all_users', JSON.stringify([...allUsers, ...newStaff]));
-      window.dispatchEvent(new Event('storage'));
-
-      toast({
-        title: "Import Success",
-        description: `Enrolled ${newStaff.length} new agents.`
-      });
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    const csv = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `staff_registry_${Date.now()}.csv`;
+    a.click();
   };
 
   const downloadTemplate = () => {
     const headers = ['StaffID', 'Name', 'Email', 'Role', 'District', 'Area'];
-    const demoData = [
-      ['882299', 'Kondwani Phiri', 'kondwani@mwb.mw', 'DISTRICT_STAFF', 'Lilongwe', 'Area 18'],
-      ['443311', 'Chimwemwe Banda', 'chimwemwe@mwb.mw', 'DISTRICT_STAFF', 'Blantyre', 'Chirimba']
-    ];
-    const csvContent = [headers, ...demoData.map(row => row.map(cell => escapeCSV(cell)))].map(row => row.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "mwb_staff_template.csv");
-    link.click();
+    const demo = [['882299', 'Kondwani Phiri', 'kondwani@mwb.mw', 'DISTRICT_STAFF', 'Lilongwe', 'Area 18']];
+    const csv = [headers, ...demo].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mwb_staff_template.csv';
+    a.click();
   };
-
-  const generateToken = () => {
-    const token = Math.random().toString(36).slice(-8).toUpperCase();
-    setFormData(prev => ({ ...prev, password: token }));
-  };
-
-  const shareCredentials = (staff: User) => {
-    const text = `MWB Credentials\nID: ${staff.id}\nWork Email: ${staff.email}\nSecurity Token: ${staff.pin || 'Contact Admin'}`;
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Credentials Copied",
-      description: "Secure token ready for distribution.",
-    });
-  };
-
-  const filteredStaff = staffList.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.area?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   if (user?.role !== 'SUPER_ADMIN') return null;
 
@@ -292,148 +182,31 @@ export default function StaffManagementPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) {
-              setCurrentStep(1);
-              setShowPassword(false);
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 gap-2 rounded-[5px] h-9 font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20 text-white">
-                <UserPlus className="h-4 w-4" /> Register Field Agent
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-xl bg-slate-900 border-white/5 text-white rounded-[5px]">
-              <DialogHeader>
-                <DialogTitle className="flex items-center justify-between">
-                  <span>Staff Enrollment</span>
-                  <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-1 rounded">STEP {currentStep} OF 2</span>
-                </DialogTitle>
-                <DialogDescription className="text-slate-500 text-xs">Register and assign geographical territories to field agents.</DialogDescription>
-                <Progress value={currentStep === 1 ? 50 : 100} className="h-1 bg-slate-800 mt-2" />
-              </DialogHeader>
-
-              {currentStep === 1 ? (
-                <div className="space-y-4 py-4 animate-in fade-in slide-in-from-right-2 duration-300">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5 col-span-2">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Full Name</label>
-                      <Input 
-                        placeholder="e.g. Kondwani Phiri" 
-                        className="bg-slate-800 border-white/5 h-9 text-sm rounded-[5px]"
-                        value={formData.name || ''}
-                        onChange={e => setFormData({...formData, name: e.target.value})}
-                      />
-                    </div>
-                    <div className="space-y-1.5 col-span-1">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Staff ID</label>
-                      <div className="flex gap-2">
-                        <Input 
-                          placeholder="Staff # (Flexible)" 
-                          className="bg-slate-800 border-white/5 h-9 text-sm font-mono font-bold text-primary rounded-[5px]"
-                          value={formData.staffId || ''}
-                          onChange={e => setFormData({...formData, staffId: e.target.value})}
-                        />
-                        <Button variant="outline" size="icon" onClick={generateStaffId} className="h-9 w-9 bg-slate-800 border-white/5 hover:bg-slate-700 rounded-[5px] shrink-0">
-                          <RefreshCw className="h-4 w-4 text-primary" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5 col-span-1">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Work Email</label>
-                      <Input 
-                        type="email" 
-                        placeholder="staff@mwb.mw" 
-                        className="bg-slate-800 border-white/5 h-9 text-sm rounded-[5px]"
-                        value={formData.email || ''}
-                        onChange={e => setFormData({...formData, email: e.target.value})}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">District</label>
-                      <Select onValueChange={v => setFormData({...formData, district: v})} value={formData.district || ''}>
-                        <SelectTrigger className="bg-slate-800 border-white/5 h-9 rounded-[5px]"><SelectValue placeholder="Select" /></SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-white/10 text-white">
-                          {DISTRICTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Assigned Area</label>
-                      <div className="flex gap-2">
-                        <Input 
-                          placeholder="Area Name" 
-                          className="bg-slate-800 border-white/5 h-9 text-sm rounded-[5px]"
-                          value={formData.area || ''}
-                          onChange={e => setFormData({...formData, area: e.target.value})}
-                        />
-                        <Select onValueChange={v => setFormData({...formData, area: v})}>
-                          <SelectTrigger className="bg-slate-800 border-white/5 h-9 w-10 p-0 rounded-[5px] flex items-center justify-center">
-                            <MapPin className="h-4 w-4 text-slate-500" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-800 border-white/10 text-white">
-                            {availableAreas.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4 py-4 animate-in fade-in slide-in-from-right-2 duration-300">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest px-1">Access Token</label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Input 
-                          type={showPassword ? "text" : "password"}
-                          placeholder="••••••••" 
-                          className="bg-slate-800 border-white/5 h-10 text-sm font-mono tracking-[0.3em] rounded-[5px] pr-10"
-                          value={formData.password || ''}
-                          onChange={e => setFormData({...formData, password: e.target.value})}
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                      <Button variant="outline" size="icon" onClick={generateToken} className="h-10 w-10 bg-slate-800 border-white/5 hover:bg-slate-700 rounded-[5px]">
-                        <RefreshCw className="h-4 w-4 text-primary" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="p-4 bg-primary/5 border border-primary/10 rounded-[5px] flex items-center gap-3">
-                    <ShieldAlert className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="text-[10px] text-white font-bold uppercase tracking-tight">Security Protocol</p>
-                      <p className="text-[9px] text-slate-500">Ensure this token is shared via encrypted channels only.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <DialogFooter className="border-t border-white/5 pt-4">
-                {currentStep === 1 ? (
-                  <Button className="w-full bg-slate-800 hover:bg-slate-700 font-bold uppercase tracking-widest h-10 rounded-[5px] text-[10px] text-white" onClick={handleNextStep}>
-                    Continue to Security <ArrowRight className="ml-2 h-3.5 w-3.5" />
+          {selectedIds.length > 0 && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="destructive" className="h-9 gap-2 rounded-[5px] font-bold uppercase text-[10px]">
+                  <Trash2 className="h-4 w-4" /> Delete ({selectedIds.length})
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-slate-950 border-white/10 text-white rounded-[5px] max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Revoke Staff Access</DialogTitle>
+                  <DialogDescription className="text-slate-500 text-xs mt-2">
+                    Are you sure you want to purge these {selectedIds.length} agents?
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="mt-4">
+                  <Button variant="destructive" className="w-full h-11 font-bold uppercase" onClick={handleBulkDelete}>
+                    Execute Purge
                   </Button>
-                ) : (
-                  <div className="flex gap-2 w-full">
-                    <Button variant="outline" className="flex-1 border-white/5 h-10 text-[10px] rounded-[5px] font-bold uppercase" onClick={() => setCurrentStep(1)}>
-                      <ArrowLeft className="mr-2 h-3.5 w-3.5" /> Back
-                    </Button>
-                    <Button className="flex-[2] bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest h-10 rounded-[5px] text-[10px] shadow-lg shadow-primary/20 text-white" onClick={handleRegisterStaff}>
-                      Commit Enrollment
-                    </Button>
-                  </div>
-                )}
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+          <Button onClick={() => setIsDialogOpen(true)} className="bg-primary hover:bg-primary/90 gap-2 rounded-[5px] h-9 font-bold uppercase tracking-widest text-[10px] text-white shadow-lg shadow-primary/20">
+            <UserPlus className="h-4 w-4" /> Register Field Agent
+          </Button>
         </div>
       </div>
 
@@ -451,29 +224,10 @@ export default function StaffManagementPage() {
             </div>
             
             <div className="flex items-center gap-2">
-              <input type="file" ref={fileInputRef} onChange={handleImportCSV} className="hidden" accept=".csv" />
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => fileInputRef.current?.click()}
-                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2 text-white"
-              >
-                <Upload className="h-3.5 w-3.5" /> Bulk Import
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={exportToCSV}
-                className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2 text-white"
-              >
+              <Button variant="outline" size="sm" onClick={exportToCSV} className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase text-white">
                 <Download className="h-3.5 w-3.5" /> Export Agents
               </Button>
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={downloadTemplate}
-                className="h-8 bg-primary hover:bg-primary/90 text-[10px] text-white uppercase font-bold tracking-tight gap-1.5 rounded-[5px] border-none shadow-lg shadow-primary/20"
-              >
+              <Button variant="default" size="sm" onClick={downloadTemplate} className="h-8 bg-primary hover:bg-primary/90 text-[10px] text-white uppercase font-bold tracking-tight gap-1.5 rounded-[5px]">
                 <FileSpreadsheet className="h-3.5 w-3.5" /> Download Template
               </Button>
             </div>
@@ -484,54 +238,47 @@ export default function StaffManagementPage() {
             <Table>
               <TableHeader className="bg-slate-950/50">
                 <TableRow className="border-b border-white/5 hover:bg-transparent">
+                  <TableHead className="w-10">
+                    <Checkbox checked={selectedIds.length === displayStaff.length && displayStaff.length > 0} onCheckedChange={(v) => handleSelectAll(!!v)} />
+                  </TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Agent Identity</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10 text-center">Staff ID</TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Territory (Dist/Area)</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Territory</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Role</TableHead>
-                  <TableHead className="text-right text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStaff.length > 0 ? filteredStaff.map((staff) => (
+                {displayStaff.length > 0 ? displayStaff.map((staff) => (
                   <TableRow key={staff.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                     <TableCell>
+                      <Checkbox checked={selectedIds.includes(staff.id)} onCheckedChange={(v) => handleSelectRow(staff.id, !!v)} />
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-[5px] bg-primary/10 flex items-center justify-center border border-primary/20">
+                        <div className="h-8 w-8 rounded-[5px] bg-primary/10 flex items-center justify-center border border-primary/20">
                           <UserIcon className="h-4 w-4 text-primary" />
                         </div>
                         <div>
                           <p className="font-bold text-sm text-white">{staff.name}</p>
-                          <p className="text-[10px] text-slate-500 font-medium">{staff.email}</p>
+                          <p className="text-[9px] text-slate-500">{staff.email}</p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-center">
-                      <code className="text-[10px] font-mono font-bold text-primary bg-primary/5 px-2 py-1 rounded border border-primary/10">
-                        {staff.id}
-                      </code>
-                    </TableCell>
+                    <TableCell className="text-center font-mono font-bold text-primary text-[10px]">{staff.id}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3 w-3 text-primary opacity-60" />
-                        <span className="text-xs text-slate-300 font-bold">{staff.district || 'National'} {' > '} {staff.area || 'Oversight'}</span>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-300">
+                        <MapPin className="h-3 w-3 text-primary opacity-60" /> {staff.district} {'>'} {staff.area}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="h-5 text-[8px] font-black tracking-[0.2em] border-white/5 bg-slate-950/50 text-slate-400">
+                      <Badge variant="outline" className="h-5 text-[8px] font-black border-white/5 text-slate-400">
                         {staff.role.replace('_', ' ')}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-white transition-colors" onClick={() => shareCredentials(staff)} title="Copy Credentials">
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
                     </TableCell>
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center text-slate-600 italic text-sm">
-                      No matching records found in registry.
-                    </TableCell>
+                    <TableCell colSpan={5} className="h-32 text-center text-slate-600 italic text-sm">No records found.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -539,6 +286,22 @@ export default function StaffManagementPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Bulk Delete Progress */}
+      <Dialog open={isDeleting} onOpenChange={() => {}}>
+        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] text-center py-10">
+          <Loader2 className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
+          <DialogTitle className="uppercase tracking-widest text-sm mb-2">Registry Revocation</DialogTitle>
+          <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Processing {selectedIds.length} staff accounts...</p>
+          <div className="space-y-2 px-4">
+            <Progress value={deleteProgress} className="h-1.5 bg-slate-900" />
+            <div className="flex justify-between text-[10px] font-mono font-bold text-primary">
+              <span>SECURITY STATUS</span>
+              <span>{deleteProgress}%</span>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
