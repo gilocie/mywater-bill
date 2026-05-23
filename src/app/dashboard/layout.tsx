@@ -55,6 +55,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [testProduct, setTestProduct] = useState('Gateway Performance Test');
   const [testPrice, setTestPrice] = useState('500');
   const [testPhone, setTestPhone] = useState('');
+  const [testProvider, setTestProvider] = useState('AIRTEL');
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -129,7 +130,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         fields: [
           { fieldName: 'type', fieldValue: 'GATEWAY_TEST' },
           { fieldName: 'apiKey', fieldValue: pawapayKey },
-          { fieldName: 'mode', fieldValue: pawapayMode }
+          { fieldName: 'mode', fieldValue: pawapayMode },
+          { fieldName: 'correspondent', fieldValue: testProvider }
         ]
       },
       onSuccess: () => {
@@ -428,6 +430,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 onChange={(e) => setTestProduct(e.target.value)}
                 className="bg-slate-950 border-white/5 h-9 text-xs"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-bold uppercase text-slate-500">Provider</Label>
+              <Select value={testProvider} onValueChange={setTestProvider}>
+                <SelectTrigger className="bg-slate-950 border-white/5 h-9 rounded-[5px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-white/10 text-white">
+                  <SelectItem value="AIRTEL">Airtel Money</SelectItem>
+                  <SelectItem value="TNM">TNM Mpamba</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
