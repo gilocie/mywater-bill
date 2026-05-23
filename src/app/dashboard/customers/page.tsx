@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -463,9 +462,9 @@ export default function CustomersPage() {
                 variant="ghost" 
                 size="sm" 
                 onClick={downloadTemplate}
-                className="h-8 text-[9px] text-slate-500 hover:text-white uppercase font-bold tracking-tight"
+                className="h-8 text-[9px] text-slate-500 hover:text-white uppercase font-bold tracking-tight gap-1.5"
               >
-                Template
+                <FileSpreadsheet className="h-3.5 w-3.5" /> Download Template
               </Button>
             </div>
           </div>
