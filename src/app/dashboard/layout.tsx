@@ -7,7 +7,7 @@ import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, ExternalLink, Eye, EyeOff, Settings2, PlayCircle, Loader2, CheckCircle2, XCircle, FileText, Printer, Download, Droplets, Receipt, Wifi, Plus, Trash2, Palette, Coins, UploadCloud, Building, Globe, MapPin, Layers } from 'lucide-react';
-import { GEO_DATA, getRegions, getDistrictNames, getLocations } from '@/app/lib/geo-data';
+import { GEO_DATA, getRegions, getDistrictNames, getLocations, getAllDistrictsForCountry, getRegionForDistrict } from '@/app/lib/geo-data';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -481,7 +481,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </SidebarInset>
 
       <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
-        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
+        <DialogContent className="bg-slate-900 border-white/5 text-white max-sm rounded-[5px]">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">Manage Profile</DialogTitle>
             <DialogDescription className="text-slate-500 text-xs">Update your personal information.</DialogDescription>
@@ -733,7 +733,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
                 
                 <div className="space-y-3 p-4 bg-primary/5 border border-primary/10 rounded-[5px]">
-                  <div className="space-y-1.5">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="pawapay-key" className="text-[9px] font-bold uppercase text-slate-500">API Key</Label>
                       <Button variant="ghost" size="sm" onClick={() => setTestPurchaseDialogOpen(true)} className="h-6 px-2 text-[8px] font-black uppercase text-accent hover:text-white bg-accent/10 rounded-[3px] gap-1">
@@ -792,7 +792,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Select>
                 </div>
 
-                {appLevel !== 'national' && (
+                {appLevel === 'region' && (
                   <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
                     <Label className="text-[10px] font-bold uppercase text-primary tracking-widest px-1">Locked Region / Province</Label>
                     <Select value={regionName} onValueChange={(val) => {
@@ -807,13 +807,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                 )}
 
-                {appLevel === 'district' && regionName && (
+                {appLevel === 'district' && (
                   <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
                     <Label className="text-[10px] font-bold uppercase text-primary tracking-widest px-1">Locked District / City</Label>
-                    <Select value={districtName} onValueChange={setDistrictName}>
+                    <Select value={districtName} onValueChange={(val) => {
+                      setDistrictName(val);
+                      const parentRegion = getRegionForDistrict(country, val);
+                      if (parentRegion) setRegionName(parentRegion);
+                    }}>
                       <SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue placeholder="Select District..." /></SelectTrigger>
                       <SelectContent className="bg-slate-900 border-white/10 text-white">
-                        {getDistrictNames(country, regionName).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        {getAllDistrictsForCountry(country).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -829,7 +833,155 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* ... Test Purchase Dialogs omitted for brevity but preserved in final file */}
+      
+      {/* Test Status Feedback Dialog */}
+      <Dialog open={testStatus !== 'idle'} onOpenChange={(open) => { if (!open) setTestStatus('idle'); }}>
+        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] py-10 text-center">
+          {testStatus === 'processing' && (
+            <div className="space-y-6">
+              <div className="relative mx-auto w-16 h-16">
+                <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+                <div className="absolute inset-0 rounded-full border-4 border-t-primary animate-spin" />
+              </div>
+              <DialogTitle className="uppercase tracking-widest text-sm">Verifying Communication Protocol</DialogTitle>
+              <p className="text-[10px] text-slate-500 uppercase font-bold">Synchronizing with BrandPay Gateway...</p>
+            </div>
+          )}
+
+          {testStatus === 'success' && (
+            <div className="space-y-6 animate-in zoom-in-95 duration-300">
+              <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="h-10 w-10 text-green-500" />
+              </div>
+              <div>
+                <DialogTitle className="uppercase tracking-widest text-sm text-green-500">Gateway Verified</DialogTitle>
+                <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Transaction Handshake Completed Successfully</p>
+              </div>
+              <div className="pt-4 flex flex-col gap-2">
+                <Button onClick={() => setReceiptDialogOpen(true)} className="bg-primary hover:bg-primary/90 text-white font-bold uppercase text-[10px] h-9">
+                  <FileText className="h-4 w-4 mr-2" /> View Test Receipt
+                </Button>
+                <Button variant="ghost" onClick={() => setTestStatus('idle')} className="text-slate-400 hover:text-white uppercase text-[10px] font-bold">
+                  Close Feedback
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {testStatus === 'failure' && (
+            <div className="space-y-6">
+              <div className="mx-auto w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
+                <XCircle className="h-10 w-10 text-red-500" />
+              </div>
+              <DialogTitle className="uppercase tracking-widest text-sm text-red-500">Verification Rejected</DialogTitle>
+              <p className="text-[10px] text-slate-500 uppercase font-bold">Gateway Refused the Communication Request</p>
+              <Button variant="outline" onClick={() => setTestStatus('idle')} className="w-full mt-4 border-white/10 text-white uppercase text-[10px] font-bold">
+                Retry Handshake
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* High-Fidelity Test Receipt Viewer */}
+      <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
+        <DialogContent className="bg-white text-slate-900 max-w-sm rounded-[5px] p-0 overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-slate-900 px-6 py-5 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-[3px]" style={{ backgroundColor: logoBgColor || '#2563eb' }}>
+                {logo ? (
+                  <img src={logo} className="h-5 w-5 object-contain" />
+                ) : (
+                  <Droplets className="h-5 w-5 text-white" />
+                )}
+              </div>
+              <div>
+                <DialogTitle className="text-xs font-black text-white uppercase tracking-widest">
+                  {receiptCompanyName?.toUpperCase() || 'MALAWI WATER BOARD'}
+                </DialogTitle>
+                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Gateway Test Document</p>
+              </div>
+            </div>
+            <Receipt className="h-5 w-5 text-primary opacity-70" />
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            <div className="bg-primary/10 border-b border-primary/20 px-6 py-3 flex justify-between items-center">
+              <div>
+                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Receipt No.</p>
+                <p className="text-xs font-black text-slate-800 font-mono">{lastTestResult?.receiptNo}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Verified At</p>
+                <p className="text-[10px] font-bold text-slate-700">{lastTestResult?.date}</p>
+              </div>
+            </div>
+
+            <div className="px-6 py-8 text-center border-b border-dashed border-slate-200">
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Amount Verified</p>
+              <p className="text-4xl font-black text-slate-900"><span className="text-primary text-xl">MK</span> {parseFloat(lastTestResult?.amount || '0').toLocaleString()}</p>
+              <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700">
+                <CheckCircle2 className="h-3 w-3" />
+                <span className="text-[9px] font-black uppercase tracking-wider">Handshake Success</span>
+              </div>
+            </div>
+
+            <div className="px-6 py-5 space-y-3">
+              {[
+                { label: 'PRODUCT / SERVICE', value: lastTestResult?.product },
+                { label: 'GATEWAY PROTOCOL', value: 'PAWAPAY-v2' },
+                { label: 'OPERATION MODE', value: pawapayMode.toUpperCase() },
+                { label: 'STATUS', value: 'VERIFIED' }
+              ].map(row => (
+                <div key={row.label} className="flex justify-between items-center text-[10px]">
+                  <span className="font-bold text-slate-400 uppercase tracking-wider">{row.label}</span>
+                  <span className="font-black text-slate-800">{row.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-6 pb-4 border-t border-dashed border-slate-200 pt-4">
+              <div className="flex justify-center mb-3">
+                <div className="flex gap-px">
+                  {Array.from({ length: 40 }).map((_, i) => (
+                    <div key={i} className="bg-slate-800" style={{ 
+                      width: `${(i % 3 === 0) ? 3 : 2}px`, 
+                      height: `${24 + (i % 5) * 4}px` 
+                    }} />
+                  ))}
+                </div>
+              </div>
+              <p className="text-[8px] text-center text-slate-400 font-mono tracking-widest">{lastTestResult?.receiptNo} • SYSTEM-AUDIT-COMPLIANCE</p>
+            </div>
+          </div>
+
+          <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0">
+            <Button variant="outline" className="flex-1 h-9 text-[10px] font-bold uppercase border-slate-200 text-slate-600 gap-2 rounded-[5px]" onClick={handleDownloadReceipt}>
+              <Download className="h-3.5 w-3.5" /> Download
+            </Button>
+            <Button variant="default" className="flex-1 h-9 bg-slate-900 hover:bg-slate-800 text-[10px] font-bold uppercase text-white rounded-[5px]" onClick={() => setReceiptDialogOpen(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Legacy Gateway Settings Dialog... */}
+      <Dialog open={portalDialogOpen} onOpenChange={setPortalDialogOpen}>
+        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
+          <DialogHeader>
+            <DialogTitle>Gateway Dashboard URL</DialogTitle>
+            <DialogDescription className="text-slate-500 text-xs">Update the management link for the payment provider.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label className="text-xs font-bold uppercase text-slate-500">Provider URL</Label>
+            <Input value={tempPortalUrl} onChange={e => setTempPortalUrl(e.target.value)} className="bg-slate-800 border-white/5 mt-2" />
+          </div>
+          <DialogFooter>
+            <Button onClick={() => { setPortalUrl(tempPortalUrl); setPortalDialogOpen(false); }} className="w-full bg-primary font-bold uppercase text-xs h-9">Update URL</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }

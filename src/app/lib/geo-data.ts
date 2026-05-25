@@ -421,6 +421,20 @@ export function getAllDistrictsForCountry(country: string): string[] {
 }
 
 /**
+ * Find the parent region for a specific district name
+ */
+export function getRegionForDistrict(country: string, districtName: string): string | null {
+  const regions = getRegions(country);
+  for (const region of regions) {
+    const districts = getDistrictNames(country, region);
+    if (districts.includes(districtName)) {
+      return region;
+    }
+  }
+  return null;
+}
+
+/**
  * Get all locations across a region (used at Region level)
  */
 export function getAllLocationsForRegion(country: string, region: string): string[] {
