@@ -34,7 +34,9 @@ import {
   Loader2,
   Upload,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Users,
+  XCircle
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { 
@@ -56,34 +58,16 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 export default function CustomersPage() {
   const { user, settings } = useAuth();
-
-  // Derive available geo options from the admin-configured app level
-  const geoOptions = useMemo(() => {
-    const country = settings?.country || 'Malawi';
-    const level = settings?.appLevel || 'district';
-    const configuredRegion = settings?.regionName || '';
-    const configuredDistrict = settings?.districtName || '';
-
-    if (level === 'national') {
-      const regions = getRegions(country);
-      return { regions, districts: [] as string[], locations: [] as string[], level, configuredRegion: '', configuredDistrict: '' };
-    }
-    if (level === 'region') {
-      const districts = getDistrictNames(country, configuredRegion);
-      return { regions: [configuredRegion], districts, locations: [] as string[], level, configuredRegion, configuredDistrict: '' };
-    }
-    // district level
-    const locations = getLocations(country, configuredRegion, configuredDistrict);
-    return { regions: [configuredRegion], districts: [configuredDistrict], locations, level, configuredRegion, configuredDistrict };
-  }, [settings]);
   const router = useRouter();
   const { toast } = useToast();
   
   const [customers, setCustomers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'suspended'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   // Selection & Deletion State
@@ -110,6 +94,25 @@ export default function CustomersPage() {
     lastMeterReading: '0'
   });
 
+  // Derive available geo options
+  const geoOptions = useMemo(() => {
+    const country = settings?.country || 'Malawi';
+    const level = settings?.appLevel || 'district';
+    const configuredRegion = settings?.regionName || '';
+    const configuredDistrict = settings?.districtName || '';
+
+    if (level === 'national') {
+      const regions = getRegions(country);
+      return { regions, districts: [] as string[], locations: [] as string[], level, configuredRegion: '', configuredDistrict: '' };
+    }
+    if (level === 'region') {
+      const districts = getDistrictNames(country, configuredRegion);
+      return { regions: [configuredRegion], districts, locations: [] as string[], level, configuredRegion, configuredDistrict: '' };
+    }
+    const locations = getLocations(country, configuredRegion, configuredDistrict);
+    return { regions: [configuredRegion], districts: [configuredDistrict], locations, level, configuredRegion, configuredDistrict };
+  }, [settings]);
+
   useEffect(() => {
     const loadCustomers = () => {
       const usersStr = localStorage.getItem('mywater_all_users');
@@ -124,15 +127,19 @@ export default function CustomersPage() {
     return () => window.removeEventListener('storage', loadCustomers);
   }, []);
 
-  const displayCustomers = customers.filter(customer => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      customer.name.toLowerCase().includes(searchLower) ||
-      (customer.meterNumber?.toLowerCase().includes(searchLower)) ||
-      (customer.district?.toLowerCase().includes(searchLower)) ||
-      (customer.area?.toLowerCase().includes(searchLower))
-    );
-  });
+  const displayCustomers = useMemo(() => {
+    return customers.filter(customer => {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = customer.name.toLowerCase().includes(searchLower) ||
+        (customer.meterNumber?.toLowerCase().includes(searchLower)) ||
+        (customer.district?.toLowerCase().includes(searchLower)) ||
+        (customer.area?.toLowerCase().includes(searchLower));
+      
+      const matchesTab = activeTab === 'all' ? true : customer.suspensionStatus === 'SUSPENDED';
+      
+      return matchesSearch && matchesTab;
+    });
+  }, [customers, searchTerm, activeTab]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -199,7 +206,8 @@ export default function CustomersPage() {
       phoneNumber: formData.phone,
       assignedStaffId: user?.id,
       lastMeterReading: initialReading,
-      currentMeterReading: initialReading
+      currentMeterReading: initialReading,
+      suspensionStatus: 'ACTIVE'
     };
 
     const usersStr = localStorage.getItem('mywater_all_users') || '[]';
@@ -226,7 +234,6 @@ export default function CustomersPage() {
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Reset the input so re-selecting same file works
     e.target.value = '';
 
     const reader = new FileReader();
@@ -247,7 +254,6 @@ export default function CustomersPage() {
       const phoneIdx = headers.findIndex(h => h.includes('phone'));
       const emailIdx = headers.findIndex(h => h.includes('email'));
       const lastMeterIdx = headers.findIndex(h => h.includes('lastmeter') || h.includes('previousreading') || h.includes('lastreading'));
-      const currentMeterIdx = headers.findIndex(h => h.includes('currentmeter') || h.includes('currentreading'));
 
       if (meterIdx < 0 || nameIdx < 0) {
         toast({ title: "Invalid Template", description: "CSV must have MeterNumber and Name columns.", variant: "destructive" });
@@ -267,7 +273,6 @@ export default function CustomersPage() {
       const dataRows = lines.slice(1);
 
       for (let i = 0; i < dataRows.length; i++) {
-        // Animate progress
         await new Promise(r => setTimeout(r, 60));
         setImportProgress(Math.round(((i + 1) / dataRows.length) * 100));
 
@@ -300,7 +305,8 @@ export default function CustomersPage() {
           phoneNumber: phoneIdx >= 0 ? (cols[phoneIdx] || '') : '',
           assignedStaffId: user?.id,
           lastMeterReading: lastMeterIdx >= 0 ? (parseFloat(cols[lastMeterIdx]) || 0) : 0,
-          currentMeterReading: currentMeterIdx >= 0 ? (parseFloat(cols[currentMeterIdx]) || 0) : 0
+          currentMeterReading: lastMeterIdx >= 0 ? (parseFloat(cols[lastMeterIdx]) || 0) : 0,
+          suspensionStatus: 'ACTIVE'
         });
       }
 
@@ -318,45 +324,19 @@ export default function CustomersPage() {
   };
 
   const exportToCSV = () => {
-    const billsStr = localStorage.getItem('mywater_all_bills') || '[]';
-    const allBills: Bill[] = JSON.parse(billsStr);
     const level = settings?.appLevel || 'district';
-
     const headers = ['MeterNumber', 'Name'];
-    if (level === 'national') {
-      headers.push('Region', 'District', 'Area');
-    } else if (level === 'region') {
-      headers.push('District', 'Area');
-    } else {
-      headers.push('Area');
-    }
-    headers.push('Phone', 'Email', 'LastMeterReading', 'CurrentMeterReading', 'OutstandingBalance');
+    if (level === 'national') headers.push('Region', 'District', 'Area');
+    else if (level === 'region') headers.push('District', 'Area');
+    else headers.push('Area');
+    headers.push('Phone', 'Email', 'LastMeterReading', 'Status');
 
     const rows = customers.map(c => {
-      const customerBills = allBills.filter(b => b.customerId === c.id);
-      const outstandingBalance = customerBills.filter(b => b.status !== 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
-      
-      const row = [
-        `"\t${c.meterNumber}"`, // Force text
-        `"${c.name}"`
-      ];
-
-      if (level === 'national') {
-        row.push(`"${c.region || ''}"`, `"${c.district || ''}"`, `"${c.area || ''}"`);
-      } else if (level === 'region') {
-        row.push(`"${c.district || ''}"`, `"${c.area || ''}"`);
-      } else {
-        row.push(`"${c.area || ''}"`);
-      }
-
-      row.push(
-        `"\t${c.phoneNumber || ''}"`, // Force text
-        `"${c.email || ''}"`,
-        String(c.lastMeterReading !== undefined ? c.lastMeterReading : 0),
-        String(c.currentMeterReading !== undefined ? c.currentMeterReading : 0),
-        String(outstandingBalance)
-      );
-
+      const row = [`"\t${c.meterNumber}"`, `"${c.name}"` ];
+      if (level === 'national') row.push(`"${c.region || ''}"`, `"${c.district || ''}"`, `"${c.area || ''}"`);
+      else if (level === 'region') row.push(`"${c.district || ''}"`, `"${c.area || ''}"`);
+      else row.push(`"${c.area || ''}"`);
+      row.push(`"\t${c.phoneNumber || ''}"`, `"${c.email || ''}"`, String(c.lastMeterReading || 0), c.suspensionStatus || 'ACTIVE');
       return row;
     });
 
@@ -366,37 +346,6 @@ export default function CustomersPage() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `customers_${Date.now()}.csv`;
-    a.click();
-  };
-
-  const downloadTemplate = () => {
-    const level = settings?.appLevel || 'district';
-    
-    // Core headers
-    const headers = ['MeterNumber', 'Name'];
-    const demo = ['123456', 'Gift Ilocie'];
-    
-    if (level === 'national') {
-      headers.push('Region', 'District', 'Area');
-      demo.push('Southern', 'Blantyre', 'Chirimba');
-    } else if (level === 'region') {
-      headers.push('District', 'Area');
-      demo.push('Blantyre', 'Chirimba');
-    } else { // district level
-      headers.push('Area');
-      demo.push('Chirimba');
-    }
-    
-    // Remaining standard headers
-    headers.push('Phone', 'Email', 'LastMeterReading', 'CurrentMeterReading');
-    demo.push('265888000111', 'gift@mwb.mw', '0', '0');
-    
-    const csv = [headers, demo].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `customer_template_${level}.csv`;
     a.click();
   };
 
@@ -437,6 +386,44 @@ export default function CustomersPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button 
+          onClick={() => setActiveTab('all')}
+          className={cn(
+            "p-6 rounded-[5px] border transition-all text-left group",
+            activeTab === 'all' 
+              ? "bg-primary/10 border-primary shadow-[0_0_20px_rgba(37,99,235,0.1)]" 
+              : "bg-slate-900/50 border-white/5 hover:border-white/10"
+          )}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <Users className={cn("h-5 w-5", activeTab === 'all' ? "text-primary" : "text-slate-500")} />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{customers.length} total</span>
+          </div>
+          <h3 className="text-lg font-bold text-white uppercase">All Registry</h3>
+          <p className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-tight">Access complete consumer database</p>
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('suspended')}
+          className={cn(
+            "p-6 rounded-[5px] border transition-all text-left group",
+            activeTab === 'suspended' 
+              ? "bg-red-500/10 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.1)]" 
+              : "bg-slate-900/50 border-white/5 hover:border-red-500/20"
+          )}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <XCircle className={cn("h-5 w-5", activeTab === 'suspended' ? "text-red-500" : "text-slate-500")} />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              {customers.filter(c => c.suspensionStatus === 'SUSPENDED').length} active
+            </span>
+          </div>
+          <h3 className="text-lg font-bold text-white uppercase">Suspension Audit</h3>
+          <p className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-tight">Monitor disconnected service points</p>
+        </button>
+      </div>
+
       <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
         <CardHeader className="pb-3 pt-6 px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -451,27 +438,12 @@ export default function CustomersPage() {
             </div>
             
             <div className="flex items-center gap-2">
-              {/* Hidden file input for CSV import */}
-              <input
-                ref={csvInputRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={handleImportCSV}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => csvInputRef.current?.click()}
-                className="h-8 border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 text-[10px] font-bold uppercase tracking-widest gap-2 rounded-[5px]"
-              >
+              <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportCSV} />
+              <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} className="h-8 border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 text-[10px] font-bold uppercase tracking-widest gap-2 rounded-[5px]">
                 <Upload className="h-3.5 w-3.5" /> Import CSV
               </Button>
               <Button variant="outline" size="sm" onClick={exportToCSV} className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2 text-white">
                 <Download className="h-3.5 w-3.5" /> Export Agents
-              </Button>
-              <Button variant="default" size="sm" onClick={downloadTemplate} className="h-8 bg-primary hover:bg-primary/90 text-[10px] text-white uppercase font-bold tracking-tight gap-1.5 rounded-[5px]">
-                <FileSpreadsheet className="h-3.5 w-3.5" /> Download Template
               </Button>
             </div>
           </div>
@@ -482,52 +454,51 @@ export default function CustomersPage() {
               <TableHeader className="bg-slate-950/50">
                 <TableRow className="hover:bg-transparent border-b border-white/5">
                   <TableHead className="w-10">
-                    <Checkbox 
-                      checked={selectedIds.length === displayCustomers.length && displayCustomers.length > 0} 
-                      onCheckedChange={(v) => handleSelectAll(!!v)} 
-                    />
+                    <Checkbox checked={selectedIds.length === displayCustomers.length && displayCustomers.length > 0} onCheckedChange={(v) => handleSelectAll(!!v)} />
                   </TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Meter #</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Customer</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Location</TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Contact</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Status</TableHead>
                   <TableHead className="text-right text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayCustomers.length > 0 ? displayCustomers.map((customer) => (
-                  <TableRow key={customer.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <TableCell>
-                      <Checkbox 
-                        checked={selectedIds.includes(customer.id)} 
-                        onCheckedChange={(v) => handleSelectRow(customer.id, !!v)} 
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs font-bold text-primary">{customer.meterNumber}</TableCell>
-                    <TableCell><div className="font-bold text-white text-sm">{customer.name}</div></TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <MapPin className="h-3 w-3 text-primary" /> {customer.district} {'>'} {customer.area}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Smartphone className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-[10px] font-mono text-slate-500">{customer.phoneNumber}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right py-4">
-                      <Button 
-                        variant="default" 
-                        size="sm" 
-                        className="text-[10px] h-7 bg-primary hover:bg-primary/90 font-bold uppercase tracking-wider rounded-[5px] px-3 text-white"
-                        onClick={() => router.push(`/dashboard/customers/${customer.id}`)}
-                      >
-                        Inspect Record
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )) : (
+                {displayCustomers.length > 0 ? displayCustomers.map((customer) => {
+                  const suspended = customer.suspensionStatus === 'SUSPENDED';
+                  return (
+                    <TableRow key={customer.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <TableCell>
+                        <Checkbox checked={selectedIds.includes(customer.id)} onCheckedChange={(v) => handleSelectRow(customer.id, !!v)} />
+                      </TableCell>
+                      <TableCell className="font-mono text-xs font-bold text-primary">{customer.meterNumber}</TableCell>
+                      <TableCell><div className="font-bold text-white text-sm">{customer.name}</div></TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                          <MapPin className="h-3 w-3 text-primary" /> {customer.district} {'>'} {customer.area}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <div className={cn("h-1.5 w-1.5 rounded-full", suspended ? "bg-red-500" : "bg-green-500")} />
+                          <span className={cn("text-[10px] font-bold uppercase", suspended ? "text-red-500" : "text-green-500")}>
+                            {suspended ? "Disconnected" : "Active"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right py-4">
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          className="text-[10px] h-7 bg-primary hover:bg-primary/90 font-bold uppercase tracking-wider rounded-[5px] px-3 text-white"
+                          onClick={() => router.push(`/dashboard/customers/${customer.id}`)}
+                        >
+                          Inspect
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }) : (
                   <TableRow>
                     <TableCell colSpan={6} className="h-32 text-center text-slate-600 italic text-sm">No matching records.</TableCell>
                   </TableRow>
@@ -538,7 +509,7 @@ export default function CustomersPage() {
         </CardContent>
       </Card>
 
-      {/* Deletion Progress Overlay */}
+      {/* Overlays and Dialogs */}
       <Dialog open={isDeleting} onOpenChange={() => {}}>
         <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] text-center py-10" hideClose>
           <Loader2 className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
@@ -546,78 +517,46 @@ export default function CustomersPage() {
           <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Processing {selectedIds.length} utility records...</p>
           <div className="space-y-2">
             <Progress value={deleteProgress} className="h-1.5 bg-slate-900" />
-            <div className="flex justify-between text-[10px] font-mono font-bold text-primary">
-              <span>PROGRESS</span>
-              <span>{deleteProgress}%</span>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* CSV Import Progress Overlay */}
       <Dialog open={isImporting} onOpenChange={() => {}}>
         <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] text-center py-10" hideClose>
           <Upload className="h-10 w-10 text-primary animate-bounce mx-auto mb-4" />
           <DialogTitle className="uppercase tracking-widest text-sm mb-2">Importing Records</DialogTitle>
-          <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Parsing and registering customers...</p>
           <div className="space-y-2">
             <Progress value={importProgress} className="h-1.5 bg-slate-900" />
-            <div className="flex justify-between text-[10px] font-mono font-bold text-primary">
-              <span>IMPORTING</span>
-              <span>{importProgress}%</span>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Import Result Dialog */}
       <Dialog open={importResultDialogOpen} onOpenChange={setImportResultDialogOpen}>
         <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] py-8">
           <DialogHeader>
             <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-green-500" /> Import Complete
             </DialogTitle>
-            <DialogDescription className="text-slate-500 text-xs">CSV processing finished. Review the summary below.</DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-[5px] text-center">
-                <p className="text-3xl font-black text-green-400">{importResult?.imported}</p>
-                <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Imported</p>
-              </div>
-              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-[5px] text-center">
-                <p className="text-3xl font-black text-yellow-400">{importResult?.skipped}</p>
-                <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Duplicates Skipped</p>
-              </div>
+          <div className="py-4 grid grid-cols-2 gap-3">
+            <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-[5px] text-center">
+              <p className="text-3xl font-black text-green-400">{importResult?.imported}</p>
+              <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Imported</p>
             </div>
-            {importResult?.errors && importResult.errors.length > 0 && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-[5px]">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-                  <p className="text-[9px] font-black text-red-400 uppercase">{importResult.errors.length} Row Errors</p>
-                </div>
-                <div className="space-y-1 max-h-24 overflow-y-auto">
-                  {importResult.errors.map((e, i) => (
-                    <p key={i} className="text-[9px] text-red-300 font-mono">{e}</p>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-[5px] text-center">
+              <p className="text-3xl font-black text-yellow-400">{importResult?.skipped}</p>
+              <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Skipped</p>
+            </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setImportResultDialogOpen(false)} className="w-full h-9 bg-primary text-[10px] font-bold uppercase rounded-[5px]">
-              Done
-            </Button>
+            <Button onClick={() => setImportResultDialogOpen(false)} className="w-full h-9 bg-primary text-[10px] font-bold uppercase rounded-[5px]">Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Add Customer Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-xl bg-slate-900 border-white/5 text-white rounded-[5px]">
-          <DialogHeader>
-            <DialogTitle>Register New Customer</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Register New Customer</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="col-span-2 space-y-1.5">
               <label className="text-[10px] font-bold uppercase text-slate-500">Name</label>
@@ -628,79 +567,26 @@ export default function CustomersPage() {
               <Input value={formData.meterNumber} onChange={e => setFormData({...formData, meterNumber: e.target.value})} className="bg-slate-800 border-none h-9" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-slate-500">Last Meter Reading (m³)</label>
+              <label className="text-[10px] font-bold uppercase text-slate-500">Initial Reading (m³)</label>
               <Input type="number" value={formData.lastMeterReading} onChange={e => setFormData({...formData, lastMeterReading: e.target.value})} className="bg-slate-800 border-none h-9" />
             </div>
-
-            {/* Region — shown at National level */}
-            {geoOptions.level === 'national' && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase text-slate-500">Region / Province</label>
-                <Select
-                  onValueChange={v => setFormData({...formData, region: v, district: '', area: ''})}
-                  value={formData.region}
-                >
-                  <SelectTrigger className="bg-slate-800 border-none h-9"><SelectValue placeholder="Select region..." /></SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-white/10 text-white">
-                    {geoOptions.regions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* District */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase text-slate-500">District</label>
-              {geoOptions.level === 'district' ? (
-                <Input
-                  value={geoOptions.configuredDistrict}
-                  readOnly
-                  className="bg-slate-800/50 border-none h-9 text-slate-400 cursor-not-allowed"
-                />
-              ) : (
-                <Select
-                  onValueChange={v => setFormData({...formData, district: v, area: ''})}
-                  value={formData.district}
-                  disabled={geoOptions.level === 'national' && !formData.region}
-                >
-                  <SelectTrigger className="bg-slate-800 border-none h-9"><SelectValue placeholder="Select district..." /></SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-white/10 text-white">
-                    {(geoOptions.level === 'national'
-                      ? getDistrictNames(settings?.country || 'Malawi', formData.region)
-                      : geoOptions.districts
-                    ).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              )}
+              <Input value={geoOptions.configuredDistrict} readOnly className="bg-slate-800/50 border-none h-9 text-slate-400 cursor-not-allowed" />
             </div>
-
-            {/* Area / Location */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-slate-500">Area / Location</label>
-              {geoOptions.level === 'district' && geoOptions.locations.length > 0 ? (
+              <label className="text-[10px] font-bold uppercase text-slate-500">Area</label>
+              {geoOptions.locations.length > 0 ? (
                 <Select onValueChange={v => setFormData({...formData, area: v})} value={formData.area}>
                   <SelectTrigger className="bg-slate-800 border-none h-9"><SelectValue placeholder="Select area..." /></SelectTrigger>
                   <SelectContent className="bg-slate-800 border-white/10 text-white">
                     {geoOptions.locations.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              ) : (
-                <Input value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} className="bg-slate-800 border-none h-9" />
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-slate-500">Phone</label>
-              <Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="bg-slate-800 border-none h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-slate-500">Email</label>
-              <Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="bg-slate-800 border-none h-9" />
+              ) : <Input value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} className="bg-slate-800 border-none h-9" />}
             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={handleAddCustomer} className="w-full bg-primary h-10 font-bold uppercase">Complete Enrollment</Button>
-          </DialogFooter>
+          <DialogFooter><Button onClick={handleAddCustomer} className="w-full bg-primary h-10 font-bold uppercase">Complete Enrollment</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
