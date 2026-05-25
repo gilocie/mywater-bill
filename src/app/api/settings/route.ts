@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 import { getSystemSettings, saveSystemSettings } from '@/lib/settings';
 
@@ -24,26 +25,23 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Validate inputs and ensure all new fields are persisted
-    const updatedSettings = saveSystemSettings({
-      pawapayKey: body.pawapayKey !== undefined ? String(body.pawapayKey) : undefined,
-      pawapayMode: body.pawapayMode !== undefined ? String(body.pawapayMode) : undefined,
-      portalUrl: body.portalUrl !== undefined ? String(body.portalUrl) : undefined,
-      waterRate: body.waterRate !== undefined ? parseFloat(body.waterRate) : undefined,
-      companyName: body.companyName !== undefined ? String(body.companyName) : undefined,
-      logo: body.logo !== undefined ? String(body.logo) : undefined,
-      defaultAvatar: body.defaultAvatar !== undefined ? String(body.defaultAvatar) : undefined,
-      primaryColor: body.primaryColor !== undefined ? String(body.primaryColor) : undefined,
-      secondaryColor: body.secondaryColor !== undefined ? String(body.secondaryColor) : undefined,
-      backgroundColor: body.backgroundColor !== undefined ? String(body.backgroundColor) : undefined,
-      landingBgImage: body.landingBgImage !== undefined ? String(body.landingBgImage) : undefined,
-      vatRate: body.vatRate !== undefined ? parseFloat(body.vatRate) : undefined,
-      waterRateRanges: body.waterRateRanges !== undefined ? body.waterRateRanges : undefined,
-      appLevel: body.appLevel !== undefined ? body.appLevel : undefined,
-      country: body.country !== undefined ? body.country : undefined,
-      regionName: body.regionName !== undefined ? body.regionName : undefined,
-      districtName: body.districtName !== undefined ? body.districtName : undefined,
+    // Create an update object containing only the fields provided in the body
+    const updates: any = {};
+    const fields = [
+      'pawapayKey', 'pawapayMode', 'portalUrl', 'waterRate', 'companyName',
+      'companyDescription', 'logo', 'logoBgColor', 'defaultAvatar',
+      'primaryColor', 'secondaryColor', 'backgroundColor', 'landingBgImage',
+      'landingTitle', 'vatRate', 'waterRateRanges', 'appLevel', 'country',
+      'regionName', 'districtName', 'receiptCompanyName'
+    ];
+
+    fields.forEach(field => {
+      if (body[field] !== undefined) {
+        updates[field] = body[field];
+      }
     });
+
+    const updatedSettings = saveSystemSettings(updates);
 
     return NextResponse.json(updatedSettings, { headers: corsHeaders });
   } catch (error: any) {

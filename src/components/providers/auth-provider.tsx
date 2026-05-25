@@ -20,6 +20,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 function hexToTailwindHsl(hex: string): string {
+  if (!hex) return '224 63% 50%';
   hex = hex.replace(/^#/, '');
   if (hex.length === 3) {
     hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
@@ -58,20 +59,23 @@ const DEFAULT_SETTINGS: SystemSettings = {
   portalUrl: 'https://dashboard.pawapay.io',
   waterRate: 2.5,
   companyName: 'My Water Bill',
+  companyDescription: 'Utility Management Portal',
   logo: '',
+  logoBgColor: '#2563eb',
   primaryColor: '#2563eb',
   secondaryColor: '#0f172a',
   backgroundColor: '#020617',
   landingBgImage: 'https://picsum.photos/seed/water-landing/1920/1080',
+  landingTitle: 'Manage Your Utility with ease',
   vatRate: 16.5,
   waterRateRanges: [
     { from: 0, to: null, price: 2.5 }
   ],
-  // Geographic scope defaults
   appLevel: 'district',
   country: 'Malawi',
   regionName: 'Southern Region',
   districtName: 'Blantyre',
+  receiptCompanyName: 'MALAWI WATER BOARD',
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -81,7 +85,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
-    // Ensure user list exists in local storage
     if (!localStorage.getItem('mywater_all_users')) {
       localStorage.setItem('mywater_all_users', JSON.stringify([]));
     }
@@ -103,16 +106,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const savedSettings = localStorage.getItem('mywater_settings');
     if (savedSettings) {
       try {
-        setSettings(JSON.parse(savedSettings));
+        setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
       } catch (e) {}
     }
 
-    // Sync with server-side settings
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
         if (data) {
-          setSettings(data);
+          setSettings(prev => ({ ...prev, ...data }));
           localStorage.setItem('mywater_settings', JSON.stringify(data));
           if (typeof data.waterRate === 'number') {
             setWaterRateState(data.waterRate);
@@ -128,7 +130,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
-  // Synchronize dynamic settings changes in local storage
   useEffect(() => {
     const handleStorageChange = () => {
       const savedUser = localStorage.getItem('mywater_user');
@@ -140,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (savedSettings) {
         try {
           const parsed = JSON.parse(savedSettings);
-          setSettings(parsed);
+          setSettings(prev => ({ ...prev, ...parsed }));
           if (typeof parsed.waterRate === 'number') {
             setWaterRateState(parsed.waterRate);
           }
@@ -178,6 +179,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Invalid credentials. If you are a customer, enter your meter number. Staff must provide email and password.');
     }
     setIsLoading(false);
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('mywater_user');
   };
 
   const register = async (name: string, email: string, password: string) => {
@@ -232,7 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       if (!res.ok) throw new Error('Failed to update settings');
       const data = await res.json();
-      setSettings(data);
+      setSettings(prev => ({ ...prev, ...data }));
       if (typeof data.waterRate === 'number') {
         setWaterRateState(data.waterRate);
         localStorage.setItem('mywater_rate', data.waterRate.toString());
@@ -243,11 +249,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error(err);
       throw err;
     }
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('mywater_user');
   };
 
   return (

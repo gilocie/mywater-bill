@@ -67,7 +67,7 @@ export default function LoginPage() {
 
       {/* Brand Identity - Top Left Corner */}
       <div className="absolute top-8 left-8 z-30 flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-1000">
-        <div className="bg-primary/20 backdrop-blur-md border border-primary/30 p-2.5 rounded-[5px] shadow-2xl">
+        <div className="backdrop-blur-md border border-white/10 p-2.5 rounded-[5px] shadow-2xl" style={{ backgroundColor: settings?.logoBgColor || 'rgba(37, 99, 235, 0.2)' }}>
           {settings?.logo ? (
             <img src={settings.logo} className="h-7 w-7 object-contain" alt="Logo" />
           ) : (
@@ -96,7 +96,7 @@ export default function LoginPage() {
             )}
           </h1>
           <p className="text-[8px] font-bold tracking-[0.3em] text-slate-400 uppercase opacity-80">
-            {settings?.companyName || 'Malawi Water Board'}
+            {settings?.companyDescription || 'Utility Management Portal'}
           </p>
         </div>
       </div>
@@ -106,7 +106,9 @@ export default function LoginPage() {
           /* Initial Access Button */
           <div className="space-y-8 text-center animate-in fade-in zoom-in-95 duration-1000">
              <div className="space-y-2">
-               <p className="text-slate-300 font-bold text-3xl md:text-4xl opacity-90 tracking-tight">Manage Your Utility with ease</p>
+               <p className="text-slate-300 font-bold text-3xl md:text-4xl opacity-90 tracking-tight">
+                 {settings?.landingTitle || 'Manage Your Utility with ease'}
+               </p>
              </div>
              <Button 
                onClick={() => setShowInput(true)}
@@ -158,7 +160,7 @@ export default function LoginPage() {
       </div>
       
       <p className="absolute bottom-8 text-center text-[10px] text-slate-500 font-mono tracking-widest uppercase opacity-40">
-        MWB-SYSTEM-CORE-v2.9.4 • © {new Date().getFullYear()} {settings?.companyName?.toUpperCase() || 'MALAWI WATER BOARD'}
+        MWB-SYSTEM-CORE-v2.9.4 • © {new Date().getFullYear()} {settings?.receiptCompanyName?.toUpperCase() || 'MALAWI WATER BOARD'}
       </p>
     </div>
   );

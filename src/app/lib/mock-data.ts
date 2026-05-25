@@ -82,12 +82,15 @@ export interface SystemSettings {
   portalUrl: string;
   waterRate: number;
   companyName?: string;
+  companyDescription?: string;
   logo?: string;
+  logoBgColor?: string;
   defaultAvatar?: string;
   primaryColor?: string;
   secondaryColor?: string;
   backgroundColor?: string;
   landingBgImage?: string;
+  landingTitle?: string;
   vatRate?: number;
   waterRateRanges?: WaterRateRange[];
   // Geographic scope
@@ -95,5 +98,6 @@ export interface SystemSettings {
   country?: string;
   regionName?: string;
   districtName?: string;
+  // Receipt Design
+  receiptCompanyName?: string;
 }
-
