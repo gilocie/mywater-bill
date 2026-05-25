@@ -4,7 +4,7 @@ import { getSystemSettings, saveSystemSettings } from '@/lib/settings';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
@@ -32,7 +32,8 @@ export async function POST(request: Request) {
       'companyDescription', 'logo', 'logoBgColor', 'defaultAvatar',
       'primaryColor', 'secondaryColor', 'backgroundColor', 'landingBgImage',
       'landingTitle', 'vatRate', 'waterRateRanges', 'appLevel', 'country',
-      'regionName', 'districtName', 'receiptCompanyName'
+      'regionName', 'districtName', 'receiptCompanyName', 'staffAccessToggle',
+      'staffAccessShortcut'
     ];
 
     fields.forEach(field => {

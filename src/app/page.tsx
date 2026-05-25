@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { Button } from '@/components/ui/button';
@@ -17,10 +17,39 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showInput, setShowInput] = useState(false);
+  const [showStaffLink, setShowStaffLink] = useState(false);
   
   const [meterNumber, setMeterNumber] = useState('');
 
-  React.useEffect(() => {
+  const handleKeyPress = useCallback((event: KeyboardEvent) => {
+    if (!settings.staffAccessToggle) return;
+
+    const shortcut = settings.staffAccessShortcut || 'Ctrl+L';
+    const parts = shortcut.split('+');
+    const key = parts[parts.length - 1].toLowerCase();
+    const ctrlReq = shortcut.includes('Ctrl');
+    const shiftReq = shortcut.includes('Shift');
+    const altReq = shortcut.includes('Alt');
+
+    if (
+      event.key.toLowerCase() === key &&
+      (ctrlReq === event.ctrlKey) &&
+      (shiftReq === event.shiftKey) &&
+      (altReq === event.altKey)
+    ) {
+      event.preventDefault();
+      setShowStaffLink(true);
+      // Optional: auto-navigate if shortcut is pressed
+      // router.push('/admin-login'); 
+    }
+  }, [settings, router]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [handleKeyPress]);
+
+  useEffect(() => {
     if (user) {
       router.push('/dashboard');
     }
@@ -147,12 +176,14 @@ export default function LoginPage() {
                   <X className="h-3 w-3" /> Cancel
                 </button>
                 
-                <Link 
-                  href="/admin-login" 
-                  className="text-[10px] text-slate-600 hover:text-slate-400 uppercase font-bold tracking-[0.2em] transition-colors flex items-center gap-1.5"
-                >
-                  <UserCircle className="h-3 w-3" /> Staff Access
-                </Link>
+                {(settings.staffAccessToggle && showStaffLink) && (
+                  <Link 
+                    href="/admin-login" 
+                    className="text-[10px] text-slate-600 hover:text-slate-400 uppercase font-bold tracking-[0.2em] transition-colors flex items-center gap-1.5 animate-in fade-in slide-in-from-right-2"
+                  >
+                    <UserCircle className="h-3 w-3" /> Staff Access
+                  </Link>
+                )}
               </div>
             </form>
           </div>

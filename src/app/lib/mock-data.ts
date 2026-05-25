@@ -100,4 +100,7 @@ export interface SystemSettings {
   districtName?: string;
   // Receipt Design
   receiptCompanyName?: string;
+  // Security
+  staffAccessToggle?: boolean;
+  staffAccessShortcut?: string;
 }

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, ExternalLink, Eye, EyeOff, Settings2, PlayCircle, Loader2, CheckCircle2, XCircle, FileText, Printer, Download, Droplets, Receipt, Wifi, Plus, Trash2, Palette, Coins, UploadCloud, Building, Globe, MapPin, Layers } from 'lucide-react';
+import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, ExternalLink, Eye, EyeOff, Settings2, PlayCircle, Loader2, CheckCircle2, XCircle, FileText, Printer, Download, Droplets, Receipt, Wifi, Plus, Trash2, Palette, Coins, UploadCloud, Building, Globe, MapPin, Layers, ShieldEllipsis, Keyboard } from 'lucide-react';
 import { GEO_DATA, getRegions, getDistrictNames, getLocations, getAllDistrictsForCountry, getRegionForDistrict } from '@/app/lib/geo-data';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout, updateUser, waterRate, setWaterRate, settings, updateSettings } = useAuth();
@@ -88,6 +89,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [regionName, setRegionName] = useState('');
   const [districtName, setDistrictName] = useState('');
 
+  // Security States
+  const [staffAccessToggle, setStaffAccessToggle] = useState(true);
+  const [staffAccessShortcut, setStaffAccessShortcut] = useState('Ctrl+L');
+
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/');
@@ -126,6 +131,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (settings.regionName) setRegionName(settings.regionName);
         if (settings.districtName) setDistrictName(settings.districtName);
         if (settings.receiptCompanyName) setReceiptCompanyName(settings.receiptCompanyName);
+        setStaffAccessToggle(settings.staffAccessToggle ?? true);
+        setStaffAccessShortcut(settings.staffAccessShortcut || 'Ctrl+L');
       }
     }
   }, [user, settings]);
@@ -163,6 +170,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         regionName,
         districtName,
         receiptCompanyName,
+        staffAccessToggle,
+        staffAccessShortcut,
       });
       
       setSettingsDialogOpen(false);
@@ -513,19 +522,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </Dialog>
 
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
-        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-lg rounded-[5px] overflow-y-auto max-h-[90vh]">
+        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-2xl rounded-[5px] overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> System Configuration</DialogTitle>
-            <DialogDescription className="text-slate-500 text-xs">Customize utility pricing, brand theme, and payment gateway.</DialogDescription>
+            <DialogDescription className="text-slate-500 text-xs">Customize utility pricing, brand theme, and security protocols.</DialogDescription>
           </DialogHeader>
 
           <Tabs defaultValue="pricing" className="w-full mt-4">
-            <TabsList className="grid grid-cols-5 bg-slate-950/60 p-1 border border-white/5 rounded-[5px] mb-4">
+            <TabsList className="grid grid-cols-6 bg-slate-950/60 p-1 border border-white/5 rounded-[5px] mb-4">
               <TabsTrigger value="pricing" className="text-[10px] uppercase font-bold tracking-tight py-2">Pricing</TabsTrigger>
               <TabsTrigger value="branding" className="text-[10px] uppercase font-bold tracking-tight py-2">Brand</TabsTrigger>
               <TabsTrigger value="receipt" className="text-[10px] uppercase font-bold tracking-tight py-2">Receipt</TabsTrigger>
               <TabsTrigger value="gateway" className="text-[10px] uppercase font-bold tracking-tight py-2">Gateway</TabsTrigger>
               <TabsTrigger value="applevel" className="text-[10px] uppercase font-bold tracking-tight py-2">Scope</TabsTrigger>
+              <TabsTrigger value="security" className="text-[10px] uppercase font-bold tracking-tight py-2">Security</TabsTrigger>
             </TabsList>
 
             <TabsContent value="pricing" className="space-y-4 outline-none">
@@ -672,25 +682,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                   </div>
                 </div>
-
-                <div className="border-t border-white/5 pt-4">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500 block mb-3">Theme Palette</Label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { label: 'Primary', val: primaryColor, set: setPrimaryColor },
-                      { label: 'Cards', val: secondaryColor, set: setSecondaryColor },
-                      { label: 'Background', val: backgroundColor, set: setBackgroundColor }
-                    ].map(cp => (
-                      <div key={cp.label} className="space-y-1">
-                        <Label className="text-[8px] font-bold uppercase text-slate-500 block">{cp.label}</Label>
-                        <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 border border-white/5 rounded-[5px]">
-                          <input type="color" value={cp.val} onChange={e => cp.set(e.target.value)} className="w-5 h-5 rounded-sm border-none bg-transparent cursor-pointer" />
-                          <span className="text-[8px] font-mono uppercase font-bold text-slate-400">{cp.val}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             </TabsContent>
 
@@ -699,7 +690,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-bold uppercase text-slate-500">Receipt Entity Name</Label>
                   <Input value={receiptCompanyName} onChange={e => setReceiptCompanyName(e.target.value)} placeholder="e.g. MALAWI WATER BOARD" className="bg-slate-950 border-white/5 h-10 font-bold" />
-                  <p className="text-[9px] text-slate-500 font-medium italic">This name appears at the top of all PDF/Image receipts and invoices.</p>
                 </div>
 
                 <div className="p-4 bg-primary/5 border border-primary/10 rounded-[5px] space-y-4">
@@ -793,7 +783,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
 
                 {appLevel === 'region' && (
-                  <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase text-primary tracking-widest px-1">Locked Region / Province</Label>
                     <Select value={regionName} onValueChange={(val) => {
                       setRegionName(val);
@@ -808,7 +798,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
 
                 {appLevel === 'district' && (
-                  <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase text-primary tracking-widest px-1">Locked District / City</Label>
                     <Select value={districtName} onValueChange={(val) => {
                       setDistrictName(val);
@@ -822,6 +812,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </Select>
                   </div>
                 )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="security" className="space-y-6 outline-none">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-bold text-white flex items-center gap-2">
+                      <ShieldEllipsis className="h-4 w-4 text-primary" /> Staff Access Feature
+                    </Label>
+                    <p className="text-[10px] text-slate-500 font-medium uppercase tracking-tight">Show or hide the staff portal link on the landing page.</p>
+                  </div>
+                  <Switch checked={staffAccessToggle} onCheckedChange={setStaffAccessToggle} />
+                </div>
+
+                <div className={cn("space-y-4 p-4 border border-white/5 rounded-[5px] bg-slate-950/40 transition-all", !staffAccessToggle && "opacity-40 grayscale pointer-events-none")}>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-2">
+                      <Keyboard className="h-3 w-3" /> Keyboard Shortcut Command
+                    </Label>
+                    <Input 
+                      value={staffAccessShortcut} 
+                      onChange={e => setStaffAccessShortcut(e.target.value)} 
+                      placeholder="e.g., Ctrl+L" 
+                      className="bg-slate-900 border-white/5 h-10 font-mono text-primary font-black"
+                    />
+                    <p className="text-[9px] text-slate-500 italic">Example formats: Ctrl+L, Alt+A, Shift+S. This command will reveal the hidden staff link on the landing page.</p>
+                  </div>
+                </div>
               </div>
             </TabsContent>
           </Tabs>

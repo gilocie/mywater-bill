@@ -76,6 +76,8 @@ const DEFAULT_SETTINGS: SystemSettings = {
   regionName: 'Southern Region',
   districtName: 'Blantyre',
   receiptCompanyName: 'MALAWI WATER BOARD',
+  staffAccessToggle: true,
+  staffAccessShortcut: 'Ctrl+L'
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
