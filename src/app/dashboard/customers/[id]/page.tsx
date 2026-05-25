@@ -520,8 +520,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       <Edit className="h-3 w-3" /> Edit Profile
                     </button>
                   </DialogTrigger>
-                  <DialogContent className="bg-[#0b101a] border-white/10 text-white rounded-[5px] max-w-md p-0 overflow-hidden shadow-2xl">
-                    <div className="bg-[#1a2333] px-8 py-6 flex items-center gap-3 border-b border-white/5">
+                  <DialogContent className="bg-[#0b101a] border-white/10 text-white rounded-[5px] max-w-md p-0 overflow-hidden shadow-2xl max-h-[450px]">
+                    <div className="bg-[#1a2333] px-6 py-4 flex items-center gap-3 border-b border-white/5 shrink-0">
                        <div className="bg-primary/20 p-2 rounded-[5px]">
                           <Edit className="h-4 w-4 text-primary" />
                        </div>
@@ -531,56 +531,57 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                        </div>
                     </div>
 
-                    <div className="px-8 py-6 space-y-4 overflow-y-auto max-h-[70vh]">
+                    <div className="px-6 py-3 space-y-3 overflow-y-auto">
                       <div className="space-y-1">
-                        <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Full Name</Label>
-                        <input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
+                        <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Full Name</Label>
+                        <input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Email Address</Label>
+                          <input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Phone Number</Label>
+                          <input value={editForm.phoneNumber} onChange={e => setEditForm({...editForm, phoneNumber: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Meter Number</Label>
+                          <input value={editForm.meterNumber} onChange={e => setEditForm({...editForm, meterNumber: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Last Meter Reading (m³)</Label>
+                          <input type="number" value={editForm.lastMeterReading} onChange={e => setEditForm({...editForm, lastMeterReading: parseFloat(e.target.value) || 0})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Region</Label>
+                          <input value={editForm.region} onChange={e => setEditForm({...editForm, region: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-2 text-white font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-primary" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">District</Label>
+                          <input value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-2 text-white font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-primary" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Area</Label>
+                          <input value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-2 text-white font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-primary" />
+                        </div>
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Email Address</Label>
-                        <input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Phone Number</Label>
-                        <input value={editForm.phoneNumber} onChange={e => setEditForm({...editForm, phoneNumber: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Meter Number</Label>
-                          <input value={editForm.meterNumber} onChange={e => setEditForm({...editForm, meterNumber: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-3 text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Last Meter Reading (m³)</Label>
-                          <input type="number" value={editForm.lastMeterReading} onChange={e => setEditForm({...editForm, lastMeterReading: parseFloat(e.target.value) || 0})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-3 text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Region</Label>
-                          <input value={editForm.region} onChange={e => setEditForm({...editForm, region: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-2 text-white font-bold text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">District</Label>
-                          <input value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-2 text-white font-bold text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Area</Label>
-                          <input value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-2 text-white font-bold text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Address Details</Label>
-                        <textarea value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 min-h-[60px] px-3 py-2 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs resize-none" />
+                        <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Address Details</Label>
+                        <textarea value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 min-h-[50px] px-3 py-1.5 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-[10px] resize-none" />
                       </div>
                     </div>
 
-                    <div className="px-8 pb-8 pt-4">
-                      <Button onClick={handleUpdateProfile} className="w-full h-11 bg-primary hover:bg-primary/90 font-black uppercase text-[10px] tracking-[0.2em] rounded-[5px] shadow-lg shadow-primary/20">
+                    <div className="px-6 pb-6 pt-2 shrink-0">
+                      <Button onClick={handleUpdateProfile} className="w-full h-9 bg-primary hover:bg-primary/90 font-black uppercase text-[9px] tracking-[0.1em] rounded-[5px] shadow-lg shadow-primary/20">
                         SAVE PROFILE CHANGES
                       </Button>
                     </div>
@@ -689,8 +690,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       <Dialog open={usageReportsOpen} onOpenChange={setUsageReportsOpen}>
-        <DialogContent className="bg-[#0b101a] border-white/10 text-white max-w-2xl rounded-[5px] p-0 overflow-hidden shadow-2xl">
-          <div className="bg-[#1a2333] px-6 py-4 flex items-center gap-3 border-b border-white/5">
+        <DialogContent className="bg-[#0b101a] border-white/10 text-white max-w-2xl rounded-[5px] p-0 overflow-hidden shadow-2xl max-h-[450px]">
+          <div className="bg-[#1a2333] px-6 py-3 flex items-center gap-3 border-b border-white/5 shrink-0">
              <div className="bg-primary/20 p-2 rounded-[5px]">
                 <BarChart3 className="h-4 w-4 text-primary" />
              </div>
@@ -700,9 +701,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
              </div>
           </div>
           
-          <div className="px-6 py-8">
+          <div className="px-6 py-4">
             {chartData.length > 0 ? (
-              <div className="h-[250px] w-full">
+              <div className="h-[180px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData}>
                     <defs>
@@ -742,28 +743,28 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="py-12 text-center">
-                <History className="h-12 w-12 text-slate-700 mx-auto mb-4" />
-                <p className="text-slate-500 font-medium text-sm">No billing records found for this customer.</p>
+              <div className="py-8 text-center">
+                <History className="h-10 w-10 text-slate-700 mx-auto mb-2" />
+                <p className="text-slate-500 font-medium text-xs">No billing records found for this customer.</p>
               </div>
             )}
             
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              <div className="p-3 bg-slate-900/50 border border-white/5 rounded-[5px]">
-                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-1">Lifetime Consumption</p>
-                <p className="text-xl font-black text-white">{totalConsumption} m³</p>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="p-2 bg-slate-900/50 border border-white/5 rounded-[5px]">
+                <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Lifetime Consumption</p>
+                <p className="text-lg font-black text-white">{totalConsumption} m³</p>
               </div>
-              <div className="p-3 bg-slate-900/50 border border-white/5 rounded-[5px]">
-                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-1">Total Invoices</p>
-                <p className="text-xl font-black text-white">{bills.length}</p>
+              <div className="p-2 bg-slate-900/50 border border-white/5 rounded-[5px]">
+                <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Total Invoices</p>
+                <p className="text-lg font-black text-white">{bills.length}</p>
               </div>
             </div>
           </div>
 
-          <div className="px-6 pb-6 pt-2">
-            <Button onClick={() => setUsageReportsOpen(false)} className="w-full h-11 bg-slate-800 hover:bg-slate-700 font-black uppercase text-[10px] tracking-[0.2em] rounded-[5px]">
+          <div className="px-6 pb-6 pt-2 shrink-0">
+            <button onClick={() => setUsageReportsOpen(false)} className="w-full h-9 bg-slate-800 hover:bg-slate-700 text-white font-black uppercase text-[10px] tracking-[0.2em] rounded-[5px] transition-all">
               CLOSE ANALYTICS
-            </Button>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
