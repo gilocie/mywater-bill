@@ -1,16 +1,17 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, ExternalLink, Eye, EyeOff, Settings2, PlayCircle, Loader2, CheckCircle2, XCircle, FileText, Printer, Download, Droplets, Receipt, Wifi, Plus, Trash2, Palette, Coins, UploadCloud, Building, Globe, MapPin, Layers, ShieldEllipsis, Keyboard } from 'lucide-react';
+import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, ExternalLink, Eye, EyeOff, Settings2, PlayCircle, Loader2, CheckCircle2, XCircle, FileText, Printer, Download, Droplets, Receipt, Wifi, Plus, Trash2, Palette, Coins, UploadCloud, Building, Globe, MapPin, Layers, ShieldEllipsis, Keyboard, Megaphone, X } from 'lucide-react';
 import { GEO_DATA, getRegions, getDistrictNames, getLocations, getAllDistrictsForCountry, getRegionForDistrict } from '@/app/lib/geo-data';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Broadcast } from '@/app/lib/mock-data';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,8 +35,9 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import Link from 'next/link';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.Node }) {
   const { user, isLoading, logout, updateUser, waterRate, setWaterRate, settings, updateSettings } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -50,6 +52,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
 
   const [newName, setNewName] = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [pinnedBroadcast, setPinnedBroadcast] = useState<Broadcast | null>(null);
   
   const [newRate, setNewRate] = useState(waterRate.toString());
   const [pawapayKey, setPawapayKey] = useState('');
@@ -100,13 +104,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [user, isLoading, router]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if ((window as any).BrandPay) {
-        (window as any).BrandPay.init({
-          checkoutUrl: window.location.origin
+    const loadBroadcasts = () => {
+      const storedBroadcasts = localStorage.getItem('mywater_broadcasts');
+      if (storedBroadcasts && user) {
+        const broadcasts: Broadcast[] = JSON.parse(storedBroadcasts);
+        const now = new Date();
+        
+        // Filter valid broadcasts for current user
+        const active = broadcasts.filter(b => {
+          const isTarget = b.target === 'ALL' || 
+                          (user.role === 'CUSTOMER' && b.target === 'CUSTOMERS') ||
+                          (user.role !== 'CUSTOMER' && b.target === 'STAFF');
+          const isNotExpired = !b.expiresAt || new Date(b.expiresAt) > now;
+          return isTarget && isNotExpired;
         });
+
+        // Find pinned
+        setPinnedBroadcast(active.find(b => b.isPinned) || null);
+
+        // Compute unread count (simplified logic using last read timestamp)
+        const lastRead = localStorage.getItem(`mywater_last_read_${user.id}`) || '0';
+        const unread = active.filter(b => new Date(b.createdAt).getTime() > parseInt(lastRead)).length;
+        setUnreadCount(unread);
       }
-      
+    };
+
+    loadBroadcasts();
+    window.addEventListener('storage', loadBroadcasts);
+    return () => window.removeEventListener('storage', loadBroadcasts);
+  }, [user]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
       setNewName(user?.name || '');
       
       if (settings) {
@@ -420,69 +449,95 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     toast({ title: "Receipt Downloaded", description: "Verification receipt saved to your downloads." });
   };
 
+  const clearPinned = () => setPinnedBroadcast(null);
+
   if (isLoading || !user) return null;
 
   return (
     <SidebarProvider>
       <SidebarNav />
       <SidebarInset className="bg-slate-950">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-white/5 bg-slate-950 px-6">
-          <SidebarTrigger />
-          <div className="flex-1 hidden md:block">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-              <Input 
-                placeholder="Search records, invoices, meters..." 
-                className="pl-9 h-9 bg-slate-900/50 border-white/5 text-white rounded-[5px]" 
-              />
+        <header className="sticky top-0 z-30 flex flex-col border-b border-white/5 bg-slate-950">
+          <div className="flex h-16 items-center gap-4 px-6">
+            <SidebarTrigger />
+            <div className="flex-1 hidden md:block">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <Input 
+                  placeholder="Search records, invoices, meters..." 
+                  className="pl-9 h-9 bg-slate-900/50 border-white/5 text-white rounded-[5px]" 
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link href="/dashboard/notifications" className="relative">
+                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px]">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-primary text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-slate-950">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </Link>
+              
+              {user.role === 'SUPER_ADMIN' && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px]"
+                  onClick={() => setSettingsDialogOpen(true)}
+                >
+                  <Settings className="h-5 w-5" />
+                </Button>
+              )}
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-auto flex items-center gap-3 px-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px]">
+                    <div className="text-right hidden sm:block">
+                      <p className="text-xs font-bold text-white leading-none mb-1">{user.name}</p>
+                      <p className="text-[9px] text-slate-500 uppercase tracking-tighter">{user.role.replace('_', ' ')}</p>
+                    </div>
+                    <Avatar className="h-8 w-8 border border-white/10 rounded-[5px]">
+                      <AvatarImage src={(user as any).profilePic || settings?.defaultAvatar || ''} />
+                      <AvatarFallback className="bg-slate-800 text-primary font-bold text-xs">{user.name[0]}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-slate-900 border-white/5 text-slate-300 rounded-[5px]">
+                  <DropdownMenuLabel className="text-xs font-bold uppercase tracking-widest text-slate-500">My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/5" />
+                  <DropdownMenuItem onClick={() => {
+                    setNewName(user.name);
+                    setProfileDialogOpen(true);
+                  }} className="flex items-center gap-2 hover:bg-white/5 focus:bg-white/5 cursor-pointer">
+                    <UserIcon className="h-4 w-4" /> Profile Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/5" />
+                  <DropdownMenuItem onClick={logout} className="flex items-center gap-2 text-red-400 hover:bg-red-400/10 focus:bg-red-400/10 cursor-pointer">
+                    <LogOut className="h-4 w-4" /> Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="relative text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px]">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-2 right-2 h-2 w-2 bg-accent rounded-full border-2 border-slate-950" />
-            </Button>
-            
-            {user.role === 'SUPER_ADMIN' && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px]"
-                onClick={() => setSettingsDialogOpen(true)}
-              >
-                <Settings className="h-5 w-5" />
-              </Button>
-            )}
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-auto flex items-center gap-3 px-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px]">
-                  <div className="text-right hidden sm:block">
-                    <p className="text-xs font-bold text-white leading-none mb-1">{user.name}</p>
-                    <p className="text-[9px] text-slate-500 uppercase tracking-tighter">{user.role.replace('_', ' ')}</p>
-                  </div>
-                  <Avatar className="h-8 w-8 border border-white/10 rounded-[5px]">
-                    <AvatarImage src={(user as any).profilePic || settings?.defaultAvatar || ''} />
-                    <AvatarFallback className="bg-slate-800 text-primary font-bold text-xs">{user.name[0]}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-slate-900 border-white/5 text-slate-300 rounded-[5px]">
-                <DropdownMenuLabel className="text-xs font-bold uppercase tracking-widest text-slate-500">My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-white/5" />
-                <DropdownMenuItem onClick={() => {
-                  setNewName(user.name);
-                  setProfileDialogOpen(true);
-                }} className="flex items-center gap-2 hover:bg-white/5 focus:bg-white/5 cursor-pointer">
-                  <UserIcon className="h-4 w-4" /> Profile Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-white/5" />
-                <DropdownMenuItem onClick={logout} className="flex items-center gap-2 text-red-400 hover:bg-red-400/10 focus:bg-red-400/10 cursor-pointer">
-                  <LogOut className="h-4 w-4" /> Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          {/* Pinned Broadcast Banner */}
+          {pinnedBroadcast && (
+            <div className="bg-primary/10 border-t border-primary/20 px-6 py-2.5 flex items-center justify-between animate-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center gap-3">
+                <Megaphone className="h-4 w-4 text-primary animate-bounce" />
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase text-primary tracking-widest">Notice:</span>
+                  <p className="text-xs font-bold text-slate-300 truncate max-w-[500px]">{pinnedBroadcast.title} – {pinnedBroadcast.message}</p>
+                </div>
+              </div>
+              <button onClick={clearPinned} className="p-1 hover:bg-white/5 rounded-full text-slate-500 hover:text-white transition-colors">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </header>
         <main className="p-6 md:p-8">
           {children}
@@ -522,7 +577,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </Dialog>
 
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
-        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-2xl rounded-[5px] overflow-y-auto max-h-[90vh]">
+        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-3xl rounded-[5px] overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> System Configuration</DialogTitle>
             <DialogDescription className="text-slate-500 text-xs">Customize utility pricing, brand theme, and security protocols.</DialogDescription>

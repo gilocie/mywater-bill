@@ -65,6 +65,40 @@ export interface PaymentMethod {
   manualInstructions?: string;
 }
 
+export interface Broadcast {
+  id: string;
+  title: string;
+  message: string;
+  target: 'STAFF' | 'CUSTOMERS' | 'ALL';
+  type: 'INFO' | 'ALERT' | 'UPDATE';
+  isPinned: boolean;
+  expiresAt?: string;
+  createdAt: string;
+  authorName: string;
+}
+
+export interface SupportMessage {
+  senderId: string;
+  senderName: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  customerId: string;
+  customerName: string;
+  subject: string;
+  area: string;
+  district: string;
+  status: 'OPEN' | 'REPLIED' | 'ESCALATED' | 'CLOSED';
+  assignedStaffId?: string;
+  assignedStaffName?: string;
+  escalatedTo?: 'ACCOUNTS' | 'SUPER_ADMIN';
+  messages: SupportMessage[];
+  lastUpdate: string;
+}
+
 export const REGIONS = ['Northern', 'Central', 'Southern'];
 export const DISTRICTS = ['Blantyre', 'Lilongwe', 'Mzuzu', 'Zomba', 'Kasungu', 'Mangochi'];
 export const AREAS = ['Area 47', 'Area 18', 'Chirimba', 'Ndirande', 'Kanjedza', 'Chilomoni'];
