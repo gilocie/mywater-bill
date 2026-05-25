@@ -520,7 +520,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       <Edit className="h-3 w-3" /> Edit Profile
                     </button>
                   </DialogTrigger>
-                  <DialogContent className="bg-[#0b101a] border-white/10 text-white rounded-[5px] max-w-md p-0 overflow-hidden shadow-2xl max-h-[450px]">
+                  <DialogContent className="bg-[#0b101a] border-white/10 text-white rounded-[5px] max-w-md p-0 overflow-hidden shadow-2xl max-h-[450px] flex flex-col">
                     <div className="bg-[#1a2333] px-6 py-4 flex items-center gap-3 border-b border-white/5 shrink-0">
                        <div className="bg-primary/20 p-2 rounded-[5px]">
                           <Edit className="h-4 w-4 text-primary" />
@@ -531,7 +531,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                        </div>
                     </div>
 
-                    <div className="px-6 py-3 space-y-3 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto px-6 py-3 space-y-3 custom-scrollbar">
                       <div className="space-y-1">
                         <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Full Name</Label>
                         <input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
@@ -690,7 +690,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       <Dialog open={usageReportsOpen} onOpenChange={setUsageReportsOpen}>
-        <DialogContent className="bg-[#0b101a] border-white/10 text-white max-w-2xl rounded-[5px] p-0 overflow-hidden shadow-2xl max-h-[450px]">
+        <DialogContent className="bg-[#0b101a] border-white/10 text-white max-w-2xl rounded-[5px] p-0 overflow-hidden shadow-2xl max-h-[450px] flex flex-col">
           <div className="bg-[#1a2333] px-6 py-3 flex items-center gap-3 border-b border-white/5 shrink-0">
              <div className="bg-primary/20 p-2 rounded-[5px]">
                 <BarChart3 className="h-4 w-4 text-primary" />
@@ -701,15 +701,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
              </div>
           </div>
           
-          <div className="px-6 py-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
             {chartData.length > 0 ? (
               <div className="h-[180px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData}>
                     <defs>
                       <linearGradient id="colorUsage" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#2563eb" stopOpacity="0.3"/>
+                        <stop offset="95%" stopColor="#2563eb" stopOpacity="0"/>
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
