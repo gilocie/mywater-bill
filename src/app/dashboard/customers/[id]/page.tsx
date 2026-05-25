@@ -80,6 +80,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [meterLiters, setMeterLiters] = useState('');
   const [editConsumptionValue, setEditConsumptionValue] = useState('');
   const [editCurrentReadingValue, setEditCurrentReadingValue] = useState('');
+  const [recalcBaseReading, setRecalcBaseReading] = useState(0);
+  const [targetBillId, setTargetBillId] = useState<string | null>(null);
+  
   const [gracePeriod, setGracePeriod] = useState('14');
   const [suspendReason, setSuspendReason] = useState('');
   const [newLastMeterValue, setNewLastMeterValue] = useState('');
@@ -170,11 +173,27 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     toast({ title: "Meter Record Updated", description: "Base meter reading has been corrected." });
   };
 
+  // Open Recalculate Dialog with correct "Historical" context
+  const openRecalculateDialog = () => {
+    // Find the latest pending bill to find the correct base reading
+    const targetBill = bills.find(b => b.status === 'PENDING');
+    if (!targetBill) {
+      toast({ title: "No Pending Invoices", description: "Issue an invoice first to recalculate consumption.", variant: "destructive" });
+      return;
+    }
+
+    setTargetBillId(targetBill.id);
+    setRecalcBaseReading(targetBill.lastMeterReading || 0);
+    setEditConsumptionValue(String(targetBill.consumption || 0));
+    setEditCurrentReadingValue(String(targetBill.currentMeterReading || 0));
+    setRecalculateDialogOpen(true);
+  };
+
   const handleConsumptionChange = (val: string) => {
     setEditConsumptionValue(val);
     const num = parseFloat(val);
     if (!isNaN(num)) {
-      setEditCurrentReadingValue(String((customer?.lastMeterReading || 0) + num));
+      setEditCurrentReadingValue(String(recalcBaseReading + num));
     } else {
       setEditCurrentReadingValue('');
     }
@@ -184,15 +203,16 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     setEditCurrentReadingValue(val);
     const num = parseFloat(val);
     if (!isNaN(num)) {
-      setEditConsumptionValue(String(num - (customer?.lastMeterReading || 0)));
+      setEditConsumptionValue(String(num - recalcBaseReading));
     } else {
       setEditConsumptionValue('');
     }
   };
 
   const handleRecalculateAndSave = () => {
-    if (!customer) return;
+    if (!customer || !targetBillId) return;
     const newConsumption = parseFloat(editConsumptionValue);
+    const newCurrentReading = parseFloat(editCurrentReadingValue);
     if (isNaN(newConsumption)) return;
 
     const baseCharge = calculateWaterCharge(newConsumption, settings?.waterRateRanges || []);
@@ -200,12 +220,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     const vatAmount = baseCharge * (vatRate / 100);
     const totalAmount = baseCharge + vatAmount;
 
-    // Update most recent bill if pending, or create new
+    // Update the targeted bill
     const billsStr = localStorage.getItem('mywater_all_bills') || '[]';
     let allBills: Bill[] = JSON.parse(billsStr);
     
-    const targetBillIndex = allBills.findIndex(b => b.customerId === id && b.status === 'PENDING');
-    
+    const targetBillIndex = allBills.findIndex(b => b.id === targetBillId);
     if (targetBillIndex > -1) {
       allBills[targetBillIndex] = {
         ...allBills[targetBillIndex],
@@ -213,25 +232,24 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         meterReadingLiters: newConsumption,
         vatAmount,
         totalAmount,
-        currentMeterReading: (customer.lastMeterReading || 0) + newConsumption
+        currentMeterReading: newCurrentReading
       };
     }
 
     localStorage.setItem('mywater_all_bills', JSON.stringify(allBills));
     
-    // Update customer's current reading
+    // Update customer's current reading in registry
     const usersStr = localStorage.getItem('mywater_all_users') || '[]';
     const updatedUsers = JSON.parse(usersStr).map((u: any) => u.id === id ? { 
       ...u, 
-      currentMeterReading: (u.lastMeterReading || 0) + newConsumption 
+      lastMeterReading: newCurrentReading, // Set to the new corrected point
+      currentMeterReading: newCurrentReading 
     } : u);
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
 
-    setEditConsumptionValue('');
-    setEditCurrentReadingValue('');
     setRecalculateDialogOpen(false);
     window.dispatchEvent(new Event('storage'));
-    toast({ title: "Consumption Updated", description: "Billing record recalculated successfully." });
+    toast({ title: "Consumption Corrected", description: "Billing record recalculated using analog correction logic." });
   };
 
   const handleUpdateLog = () => {
@@ -345,7 +363,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     setMeterLiters('');
     setInvoiceDialogOpen(false);
     window.dispatchEvent(new Event('storage'));
-    toast({ title: "Invoice Issued", description: `MK {fmt(totalAmount)} generated.` });
+    toast({ title: "Invoice Issued", description: `MK ${fmt(totalAmount)} generated.` });
   };
 
   const chartData = useMemo(() => {
@@ -365,9 +383,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const isSuspended = customer.suspensionStatus === 'SUSPENDED';
   const totalConsumption = bills.reduce((sum, b) => sum + (b.consumption || 0), 0);
 
-  // Live Recalculate values
+  // Live Recalculate values based on inputs and the historical base reading
   const recalcConsumption = parseFloat(editConsumptionValue) || 0;
-  const recalcLastReading = customer.lastMeterReading || 0;
   const recalcBaseCharge = calculateWaterCharge(recalcConsumption, settings?.waterRateRanges || []);
   const recalcVatAmount = recalcBaseCharge * ((settings?.vatRate ?? 16.5) / 100);
   const recalcTotal = recalcBaseCharge + recalcVatAmount;
@@ -437,11 +454,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <div className="flex items-center justify-between mb-0.5">
                     <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Consumption</p>
-                    <button onClick={() => {
-                      setEditConsumptionValue('0');
-                      setEditCurrentReadingValue(String(customer.lastMeterReading || 0));
-                      setRecalculateDialogOpen(true);
-                    }} className="hover:scale-110 transition-transform">
+                    <button onClick={openRecalculateDialog} className="hover:scale-110 transition-transform">
                       <Edit className="h-3 w-3 text-primary" />
                     </button>
                   </div>
@@ -599,7 +612,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <div className="space-y-1.5 pt-1">
               <div className="flex justify-between items-center text-[8px] font-bold text-slate-500">
                 <span className="uppercase">Last Reading</span>
-                <span className="font-mono text-slate-300">{recalcLastReading} m³</span>
+                <span className="font-mono text-slate-300">{recalcBaseReading} m³</span>
               </div>
               <div className="flex justify-between items-center text-[9px] font-black border-t border-white/5 pt-1 text-primary">
                 <span className="uppercase">New Consumption</span>
@@ -612,7 +625,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <span className="text-white">MK {fmt(recalcBaseCharge)}</span>
                  </div>
                  <div className="flex justify-between items-center text-[8px] font-bold text-slate-500">
-                    <span className="uppercase">VAT (16.5%)</span>
+                    <span className="uppercase">VAT ({settings?.vatRate ?? 16.5}%)</span>
                     <span className="text-white">MK {fmt(recalcVatAmount)}</span>
                  </div>
                  <div className="flex justify-between items-center text-[10px] font-black border-t border-white/5 pt-1 text-green-500">
