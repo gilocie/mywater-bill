@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -12,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Broadcast, SupportTicket } from '@/app/lib/mock-data';
+import { Broadcast, SupportTicket, User } from '@/app/lib/mock-data';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [testStatus, setTestStatus] = useState<'idle' | 'processing' | 'success' | 'failure'>('idle');
   const [lastTestResult, setLastTestResult] = useState<any>(null);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<any>(null);
 
   const [newName, setNewName] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
@@ -595,7 +597,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
           <DialogContent className="bg-white text-slate-900 max-w-sm rounded-[5px] p-0 overflow-hidden max-h-[90vh] flex flex-col">
             <div className="bg-slate-900 px-6 py-5 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3"><div className="p-2 rounded-[3px]" style={{ backgroundColor: logoBgColor }}>{logo ? <img src={logo} className="h-5 w-5 object-contain" /> : <Droplets className="h-5 w-5 text-white" />}</div><div><DialogTitle className="text-xs font-black text-white uppercase tracking-widest">{receiptCompanyName}</DialogTitle><p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Gateway Test Document</p></div></div><Receipt className="h-5 w-5 text-primary opacity-70" />
+              <div className="flex items-center gap-3"><div className="p-2 rounded-[3px]" style={{ backgroundColor: logoBgColor }}>{logo ? <img src={logo} className="h-8 w-8 object-contain" /> : <Droplets className="h-5 w-5 text-white" />}</div><div><DialogTitle className="text-xs font-black text-white uppercase tracking-widest">{receiptCompanyName}</DialogTitle><p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Gateway Test Document</p></div></div><Receipt className="h-5 w-5 text-primary opacity-70" />
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-6 text-center"><p className="text-4xl font-black text-slate-900"><span className="text-primary text-2xl">MK</span> {parseFloat(receiptData.amount).toLocaleString()}</p></div>
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0"><Button variant="outline" className="flex-1 h-9 rounded-[5px] text-[10px] font-bold uppercase" onClick={() => window.print()}>Print</Button><Button variant="default" className="flex-1 h-9 rounded-[5px] text-[10px] font-bold uppercase bg-slate-900 text-white" onClick={() => setReceiptDialogOpen(false)}>Close</Button></div>
