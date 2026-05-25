@@ -12,6 +12,7 @@ import { GEO_DATA } from '@/app/lib/geo-data';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Broadcast, SupportTicket, User } from '@/app/lib/mock-data';
 import {
   DropdownMenu,
@@ -566,12 +567,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <TabsContent value="gateway" className="space-y-4 outline-none">
               <div className="space-y-4">
-                <div className="flex items-center justify-between"><Label className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2"><Zap className="h-3 w-3" /> BRANDPAY GATEWAY</Label><Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-white bg-slate-800/50 rounded-[5px]" onClick={() => { setTempPortalUrl(portalUrl); setPortalDialogOpen(true); }}><Settings2 className="h-3.5 w-3.5" /></Button></div>
-                <div className="space-y-3 p-4 bg-primary/5 border border-primary/10 rounded-[5px]">
-                  <div className="flex items-center justify-between"><Label className="text-[9px] font-bold uppercase text-slate-500">API Key</Label><Button variant="ghost" size="sm" onClick={() => setTestPurchaseDialogOpen(true)} className="h-6 px-2 text-[8px] font-black uppercase text-accent hover:text-white bg-accent/10 rounded-[3px] gap-1"><PlayCircle className="h-2.5 w-2.5" /> Start Test</Button></div>
-                  <div className="relative"><Input type={showApiKey ? "text" : "password"} value={pawapayKey} onChange={(e) => setPawapayKey(e.target.value)} className="bg-slate-950 border-white/5 h-9 text-sm font-mono pr-10" /><button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-colors">{showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
-                  <div className="space-y-1.5"><Label className="text-[9px] font-bold uppercase text-slate-500">Operation Mode</Label><Select value={pawapayMode} onValueChange={setPawapayMode}><SelectTrigger className="bg-slate-950 border-white/5 h-9 rounded-[5px]"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-white/10 text-white"><SelectItem value="sandbox">Sandbox (Testing)</SelectItem><SelectItem value="live">Live (Production)</SelectItem></SelectContent></Select></div>
-                </div>
+                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">API Key</Label><Button variant="ghost" size="sm" onClick={() => setTestPurchaseDialogOpen(true)} className="h-6 px-2 text-[8px] font-black uppercase text-accent hover:text-white bg-accent/10 rounded-[3px] gap-1"><PlayCircle className="h-2.5 w-2.5" /> Start Test</Button></div>
+                <div className="relative"><Input type={showApiKey ? "text" : "password"} value={pawapayKey} onChange={(e) => setPawapayKey(e.target.value)} className="bg-slate-950 border-white/5 h-9 text-sm font-mono pr-10" /><button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-colors">{showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
+                <div className="space-y-1.5"><Label className="text-[9px] font-bold uppercase text-slate-500">Operation Mode</Label><Select value={pawapayMode} onValueChange={setPawapayMode}><SelectTrigger className="bg-slate-950 border-white/5 h-9 rounded-[5px]"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-white/10 text-white"><SelectItem value="sandbox">Sandbox (Testing)</SelectItem><SelectItem value="live">Live (Production)</SelectItem></SelectContent></Select></div>
               </div>
             </TabsContent>
 
