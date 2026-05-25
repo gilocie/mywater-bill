@@ -79,6 +79,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   // Form States
   const [meterLiters, setMeterLiters] = useState('');
   const [editConsumptionValue, setEditConsumptionValue] = useState('');
+  const [editCurrentReadingValue, setEditCurrentReadingValue] = useState('');
   const [gracePeriod, setGracePeriod] = useState('14');
   const [suspendReason, setSuspendReason] = useState('');
   const [newLastMeterValue, setNewLastMeterValue] = useState('');
@@ -169,8 +170,28 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     toast({ title: "Meter Record Updated", description: "Base meter reading has been corrected." });
   };
 
+  const handleConsumptionChange = (val: string) => {
+    setEditConsumptionValue(val);
+    const num = parseFloat(val);
+    if (!isNaN(num)) {
+      setEditCurrentReadingValue(String((customer?.lastMeterReading || 0) + num));
+    } else {
+      setEditCurrentReadingValue('');
+    }
+  };
+
+  const handleCurrentReadingChange = (val: string) => {
+    setEditCurrentReadingValue(val);
+    const num = parseFloat(val);
+    if (!isNaN(num)) {
+      setEditConsumptionValue(String(num - (customer?.lastMeterReading || 0)));
+    } else {
+      setEditConsumptionValue('');
+    }
+  };
+
   const handleRecalculateAndSave = () => {
-    if (!customer || !bills.length) return;
+    if (!customer) return;
     const newConsumption = parseFloat(editConsumptionValue);
     if (isNaN(newConsumption)) return;
 
@@ -207,6 +228,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
 
     setEditConsumptionValue('');
+    setEditCurrentReadingValue('');
     setRecalculateDialogOpen(false);
     window.dispatchEvent(new Event('storage'));
     toast({ title: "Consumption Updated", description: "Billing record recalculated successfully." });
@@ -323,7 +345,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     setMeterLiters('');
     setInvoiceDialogOpen(false);
     window.dispatchEvent(new Event('storage'));
-    toast({ title: "Invoice Issued", description: `MK ${fmt(totalAmount)} generated.` });
+    toast({ title: "Invoice Issued", description: `MK {fmt(totalAmount)} generated.` });
   };
 
   const chartData = useMemo(() => {
@@ -346,7 +368,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   // Live Recalculate values
   const recalcConsumption = parseFloat(editConsumptionValue) || 0;
   const recalcLastReading = customer.lastMeterReading || 0;
-  const recalcCurrentReading = recalcLastReading + recalcConsumption;
   const recalcBaseCharge = calculateWaterCharge(recalcConsumption, settings?.waterRateRanges || []);
   const recalcVatAmount = recalcBaseCharge * ((settings?.vatRate ?? 16.5) / 100);
   const recalcTotal = recalcBaseCharge + recalcVatAmount;
@@ -416,7 +437,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <div className="flex items-center justify-between mb-0.5">
                     <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Consumption</p>
-                    <button onClick={() => setRecalculateDialogOpen(true)} className="hover:scale-110 transition-transform">
+                    <button onClick={() => {
+                      setEditConsumptionValue('0');
+                      setEditCurrentReadingValue(String(customer.lastMeterReading || 0));
+                      setRecalculateDialogOpen(true);
+                    }} className="hover:scale-110 transition-transform">
                       <Edit className="h-3 w-3 text-primary" />
                     </button>
                   </div>
@@ -535,7 +560,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Recalculate Consumption Dialog */}
+      {/* Edit Consumption & Recalculate Dialog */}
       <Dialog open={recalculateDialogOpen} onOpenChange={setRecalculateDialogOpen}>
         <DialogContent className="bg-[#0b101a] border-white/10 text-white max-w-sm rounded-[5px] p-0 overflow-hidden shadow-2xl">
           <div className="bg-[#1a2333] px-6 py-2.5 flex items-center gap-3 border-b border-white/5">
@@ -548,44 +573,40 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
              </div>
           </div>
           
-          <div className="px-6 py-3 space-y-3">
-            <div className="space-y-2">
-              <div className="space-y-1">
+          <div className="px-6 py-2 space-y-2">
+            <div className="space-y-1.5">
+              <div className="space-y-0.5">
                 <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Consumption (m³)</Label>
                 <input 
                   type="number" 
                   value={editConsumptionValue} 
-                  onChange={e => setEditConsumptionValue(e.target.value)} 
+                  onChange={e => handleConsumptionChange(e.target.value)} 
                   placeholder="e.g. 250" 
                   className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Equivalent Current Reading (m³)</Label>
                 <input 
                   type="number" 
-                  value={String(recalcCurrentReading)} 
-                  onChange={e => {
-                    const val = parseFloat(e.target.value);
-                    const lastReading = customer?.lastMeterReading || 0;
-                    setEditConsumptionValue(isNaN(val) ? '' : String(val - lastReading));
-                  }} 
+                  value={editCurrentReadingValue} 
+                  onChange={e => handleCurrentReadingChange(e.target.value)} 
                   className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
                 />
               </div>
             </div>
 
-            <div className="space-y-2 pt-1">
+            <div className="space-y-1.5 pt-1">
               <div className="flex justify-between items-center text-[8px] font-bold text-slate-500">
                 <span className="uppercase">Last Reading</span>
                 <span className="font-mono text-slate-300">{recalcLastReading} m³</span>
               </div>
-              <div className="flex justify-between items-center text-[9px] font-black border-t border-white/5 pt-1.5 text-primary">
+              <div className="flex justify-between items-center text-[9px] font-black border-t border-white/5 pt-1 text-primary">
                 <span className="uppercase">New Consumption</span>
                 <span className="font-mono">{recalcConsumption} m³</span>
               </div>
               
-              <div className="border-t border-white/5 pt-2 space-y-1">
+              <div className="border-t border-white/5 pt-1.5 space-y-1">
                  <div className="flex justify-between items-center text-[8px] font-bold text-slate-500">
                     <span className="uppercase">Base Charge</span>
                     <span className="text-white">MK {fmt(recalcBaseCharge)}</span>
@@ -594,7 +615,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <span className="uppercase">VAT (16.5%)</span>
                     <span className="text-white">MK {fmt(recalcVatAmount)}</span>
                  </div>
-                 <div className="flex justify-between items-center text-[10px] font-black border-t border-white/5 pt-1.5 text-green-500">
+                 <div className="flex justify-between items-center text-[10px] font-black border-t border-white/5 pt-1 text-green-500">
                     <span className="uppercase tracking-widest">Recalculated Total</span>
                     <span className="font-mono">MK {fmt(recalcTotal)}</span>
                  </div>
@@ -603,7 +624,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </div>
 
           <div className="px-6 pb-4 pt-1">
-            <Button onClick={handleRecalculateAndSave} className="w-full h-9 bg-primary hover:bg-primary/90 font-black uppercase text-[9px] tracking-[0.2em] shadow-lg shadow-primary/20 rounded-[5px]">
+            <Button onClick={handleRecalculateAndSave} className="w-full h-8 bg-primary hover:bg-primary/90 font-black uppercase text-[9px] tracking-[0.2em] shadow-lg shadow-primary/20 rounded-[5px]">
               RECALCULATE & SAVE
             </Button>
           </div>
