@@ -73,11 +73,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [usageReportsOpen, setUsageReportsOpen] = useState(false);
+  const [recalculateDialogOpen, setRecalculateDialogOpen] = useState(false);
+  const [editLastMeterDialogOpen, setEditLastMeterDialogOpen] = useState(false);
 
   // Form States
   const [meterLiters, setMeterLiters] = useState('');
+  const [editConsumptionValue, setEditConsumptionValue] = useState('');
   const [gracePeriod, setGracePeriod] = useState('14');
   const [suspendReason, setSuspendReason] = useState('');
+  const [newLastMeterValue, setNewLastMeterValue] = useState('');
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
@@ -91,7 +95,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   });
 
   const fmt = (val: number) =>
-    Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    Number(val).toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
   const loadData = () => {
     const usersStr = localStorage.getItem('mywater_all_users');
@@ -101,6 +105,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       found = users.find(u => u.id === id) || null;
       if (found) {
         setCustomer(found);
+        setNewLastMeterValue(String(found.lastMeterReading || 0));
         setEditForm({
           name: found.name,
           email: found.email || '',
@@ -136,7 +141,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     const updatedUsers = allUsers.map(u => u.id === id ? { ...u, ...editForm } : u);
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
     
-    // Sync current session if this is the active user
     const sessionUserStr = localStorage.getItem('mywater_user');
     if (sessionUserStr) {
       const sessionUser = JSON.parse(sessionUserStr);
@@ -150,21 +154,75 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     toast({ title: "Profile Updated", description: "Customer identity records synchronized." });
   };
 
+  const handleUpdateLastMeter = () => {
+    if (!customer) return;
+    const value = parseFloat(newLastMeterValue);
+    if (isNaN(value)) return;
+
+    const usersStr = localStorage.getItem('mywater_all_users') || '[]';
+    const allUsers: User[] = JSON.parse(usersStr);
+    const updatedUsers = allUsers.map(u => u.id === id ? { ...u, lastMeterReading: value } : u);
+    localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+    
+    window.dispatchEvent(new Event('storage'));
+    setEditLastMeterDialogOpen(false);
+    toast({ title: "Meter Record Updated", description: "Base meter reading has been corrected." });
+  };
+
+  const handleRecalculateAndSave = () => {
+    if (!customer || !bills.length) return;
+    const newConsumption = parseFloat(editConsumptionValue);
+    if (isNaN(newConsumption)) return;
+
+    const baseCharge = calculateWaterCharge(newConsumption, settings?.waterRateRanges || []);
+    const vatRate = settings?.vatRate ?? 16.5;
+    const vatAmount = baseCharge * (vatRate / 100);
+    const totalAmount = baseCharge + vatAmount;
+
+    // Update most recent bill if pending, or create new
+    const billsStr = localStorage.getItem('mywater_all_bills') || '[]';
+    let allBills: Bill[] = JSON.parse(billsStr);
+    
+    const targetBillIndex = allBills.findIndex(b => b.customerId === id && b.status === 'PENDING');
+    
+    if (targetBillIndex > -1) {
+      allBills[targetBillIndex] = {
+        ...allBills[targetBillIndex],
+        consumption: newConsumption,
+        meterReadingLiters: newConsumption,
+        vatAmount,
+        totalAmount,
+        currentMeterReading: (customer.lastMeterReading || 0) + newConsumption
+      };
+    }
+
+    localStorage.setItem('mywater_all_bills', JSON.stringify(allBills));
+    
+    // Update customer's current reading
+    const usersStr = localStorage.getItem('mywater_all_users') || '[]';
+    const updatedUsers = JSON.parse(usersStr).map((u: any) => u.id === id ? { 
+      ...u, 
+      currentMeterReading: (u.lastMeterReading || 0) + newConsumption 
+    } : u);
+    localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+
+    setEditConsumptionValue('');
+    setRecalculateDialogOpen(false);
+    window.dispatchEvent(new Event('storage'));
+    toast({ title: "Consumption Updated", description: "Billing record recalculated successfully." });
+  };
+
   const handleUpdateLog = () => {
     if (!note || !customer || !authUser) return;
-
     const storedTickets = localStorage.getItem('mywater_support_tickets') || '[]';
     const allTickets: SupportTicket[] = JSON.parse(storedTickets);
-    
     let targetTicket = allTickets.find(t => t.customerId === customer.id && t.status !== 'CLOSED');
-
     const newMessage: SupportMessage = {
       senderId: authUser.id,
       senderName: authUser.name,
       text: note,
       timestamp: new Date().toISOString()
     };
-
     if (targetTicket) {
       targetTicket.messages.push(newMessage);
       targetTicket.status = 'REPLIED';
@@ -187,10 +245,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       };
       allTickets.unshift(targetTicket);
     }
-
     localStorage.setItem('mywater_support_tickets', JSON.stringify(allTickets));
     window.dispatchEvent(new Event('storage'));
-    
     setNote('');
     toast({ title: "Message Sent", description: `Customer notified in their portal.` });
   };
@@ -199,7 +255,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     if (!customer) return;
     const isDisconnecting = customer.suspensionStatus !== 'SUSPENDED';
     const newStatus = isDisconnecting ? 'SUSPENDED' : 'ACTIVE';
-    
     const usersStr = localStorage.getItem('mywater_all_users') || '[]';
     const allUsers: User[] = JSON.parse(usersStr);
     const updatedUsers = allUsers.map(u => u.id === id ? { 
@@ -207,20 +262,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       suspensionStatus: newStatus,
       suspensionReason: isDisconnecting ? suspendReason : '' 
     } : u);
-    
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
-    
-    // Sync current session if this is the active user
-    const sessionUserStr = localStorage.getItem('mywater_user');
-    if (sessionUserStr) {
-      const sessionUser = JSON.parse(sessionUserStr);
-      if (sessionUser.id === id) {
-        localStorage.setItem('mywater_user', JSON.stringify({ ...sessionUser, suspensionStatus: newStatus }));
-      }
-    }
-
     window.dispatchEvent(new Event('storage'));
-    
     setSuspendDialogOpen(false);
     setSuspendReason('');
     toast({ 
@@ -236,7 +279,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     const updatedUsers = allUsers.filter(u => u.id !== id);
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
     window.dispatchEvent(new Event('storage'));
-    
     toast({ title: "Profile Deleted", description: "Record has been removed from registry." });
     router.push('/dashboard/customers');
   };
@@ -278,22 +320,12 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     } : u);
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
 
-    // Sync session
-    const sessionUserStr = localStorage.getItem('mywater_user');
-    if (sessionUserStr) {
-      const sessionUser = JSON.parse(sessionUserStr);
-      if (sessionUser.id === id) {
-        localStorage.setItem('mywater_user', JSON.stringify({ ...sessionUser, lastMeterReading: currentReading, currentMeterReading: currentReading }));
-      }
-    }
-
     setMeterLiters('');
     setInvoiceDialogOpen(false);
     window.dispatchEvent(new Event('storage'));
     toast({ title: "Invoice Issued", description: `MK ${fmt(totalAmount)} generated.` });
   };
 
-  // Prepare chart data
   const chartData = useMemo(() => {
     return [...bills]
       .reverse()
@@ -311,13 +343,13 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const isSuspended = customer.suspensionStatus === 'SUSPENDED';
   const totalConsumption = bills.reduce((sum, b) => sum + (b.consumption || 0), 0);
 
-  // Live calculation for the Invoice Dialog
-  const liveReading = parseFloat(meterLiters) || 0;
-  const liveLastReading = customer.lastMeterReading || 0;
-  const liveConsumption = Math.max(0, liveReading - liveLastReading);
-  const liveBaseCharge = calculateWaterCharge(liveConsumption, settings?.waterRateRanges || []);
-  const liveVatAmount = liveBaseCharge * ((settings?.vatRate ?? 16.5) / 100);
-  const liveTotal = liveBaseCharge + liveVatAmount;
+  // Live Recalculate values
+  const recalcConsumption = parseFloat(editConsumptionValue) || 0;
+  const recalcLastReading = customer.lastMeterReading || 0;
+  const recalcCurrentReading = recalcLastReading + recalcConsumption;
+  const recalcBaseCharge = calculateWaterCharge(recalcConsumption, settings?.waterRateRanges || []);
+  const recalcVatAmount = recalcBaseCharge * ((settings?.vatRate ?? 16.5) / 100);
+  const recalcTotal = recalcBaseCharge + recalcVatAmount;
 
   return (
     <div className="space-y-3">
@@ -371,7 +403,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <div className="flex items-center justify-between mb-0.5">
                     <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Last Metre Reading</p>
-                    <button onClick={() => setEditDialogOpen(true)} className="hover:scale-110 transition-transform">
+                    <button onClick={() => setEditLastMeterDialogOpen(true)} className="hover:scale-110 transition-transform">
                       <Edit className="h-3 w-3 text-primary" />
                     </button>
                   </div>
@@ -384,7 +416,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <div className="flex items-center justify-between mb-0.5">
                     <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Consumption</p>
-                    <button onClick={() => setEditDialogOpen(true)} className="hover:scale-110 transition-transform">
+                    <button onClick={() => setRecalculateDialogOpen(true)} className="hover:scale-110 transition-transform">
                       <Edit className="h-3 w-3 text-primary" />
                     </button>
                   </div>
@@ -439,196 +471,21 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             </CardHeader>
             <CardContent className="space-y-2 px-4 py-3">
               <div className="grid grid-cols-2 gap-2">
-                <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-                  <DialogTrigger asChild>
-                    <button className="flex items-center justify-center gap-1.5 w-full bg-primary hover:bg-primary/90 text-white h-8 text-[8px] font-black uppercase rounded-[5px] transition-all shadow-lg shadow-primary/10">
-                      <FileText className="h-3 w-3" /> Issue Invoice
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-[#121926] border-white/10 text-white max-w-sm rounded-[5px] p-0 overflow-hidden shadow-2xl">
-                    <div className="bg-[#1a2333] px-6 py-4 flex items-center gap-3 border-b border-white/5">
-                       <div className="bg-primary/20 p-2 rounded-[5px]">
-                          <FileText className="h-4 w-4 text-primary" />
-                       </div>
-                       <div>
-                          <DialogTitle className="text-sm font-black uppercase tracking-tight">Issue Invoice</DialogTitle>
-                          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Record meter consumption and generate invoice.</p>
-                       </div>
-                    </div>
-                    
-                    <div className="px-6 py-6 space-y-6">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Current Meter Reading</Label>
-                          <input 
-                            type="number" 
-                            value={meterLiters} 
-                            onChange={e => setMeterLiters(e.target.value)} 
-                            placeholder={`Min: ${customer.lastMeterReading || 0}`} 
-                            className="w-full rounded-md bg-[#0b101a] border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm placeholder:text-slate-700" 
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Grace Period (Days)</Label>
-                          <input 
-                            type="number" 
-                            value={gracePeriod} 
-                            onChange={e => setGracePeriod(e.target.value)} 
-                            className="w-full rounded-md bg-[#0b101a] border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-3 pt-2">
-                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-                          <span className="uppercase">Last Reading</span>
-                          <span className="font-mono text-slate-300">{liveLastReading} m³</span>
-                        </div>
-                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 border-t border-white/5 pt-2">
-                          <span className="uppercase">Current Reading</span>
-                          <span className="font-mono text-slate-300">{liveReading} m³</span>
-                        </div>
-                        <div className="flex justify-between items-center text-[11px] font-black border-t border-white/5 pt-2 text-primary">
-                          <span className="uppercase">Consumption</span>
-                          <span className="font-mono">{liveConsumption} m³</span>
-                        </div>
-                        
-                        <div className="border-t border-white/5 pt-3 space-y-2">
-                           <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-                              <span className="uppercase">Base Charge</span>
-                              <span className="text-white">MK {fmt(liveBaseCharge)}</span>
-                           </div>
-                           <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-                              <span className="uppercase">VAT (16.5%)</span>
-                              <span className="text-white">MK {fmt(liveVatAmount)}</span>
-                           </div>
-                           <div className="flex justify-between items-center text-[12px] font-black border-t border-white/5 pt-2 text-green-500">
-                              <span className="uppercase tracking-widest">Calculated Total</span>
-                              <span className="font-mono">MK {fmt(liveTotal)}</span>
-                           </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="px-6 pb-6 pt-2">
-                      <Button onClick={handleIssueInvoice} className="w-full h-11 bg-primary hover:bg-primary/90 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-primary/20 rounded-[5px]">
-                        GENERATE & SEND
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-                  <DialogTrigger asChild>
-                    <button className="flex items-center justify-center gap-1.5 w-full border border-white/10 bg-slate-800/40 text-white hover:bg-slate-800 h-8 text-[8px] font-black uppercase rounded-[5px] transition-all">
-                      <Edit className="h-3 w-3" /> Edit Profile
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-[#0b101a] border-white/10 text-white rounded-[5px] max-w-md p-0 overflow-hidden shadow-2xl max-h-[450px] flex flex-col">
-                    <div className="bg-[#1a2333] px-6 py-4 flex items-center gap-3 border-b border-white/5 shrink-0">
-                       <div className="bg-primary/20 p-2 rounded-[5px]">
-                          <Edit className="h-4 w-4 text-primary" />
-                       </div>
-                       <div>
-                          <DialogTitle className="text-sm font-black uppercase tracking-tight">Edit Customer Profile</DialogTitle>
-                          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Modify registry details for **{customer.name}**.</p>
-                       </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto px-6 py-3 space-y-3 custom-scrollbar">
-                      <div className="space-y-1">
-                        <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Full Name</Label>
-                        <input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Email Address</Label>
-                          <input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Phone Number</Label>
-                          <input value={editForm.phoneNumber} onChange={e => setEditForm({...editForm, phoneNumber: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Meter Number</Label>
-                          <input value={editForm.meterNumber} onChange={e => setEditForm({...editForm, meterNumber: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Last Meter Reading (m³)</Label>
-                          <input type="number" value={editForm.lastMeterReading} onChange={e => setEditForm({...editForm, lastMeterReading: parseFloat(e.target.value) || 0})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="space-y-1">
-                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Region</Label>
-                          <input value={editForm.region} onChange={e => setEditForm({...editForm, region: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-2 text-white font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-primary" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">District</Label>
-                          <input value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-2 text-white font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-primary" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Area</Label>
-                          <input value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-2 text-white font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-primary" />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Address Details</Label>
-                        <textarea value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 min-h-[50px] px-3 py-1.5 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-[10px] resize-none" />
-                      </div>
-                    </div>
-
-                    <div className="px-6 pb-6 pt-2 shrink-0">
-                      <Button onClick={handleUpdateProfile} className="w-full h-9 bg-primary hover:bg-primary/90 font-black uppercase text-[9px] tracking-[0.1em] rounded-[5px] shadow-lg shadow-primary/20">
-                        SAVE PROFILE CHANGES
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <Button onClick={() => setInvoiceDialogOpen(true)} className="h-8 bg-primary hover:bg-primary/90 text-white text-[8px] font-black uppercase rounded-[5px] transition-all shadow-lg shadow-primary/10 gap-1.5">
+                  <FileText className="h-3 w-3" /> Issue Invoice
+                </Button>
+                <Button variant="outline" onClick={() => setEditDialogOpen(true)} className="h-8 border-white/10 bg-slate-800/40 text-white hover:bg-slate-800 text-[8px] font-black uppercase rounded-[5px] transition-all gap-1.5">
+                  <Edit className="h-3 w-3" /> Edit Profile
+                </Button>
               </div>
               
-              <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
-                <DialogTrigger asChild>
-                  <button 
-                    className={cn("flex items-center justify-center gap-1.5 w-full h-8 text-[8px] font-black uppercase rounded-[5px] text-white transition-all shadow-lg", 
-                    isSuspended ? "bg-green-600 hover:bg-green-700 shadow-green-500/10" : "bg-red-500 hover:bg-red-600 shadow-red-500/10")}
-                  >
-                    <Power className="h-3 w-3" /> {isSuspended ? "Restore Service" : "Suspend Service"}
-                  </button>
-                </DialogTrigger>
-                <DialogContent className="bg-slate-950 border-white/10 text-white rounded-[5px] max-w-sm">
-                  <DialogHeader>
-                    <DialogTitle className="uppercase tracking-tighter flex items-center gap-2">
-                      <Power className="h-4 w-4 text-red-500" /> Service Interruption
-                    </DialogTitle>
-                    <DialogDescription className="text-[10px] text-slate-500 uppercase font-bold">Provide a justification for disconnecting this service point.</DialogDescription>
-                  </DialogHeader>
-                  <div className="py-4 space-y-3">
-                    <Label className="text-[9px] font-bold uppercase text-slate-500">Reason for Suspension</Label>
-                    <Textarea 
-                      placeholder="e.g., Extended non-payment, Meter tampering, Customer request..." 
-                      className="bg-slate-900 border-white/5 text-[10px] min-h-[100px]"
-                      value={suspendReason}
-                      onChange={e => setSuspendReason(e.target.value)}
-                    />
-                  </div>
-                  <DialogFooter>
-                    <Button 
-                      variant={isSuspended ? "default" : "destructive"} 
-                      onClick={handleSuspend}
-                      className="w-full h-11 font-black uppercase text-[10px]"
-                    >
-                      {isSuspended ? "Execute Restoration" : "Execute Suspension"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <Button 
+                onClick={() => setSuspendDialogOpen(true)}
+                className={cn("flex items-center justify-center gap-1.5 w-full h-8 text-[8px] font-black uppercase rounded-[5px] text-white transition-all shadow-lg", 
+                isSuspended ? "bg-green-600 hover:bg-green-700 shadow-green-500/10" : "bg-red-500 hover:bg-red-600 shadow-red-500/10")}
+              >
+                <Power className="h-3 w-3" /> {isSuspended ? "Restore Service" : "Suspend Service"}
+              </Button>
 
               <button 
                 onClick={() => setUsageReportsOpen(true)}
@@ -670,29 +527,271 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               </div>
             </CardHeader>
             <CardContent className="px-4 pb-2">
-              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <DialogTrigger asChild>
-                  <button className="w-full border border-red-500/20 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 text-[7px] font-black uppercase h-7 rounded-[5px] transition-all">
-                    Delete Customer
-                  </button>
-                </DialogTrigger>
-                <DialogContent className="bg-slate-950 border-white/10 text-white rounded-[5px] max-w-sm">
-                  <DialogHeader>
-                    <DialogTitle className="uppercase tracking-tighter text-red-500">Confirm Deletion</DialogTitle>
-                    <DialogDescription className="text-slate-500 text-xs mt-2">
-                      This action is irreversible. All consumption data and invoices for {customer.name} will be purged from the active registry.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter className="mt-4">
-                    <Button variant="destructive" onClick={handleDeleteProfile} className="w-full h-11 font-black uppercase">Execute Purge</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <button onClick={() => setDeleteDialogOpen(true)} className="w-full border border-red-500/20 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 text-[7px] font-black uppercase h-7 rounded-[5px] transition-all">
+                Delete Customer
+              </button>
             </CardContent>
           </Card>
         </div>
       </div>
 
+      {/* Recalculate Consumption Dialog */}
+      <Dialog open={recalculateDialogOpen} onOpenChange={setRecalculateDialogOpen}>
+        <DialogContent className="bg-[#0b101a] border-white/10 text-white max-w-sm rounded-[5px] p-0 overflow-hidden shadow-2xl">
+          <div className="bg-[#1a2333] px-6 py-4 flex items-center gap-3 border-b border-white/5">
+             <div className="bg-primary/20 p-2 rounded-[5px]">
+                <Edit className="h-4 w-4 text-primary" />
+             </div>
+             <div>
+                <DialogTitle className="text-sm font-black uppercase tracking-tight">Edit Consumption & Recalculate</DialogTitle>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Recalculate the active outstanding invoice charge for **{customer.name}**.</p>
+             </div>
+          </div>
+          
+          <div className="px-6 py-6 space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Consumption (m³)</Label>
+                <input 
+                  type="number" 
+                  value={editConsumptionValue} 
+                  onChange={e => setEditConsumptionValue(e.target.value)} 
+                  placeholder="e.g. 250" 
+                  className="w-full rounded-md bg-[#121926] border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Equivalent Current Reading (m³)</Label>
+                <input 
+                  type="number" 
+                  readOnly
+                  value={recalcCurrentReading} 
+                  className="w-full rounded-md bg-[#0b101a] border-white/5 h-10 px-3 font-black text-slate-400 text-sm cursor-not-allowed" 
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+                <span className="uppercase">Last Reading</span>
+                <span className="font-mono text-slate-300">{recalcLastReading} m³</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-black border-t border-white/5 pt-2 text-primary">
+                <span className="uppercase">New Consumption</span>
+                <span className="font-mono">{recalcConsumption} m³</span>
+              </div>
+              
+              <div className="border-t border-white/5 pt-3 space-y-2">
+                 <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+                    <span className="uppercase">Base Charge</span>
+                    <span className="text-white">MK {fmt(recalcBaseCharge)}</span>
+                 </div>
+                 <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+                    <span className="uppercase">VAT (16.5%)</span>
+                    <span className="text-white">MK {fmt(recalcVatAmount)}</span>
+                 </div>
+                 <div className="flex justify-between items-center text-[12px] font-black border-t border-white/5 pt-2 text-green-500">
+                    <span className="uppercase tracking-widest">Recalculated Total</span>
+                    <span className="font-mono">MK {fmt(recalcTotal)}</span>
+                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 pb-6 pt-2">
+            <Button onClick={handleRecalculateAndSave} className="w-full h-11 bg-primary hover:bg-primary/90 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-primary/20 rounded-[5px]">
+              RECALCULATE & SAVE
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Last Meter Dialog */}
+      <Dialog open={editLastMeterDialogOpen} onOpenChange={setEditLastMeterDialogOpen}>
+        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px]">
+          <DialogHeader>
+            <DialogTitle className="uppercase tracking-tighter flex items-center gap-2">
+              <Edit className="h-4 w-4 text-primary" /> Correct Base Meter Reading
+            </DialogTitle>
+            <DialogDescription className="text-[10px] text-slate-500 uppercase font-bold">Update the starting meter point for this customer record.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <Label className="text-[9px] font-bold uppercase text-slate-500">Last Recorded Reading (m³)</Label>
+            <Input 
+              type="number"
+              className="bg-slate-900 border-white/5 h-10 font-bold"
+              value={newLastMeterValue}
+              onChange={e => setNewLastMeterValue(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={handleUpdateLastMeter}
+              className="w-full h-11 font-black uppercase text-[10px] bg-primary"
+            >
+              SAVE CORRECTION
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Issue Invoice Dialog */}
+      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+        <DialogContent className="bg-[#0b101a] border-white/10 text-white max-w-sm rounded-[5px] p-0 overflow-hidden shadow-2xl">
+          <div className="bg-[#1a2333] px-6 py-4 flex items-center gap-3 border-b border-white/5">
+             <div className="bg-primary/20 p-2 rounded-[5px]">
+                <FileText className="h-4 w-4 text-primary" />
+             </div>
+             <div>
+                <DialogTitle className="text-sm font-black uppercase tracking-tight">Issue Invoice</DialogTitle>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Record meter consumption and generate invoice.</p>
+             </div>
+          </div>
+          
+          <div className="px-6 py-6 space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Current Meter Reading</Label>
+                <input 
+                  type="number" 
+                  value={meterLiters} 
+                  onChange={e => setMeterLiters(e.target.value)} 
+                  placeholder={`Min: ${customer.lastMeterReading || 0}`} 
+                  className="w-full rounded-md bg-[#121926] border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Grace Period (Days)</Label>
+                <input 
+                  type="number" 
+                  value={gracePeriod} 
+                  onChange={e => setGracePeriod(e.target.value)} 
+                  className="w-full rounded-md bg-[#121926] border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+                <span className="uppercase">Last Reading</span>
+                <span className="font-mono text-slate-300">{customer.lastMeterReading || 0} m³</span>
+              </div>
+              <div className="flex justify-between items-center text-[11px] font-black border-t border-white/5 pt-2 text-primary">
+                <span className="uppercase">Consumption</span>
+                <span className="font-mono">{(parseFloat(meterLiters) || 0) - (customer.lastMeterReading || 0) > 0 ? (parseFloat(meterLiters) || 0) - (customer.lastMeterReading || 0) : 0} m³</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 pb-6 pt-2">
+            <Button onClick={handleIssueInvoice} className="w-full h-11 bg-primary hover:bg-primary/90 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-primary/20 rounded-[5px]">
+              GENERATE & SEND
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="bg-[#0b101a] border-white/10 text-white rounded-[5px] max-w-md p-0 overflow-hidden shadow-2xl max-h-[450px] flex flex-col">
+          <div className="bg-[#1a2333] px-6 py-4 flex items-center gap-3 border-b border-white/5 shrink-0">
+             <div className="bg-primary/20 p-2 rounded-[5px]">
+                <Edit className="h-4 w-4 text-primary" />
+             </div>
+             <div>
+                <DialogTitle className="text-sm font-black uppercase tracking-tight">Edit Customer Profile</DialogTitle>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Modify registry details for **{customer.name}**.</p>
+             </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-3 space-y-3 custom-scrollbar">
+            <div className="space-y-1">
+              <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Full Name</Label>
+              <input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Email Address</Label>
+                <input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Phone Number</Label>
+                <input value={editForm.phoneNumber} onChange={e => setEditForm({...editForm, phoneNumber: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Meter Number</Label>
+                <input value={editForm.meterNumber} onChange={e => setEditForm({...editForm, meterNumber: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Last Meter Reading (m³)</Label>
+                <input type="number" value={editForm.lastMeterReading} onChange={e => setEditForm({...editForm, lastMeterReading: parseFloat(e.target.value) || 0})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Region</Label>
+                <input value={editForm.region} onChange={e => setEditForm({...editForm, region: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-2 text-white font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">District</Label>
+                <input value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-2 text-white font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Area</Label>
+                <input value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-2 text-white font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Address Details</Label>
+              <textarea value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 min-h-[50px] px-3 py-1.5 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-[10px] resize-none" />
+            </div>
+          </div>
+
+          <div className="px-6 pb-6 pt-2 shrink-0">
+            <Button onClick={handleUpdateProfile} className="w-full h-9 bg-primary hover:bg-primary/90 font-black uppercase text-[9px] tracking-[0.1em] rounded-[5px] shadow-lg shadow-primary/20">
+              SAVE PROFILE CHANGES
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Suspend Reason Dialog */}
+      <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px]">
+          <DialogHeader>
+            <DialogTitle className="uppercase tracking-tighter flex items-center gap-2">
+              <Power className="h-4 w-4 text-red-500" /> Service Interruption
+            </DialogTitle>
+            <DialogDescription className="text-[10px] text-slate-500 uppercase font-bold">Provide a justification for disconnecting this service point.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <Label className="text-[9px] font-bold uppercase text-slate-500">Reason for Suspension</Label>
+            <Textarea 
+              placeholder="e.g., Extended non-payment, Meter tampering, Customer request..." 
+              className="bg-slate-900 border-white/5 text-[10px] min-h-[100px]"
+              value={suspendReason}
+              onChange={e => setSuspendReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button 
+              variant={isSuspended ? "default" : "destructive"} 
+              onClick={handleSuspend}
+              className="w-full h-11 font-black uppercase text-[10px]"
+            >
+              {isSuspended ? "Execute Restoration" : "Execute Suspension"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Usage Reports Dialog */}
       <Dialog open={usageReportsOpen} onOpenChange={setUsageReportsOpen}>
         <DialogContent className="bg-[#0b101a] border-white/10 text-white max-w-2xl rounded-[5px] p-0 overflow-hidden shadow-2xl max-h-[450px] flex flex-col">
           <div className="bg-[#1a2333] px-6 py-3 flex items-center gap-3 border-b border-white/5 shrink-0">
@@ -772,6 +871,22 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="bg-slate-950 border-white/10 text-white rounded-[5px] max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="uppercase tracking-tighter text-red-500">Confirm Deletion</DialogTitle>
+            <DialogDescription className="text-slate-500 text-xs mt-2">
+              This action is irreversible. All consumption data and invoices for {customer.name} will be purged from the active registry.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="destructive" onClick={handleDeleteProfile} className="w-full h-11 font-black uppercase">Execute Purge</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
