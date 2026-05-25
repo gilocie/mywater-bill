@@ -30,7 +30,8 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  Plus
+  Plus,
+  Wallet
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -75,6 +76,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [usageReportsOpen, setUsageReportsOpen] = useState(false);
   const [recalculateDialogOpen, setRecalculateDialogOpen] = useState(false);
   const [editLastMeterDialogOpen, setEditLastMeterDialogOpen] = useState(false);
+  const [walletDialogOpen, setWalletDialogOpen] = useState(false);
 
   // Form States
   const [meterLiters, setMeterLiters] = useState('');
@@ -86,6 +88,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [gracePeriod, setGracePeriod] = useState('14');
   const [suspendReason, setSuspendReason] = useState('');
   const [newLastMeterValue, setNewLastMeterValue] = useState('');
+  const [newWalletValue, setNewWalletValue] = useState('');
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
@@ -110,6 +113,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       if (found) {
         setCustomer(found);
         setNewLastMeterValue(String(found.lastMeterReading || 0));
+        setNewWalletValue(String(found.walletBalance || 0));
         setEditForm({
           name: found.name,
           email: found.email || '',
@@ -171,6 +175,21 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     window.dispatchEvent(new Event('storage'));
     setEditLastMeterDialogOpen(false);
     toast({ title: "Meter Record Updated", description: "Base meter reading has been corrected." });
+  };
+
+  const handleUpdateWallet = () => {
+    if (!customer) return;
+    const value = parseFloat(newWalletValue);
+    if (isNaN(value)) return;
+
+    const usersStr = localStorage.getItem('mywater_all_users') || '[]';
+    const allUsers: User[] = JSON.parse(usersStr);
+    const updatedUsers = allUsers.map(u => u.id === id ? { ...u, walletBalance: value } : u);
+    localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+    
+    window.dispatchEvent(new Event('storage'));
+    setWalletDialogOpen(false);
+    toast({ title: "Wallet Updated", description: "Customer balance adjusted by administrator." });
   };
 
   // Open Recalculate Dialog with correct "Historical" context
@@ -428,7 +447,17 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   <p className="text-[9px] font-bold text-white uppercase">{customer.region || 'Southern'}</p>
                 </div>
                 <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                  <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Wallet</p>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Wallet</p>
+                    {authUser?.role === 'SUPER_ADMIN' && (
+                      <button onClick={() => {
+                        setNewWalletValue(String(customer.walletBalance || 0));
+                        setWalletDialogOpen(true);
+                      }} className="hover:scale-110 transition-transform">
+                        <Edit className="h-3 w-3 text-primary" />
+                      </button>
+                    )}
+                  </div>
                   <p className="text-[9px] font-black text-primary">MK {fmt(customer.walletBalance || 0)}</p>
                 </div>
                 <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
@@ -673,6 +702,35 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         </DialogContent>
       </Dialog>
 
+      {/* Adjust Wallet Balance Dialog */}
+      <Dialog open={walletDialogOpen} onOpenChange={setWalletDialogOpen}>
+        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px]">
+          <DialogHeader>
+            <DialogTitle className="uppercase tracking-tighter flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-primary" /> Adjust Wallet Balance
+            </DialogTitle>
+            <DialogDescription className="text-[10px] text-slate-500 uppercase font-bold">Modify the available funds for this customer.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <Label className="text-[9px] font-bold uppercase text-slate-500">Current Balance (MK)</Label>
+            <Input 
+              type="number"
+              className="bg-slate-900 border-white/5 h-10 font-bold"
+              value={newWalletValue}
+              onChange={e => setNewWalletValue(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={handleUpdateWallet}
+              className="w-full h-11 font-black uppercase text-[10px] bg-primary"
+            >
+              UPDATE BALANCE
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Issue Invoice Dialog */}
       <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
         <DialogContent className="bg-[#0b101a] border-white/10 text-white max-w-sm rounded-[5px] p-0 overflow-hidden shadow-2xl">
@@ -893,7 +951,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="p-2 bg-slate-900/50 border border-white/5 rounded-[5px]">
                 <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Lifetime Consumption</p>
-                <p className="text-lg font-black text-white">{totalConsumption} m³</p>
+                <p className="text-lg font-black text-white">{fmt(totalConsumption)} m³</p>
               </div>
               <div className="p-2 bg-slate-900/50 border border-white/5 rounded-[5px]">
                 <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Total Invoices</p>
