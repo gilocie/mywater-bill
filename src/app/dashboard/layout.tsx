@@ -1,13 +1,14 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, ExternalLink, Eye, EyeOff, Settings2, PlayCircle, Loader2, CheckCircle2, XCircle, FileText, Printer, Download, Droplets, Receipt, Wifi, Plus, Trash2, Palette, Coins, UploadCloud, Building, Globe, MapPin, Layers, ShieldEllipsis, Keyboard, Megaphone, X } from 'lucide-react';
-import { GEO_DATA, getRegions, getDistrictNames, getLocations, getAllDistrictsForCountry, getRegionForDistrict } from '@/app/lib/geo-data';
+import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, Eye, EyeOff, Settings2, PlayCircle, CheckCircle2, XCircle, FileText, Download, Droplets, Receipt, Plus, Trash2, Globe, Keyboard, Megaphone, X, MessageSquare, MessageCircle } from 'lucide-react';
+import { getRegions, getDistrictNames, getAllDistrictsForCountry, getRegionForDistrict, getLocations } from '@/app/lib/geo-data';
+import { GEO_DATA } from '@/app/lib/geo-data';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,8 +39,9 @@ import { Switch } from '@/components/ui/switch';
 import Link from 'next/link';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, logout, updateUser, waterRate, setWaterRate, settings, updateSettings } = useAuth();
+  const { user, isLoading, logout, updateUser, waterRate, settings, updateSettings } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
@@ -53,9 +55,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const [newName, setNewName] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadItems, setUnreadItems] = useState<any[]>([]);
   const [pinnedBroadcast, setPinnedBroadcast] = useState<Broadcast | null>(null);
   
-  const [newRate, setNewRate] = useState(waterRate.toString());
+  const [newRate, setNewRate] = useState('2.5');
   const [pawapayKey, setPawapayKey] = useState('');
   const [pawapayMode, setPawapayMode] = useState('sandbox');
   const [portalUrl, setPortalUrl] = useState('https://dashboard.pawapay.io');
@@ -103,73 +106,79 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [user, isLoading, router]);
 
-  useEffect(() => {
-    const loadNotificationCounts = () => {
-      if (!user) return;
+  const loadNotificationCounts = useCallback(() => {
+    if (!user) return;
+    
+    const storedBroadcasts = localStorage.getItem('mywater_broadcasts');
+    const storedTickets = localStorage.getItem('mywater_support_tickets');
+    const lastRead = parseInt(localStorage.getItem(`mywater_last_read_${user.id}`) || '0');
+    
+    let count = 0;
+    let items: any[] = [];
+
+    // 1. Check Broadcasts
+    if (storedBroadcasts) {
+      const broadcasts: Broadcast[] = JSON.parse(storedBroadcasts);
+      const now = new Date();
+      const activeB = broadcasts.filter(b => {
+        const isTarget = b.target === 'ALL' || 
+                        (user.role === 'CUSTOMER' && b.target === 'CUSTOMERS') ||
+                        (user.role !== 'CUSTOMER' && b.target === 'STAFF');
+        const isNotExpired = !b.expiresAt || new Date(b.expiresAt) > now;
+        return isTarget && isNotExpired;
+      });
+
+      setPinnedBroadcast(activeB.find(b => b.isPinned) || null);
       
-      const storedBroadcasts = localStorage.getItem('mywater_broadcasts');
-      const storedTickets = localStorage.getItem('mywater_support_tickets');
-      const storedUsers = localStorage.getItem('mywater_all_users');
-      const lastRead = parseInt(localStorage.getItem(`mywater_last_read_${user.id}`) || '0');
-      
-      let count = 0;
-      const allUsers: User[] = JSON.parse(storedUsers || '[]');
-
-      // 1. Check Broadcasts
-      if (storedBroadcasts) {
-        const broadcasts: Broadcast[] = JSON.parse(storedBroadcasts);
-        const now = new Date();
-        const activeB = broadcasts.filter(b => {
-          const isTarget = b.target === 'ALL' || 
-                          (user.role === 'CUSTOMER' && b.target === 'CUSTOMERS') ||
-                          (user.role !== 'CUSTOMER' && b.target === 'STAFF');
-          const isNotExpired = !b.expiresAt || new Date(b.expiresAt) > now;
-          return isTarget && isNotExpired;
-        });
-
-        // Set pinned broadcast
-        setPinnedBroadcast(activeB.find(b => b.isPinned) || null);
-        
-        // Count unread broadcasts
-        count += activeB.filter(b => new Date(b.createdAt).getTime() > lastRead).length;
-      }
-
-      // 2. Check Support Tickets
-      if (storedTickets) {
-        const tickets: SupportTicket[] = JSON.parse(storedTickets);
-        
-        if (user.role === 'CUSTOMER') {
-          // Customers see replies from staff
-          const userTickets = tickets.filter(t => t.customerId === user.id);
-          count += userTickets.filter(t => {
-            const lastMsg = t.messages[t.messages.length - 1];
-            return lastMsg.senderId !== user.id && new Date(t.lastUpdate).getTime() > lastRead;
-          }).length;
-        } else {
-          // Staff see new tickets or escalations in their area
-          const areaTickets = tickets.filter(t => {
-            if (user.role === 'SUPER_ADMIN') return true;
-            if (t.escalatedTo === 'SUPER_ADMIN') return user.role === 'SUPER_ADMIN'; 
-            if (t.escalatedTo === 'ACCOUNTS') return false; 
-            
-            // Territory match for District Staff
-            return t.area === user.area && t.district === user.district;
+      activeB.forEach(b => {
+        if (new Date(b.createdAt).getTime() > lastRead) {
+          count++;
+          items.push({
+            id: b.id,
+            type: 'broadcast',
+            title: b.title,
+            description: b.message.substring(0, 40) + '...',
+            link: '/dashboard/notifications'
           });
-          count += areaTickets.filter(t => {
-            // New ticket or new reply from customer since last read
-            const lastMsg = t.messages[t.messages.length - 1];
-            return lastMsg.senderId !== user.id && new Date(t.lastUpdate).getTime() > lastRead;
-          }).length;
         }
-      }
+      });
+    }
 
-      setUnreadCount(count);
-    };
+    // 2. Check Support Tickets
+    if (storedTickets) {
+      const tickets: SupportTicket[] = JSON.parse(storedTickets);
+      
+      const relevantTickets = tickets.filter(t => {
+        if (user.role === 'CUSTOMER') return t.customerId === user.id;
+        if (user.role === 'SUPER_ADMIN') return true;
+        if (t.escalatedTo === 'SUPER_ADMIN') return user.role === 'SUPER_ADMIN'; 
+        return t.area === user.area && t.district === user.district;
+      });
 
+      relevantTickets.forEach(t => {
+        const lastMsg = t.messages[t.messages.length - 1];
+        if (lastMsg.senderId !== user.id && new Date(t.lastUpdate).getTime() > lastRead) {
+          count++;
+          items.push({
+            id: t.id,
+            type: 'message',
+            title: user.role === 'CUSTOMER' ? 'Staff Replied' : 'Customer Message',
+            description: lastMsg.text.substring(0, 40) + '...',
+            link: `/dashboard/notifications?ticketId=${t.id}`
+          });
+        }
+      });
+    }
+
+    setUnreadCount(count);
+    setUnreadItems(items);
+  }, [user]);
+
+  useEffect(() => {
     loadNotificationCounts();
     window.addEventListener('storage', loadNotificationCounts);
     return () => window.removeEventListener('storage', loadNotificationCounts);
-  }, [user?.id, user?.role, user?.area, user?.district]);
+  }, [loadNotificationCounts]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -258,20 +267,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'logo' | 'landing' | 'avatar') => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        toast({ title: "File Too Large", description: "Please upload an image smaller than 2MB.", variant: "destructive" });
-        return;
-      }
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (target === 'logo') {
-          setLogo(reader.result as string);
-        } else if (target === 'avatar') {
-          setDefaultAvatar(reader.result as string);
-        } else {
-          setLandingBgImage(reader.result as string);
-        }
-        toast({ title: "Image Uploaded", description: "Preview loaded. Remember to click save configuration." });
+        if (target === 'logo') setLogo(reader.result as string);
+        else if (target === 'avatar') setDefaultAvatar(reader.result as string);
+        else setLandingBgImage(reader.result as string);
+        toast({ title: "Image Uploaded", description: "Preview loaded." });
       };
       reader.readAsDataURL(file);
     }
@@ -281,212 +282,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (target === 'logo') setLogo('');
     else if (target === 'landing') setLandingBgImage('');
     else if (target === 'avatar') setDefaultAvatar('');
-    toast({ title: "Image Removed", description: "Click save configuration to persist changes." });
+    toast({ title: "Image Removed" });
   };
 
   const handleAddRange = () => {
     const fromVal = parseFloat(newRangeFrom);
     const toVal = newRangeTo ? parseFloat(newRangeTo) : null;
     const priceVal = parseFloat(newRangePrice);
-
-    if (isNaN(fromVal) || isNaN(priceVal)) {
-      toast({ title: "Invalid Input", description: "From and Price must be valid numbers.", variant: "destructive" });
-      return;
-    }
-
-    if (toVal !== null && toVal <= fromVal) {
-      toast({ title: "Invalid Bracket", description: "'To' value must be greater than 'From' value.", variant: "destructive" });
-      return;
-    }
-
+    if (isNaN(fromVal) || isNaN(priceVal)) return;
     const newRange = { from: fromVal, to: toVal, price: priceVal };
-    const updated = [...waterRateRanges, newRange].sort((a, b) => a.from - b.from);
-    setWaterRateRanges(updated);
-
-    setNewRangeFrom('');
-    setNewRangeTo('');
-    setNewRangePrice('');
-    toast({ title: "Bracket Added", description: `Range starting from ${fromVal} billed at ${priceVal} added.` });
+    setWaterRateRanges([...waterRateRanges, newRange].sort((a, b) => a.from - b.from));
+    setNewRangeFrom(''); setNewRangeTo(''); setNewRangePrice('');
   };
 
   const handleRemoveRange = (idx: number) => {
-    const updated = waterRateRanges.filter((_, i) => i !== idx);
-    setWaterRateRanges(updated);
-    toast({ title: "Bracket Removed", description: "Pricing bracket removed." });
+    setWaterRateRanges(waterRateRanges.filter((_, i) => i !== idx));
   };
 
   const handleTestPurchase = () => {
-    if (typeof window === 'undefined' || !(window as any).BrandPay) {
-      toast({
-        title: "System Error",
-        description: "Payment gateway is not initialized.",
-        variant: "destructive"
-      });
-      return;
-    }
-
+    if (!(window as any).BrandPay) return;
     setTestPurchaseDialogOpen(false);
     setSettingsDialogOpen(false);
-    
-    toast({
-      title: "Verifying Gateway",
-      description: `Initiating test for: ${testProduct}`,
-    });
-
     (window as any).BrandPay.openCheckout({
       amount: parseFloat(testPrice),
-      currency: 'MWK',
-      title: testProduct,
-      productName: testProduct,
       apiKey: pawapayKey,
       mode: pawapayMode,
-      country: 'MWI',
-      metadata: {
-        statementDescription: testProduct.substring(0, 22),
-        fields: [
-          { fieldName: 'type', fieldValue: 'GATEWAY_TEST' }
-        ]
-      },
       onSuccess: (result: any) => {
-        setLastTestResult({
-          ...result,
-          product: testProduct,
-          amount: testPrice,
-          date: new Date().toLocaleString(),
-          receiptNo: `TEST-${Date.now().toString(36).toUpperCase().slice(-8)}`
-        });
+        setLastTestResult({ ...result, product: testProduct, amount: testPrice, date: new Date().toLocaleString(), receiptNo: `TEST-${Date.now().toString(36).toUpperCase()}` });
         setTestStatus('success');
       },
-      onFailure: (error: any) => {
-        setTestStatus('failure');
-        toast({
-          title: "Gateway Test Failed",
-          description: error || "Verification rejected.",
-          variant: "destructive"
-        });
-      }
+      onFailure: () => setTestStatus('failure')
     });
   };
 
-  const handleDownloadReceipt = () => {
-    const receiptNo = lastTestResult?.receiptNo || `TEST-${Date.now().toString(36).toUpperCase().slice(-8)}`;
-    const dateTime = lastTestResult?.date || new Date().toLocaleString('en-GB');
-    const amountVal = parseFloat(lastTestResult?.amount || testPrice);
-    const prodVal = lastTestResult?.product || testProduct;
-    const modeVal = pawapayMode?.toUpperCase() || 'SANDBOX';
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 450;
-    canvas.height = 650;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, canvas.width, 110);
-
-    ctx.fillStyle = logoBgColor || '#3b82f6';
-    ctx.beginPath();
-    ctx.arc(45, 55, 18, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (logo) {
-      const img = new Image();
-      img.src = logo;
-      ctx.drawImage(img, 32, 42, 26, 26);
-    } else {
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '900 12px sans-serif';
-      ctx.fillText('MWB', 32, 60);
-    }
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 15px sans-serif';
-    ctx.fillText(receiptCompanyName?.toUpperCase() || 'MALAWI WATER BOARD', 80, 50);
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = 'bold 9px sans-serif';
-    ctx.fillText('GATEWAY TEST RECEIPT', 80, 70);
-
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(0, 110, canvas.width, 60);
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 9px sans-serif';
-    ctx.fillText('RECEIPT NO.', 30, 132);
-    ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 12px monospace';
-    ctx.fillText(receiptNo, 30, 152);
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 9px sans-serif';
-    ctx.fillText('DATE & TIME', 270, 132);
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '11px sans-serif';
-    ctx.fillText(dateTime.split(',')[0], 270, 152);
-
-    ctx.fillStyle = '#f0fdf4';
-    ctx.fillRect(30, 190, canvas.width - 60, 95);
-    ctx.strokeStyle = '#bbf7d0';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(30, 190, canvas.width - 60, 95);
-    ctx.fillStyle = '#166534';
-    ctx.font = 'bold 9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('AMOUNT VERIFIED', canvas.width / 2, 215);
-    ctx.fillStyle = '#15803d';
-    ctx.font = 'bold 30px sans-serif';
-    ctx.fillText(`MK ${amountVal.toLocaleString()}`, canvas.width / 2, 250);
-    ctx.fillStyle = '#166534';
-    ctx.font = 'bold 8px sans-serif';
-    ctx.fillText('✓ GATEWAY TEST PASSED', canvas.width / 2, 272);
-
-    ctx.textAlign = 'left';
-    const startY = 320;
-    const rowHeight = 35;
-    const rows = [
-      { label: 'PRODUCT / SERVICE', value: prodVal },
-      { label: 'GATEWAY PROTOCOL', value: 'PAWAPAY-v2' },
-      { label: 'OPERATION MODE', value: modeVal },
-      { label: 'STATUS', value: 'VERIFIED' }
-    ];
-    rows.forEach((row, index) => {
-      const y = startY + index * rowHeight;
-      ctx.fillStyle = '#64748b';
-      ctx.font = 'bold 9px sans-serif';
-      ctx.fillText(row.label, 30, y);
-      ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText(String(row.value), 190, y);
-      ctx.strokeStyle = '#f1f5f9';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(30, y + 10);
-      ctx.lineTo(canvas.width - 30, y + 10);
-      ctx.stroke();
-    });
-
-    const barcodeY = 515;
-    ctx.fillStyle = '#0f172a';
-    for (let i = 0; i < 55; i++) {
-      const w = Math.random() > 0.55 ? 3.5 : 1.5;
-      ctx.fillRect(85 + i * 5, barcodeY, w, 40);
-    }
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 9px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(`${receiptNo} • ${receiptCompanyName?.toUpperCase() || 'MWB'}-SYSTEM-AUDIT`, canvas.width / 2, barcodeY + 58);
-
-    const url = canvas.toDataURL('image/jpeg', 0.95);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `receipt-${receiptNo}.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    toast({ title: "Receipt Downloaded", description: "Verification receipt saved to your downloads." });
+  const handleNotificationClick = (item: any) => {
+    router.push(item.link);
   };
-
-  const clearPinned = () => setPinnedBroadcast(null);
 
   if (isLoading || !user) return null;
 
@@ -500,31 +331,60 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex-1 hidden md:block">
               <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                <Input 
-                  placeholder="Search records, invoices, meters..." 
-                  className="pl-9 h-9 bg-slate-900/50 border-white/5 text-white rounded-[5px]" 
-                />
+                <Input placeholder="Search records, invoices, meters..." className="pl-9 h-9 bg-slate-900/50 border-white/5 text-white rounded-[5px]" />
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Link href="/dashboard/notifications" className="relative">
-                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px]">
-                  <Bell className="h-5 w-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-primary text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-slate-950">
-                      {unreadCount}
-                    </span>
-                  )}
-                </Button>
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px] relative">
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-primary text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-slate-950">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80 bg-slate-900 border-white/5 text-slate-300 rounded-[5px] p-0 overflow-hidden shadow-2xl">
+                  <DropdownMenuLabel className="px-4 py-3 bg-slate-950/50 flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Notifications</span>
+                    <Badge className="bg-primary/10 text-primary text-[10px] rounded-[5px]">{unreadCount} New</Badge>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/5 m-0" />
+                  <div className="max-h-[400px] overflow-y-auto">
+                    {unreadItems.length > 0 ? unreadItems.map((item) => (
+                      <DropdownMenuItem 
+                        key={`${item.type}-${item.id}`} 
+                        onClick={() => handleNotificationClick(item)}
+                        className="px-4 py-3 cursor-pointer hover:bg-white/5 focus:bg-white/5 border-b border-white/5 last:border-0"
+                      >
+                        <div className="flex items-start gap-3 w-full">
+                          <div className={cn("p-2 rounded-[5px] shrink-0", item.type === 'broadcast' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent")}>
+                            {item.type === 'broadcast' ? <Megaphone className="h-3.5 w-3.5" /> : <MessageCircle className="h-3.5 w-3.5" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-black text-white uppercase tracking-tight truncate">{item.title}</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">{item.description}</p>
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    )) : (
+                      <div className="p-10 text-center text-slate-600">
+                        <Bell className="h-8 w-8 mx-auto opacity-10 mb-2" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest">No new alerts</p>
+                      </div>
+                    )}
+                  </div>
+                  <DropdownMenuSeparator className="bg-white/5 m-0" />
+                  <Link href="/dashboard/notifications" className="block text-center py-2.5 text-[9px] font-black uppercase text-primary hover:bg-primary/5 transition-colors">
+                    View All Activity
+                  </Link>
+                </DropdownMenuContent>
+              </DropdownMenu>
               
               {user.role === 'SUPER_ADMIN' && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px]"
-                  onClick={() => setSettingsDialogOpen(true)}
-                >
+                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px]" onClick={() => setSettingsDialogOpen(true)}>
                   <Settings className="h-5 w-5" />
                 </Button>
               )}
@@ -545,10 +405,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <DropdownMenuContent align="end" className="w-56 bg-slate-900 border-white/5 text-slate-300 rounded-[5px]">
                   <DropdownMenuLabel className="text-xs font-bold uppercase tracking-widest text-slate-500">My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-white/5" />
-                  <DropdownMenuItem onClick={() => {
-                    setNewName(user.name);
-                    setProfileDialogOpen(true);
-                  }} className="flex items-center gap-2 hover:bg-white/5 focus:bg-white/5 cursor-pointer">
+                  <DropdownMenuItem onClick={() => { setNewName(user.name); setProfileDialogOpen(true); }} className="flex items-center gap-2 hover:bg-white/5 focus:bg-white/5 cursor-pointer">
                     <UserIcon className="h-4 w-4" /> Profile Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/5" />
@@ -560,66 +417,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
-          {/* Pinned Broadcast Banner */}
           {pinnedBroadcast && (
             <div className="bg-primary/10 border-t border-primary/20 px-6 py-2.5 flex items-center justify-between animate-in slide-in-from-top-4 duration-500">
               <div className="flex items-center gap-3">
                 <Megaphone className="h-4 w-4 text-primary animate-bounce" />
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase text-primary tracking-widest">Notice:</span>
-                  <p className="text-xs font-bold text-slate-300 truncate max-w-[500px]">{pinnedBroadcast.title} – {pinnedBroadcast.message}</p>
-                </div>
+                <p className="text-xs font-bold text-slate-300 truncate max-w-[500px]"><span className="text-primary font-black mr-2">NOTICE:</span>{pinnedBroadcast.title} – {pinnedBroadcast.message}</p>
               </div>
-              <button onClick={clearPinned} className="p-1 hover:bg-white/5 rounded-full text-slate-500 hover:text-white transition-colors">
-                <X className="h-3.5 w-3.5" />
-              </button>
+              <button onClick={() => setPinnedBroadcast(null)} className="p-1 hover:bg-white/5 rounded-full text-slate-500 hover:text-white"><X className="h-3.5 w-3.5" /></button>
             </div>
           )}
         </header>
-        <main className="p-6 md:p-8 flex-1 overflow-hidden">
-          {children}
-        </main>
+        <main className="p-6 md:p-8 flex-1 overflow-hidden">{children}</main>
       </SidebarInset>
 
       <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
         <DialogContent className="bg-slate-900 border-white/5 text-white max-sm rounded-[5px]">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Manage Profile</DialogTitle>
-            <DialogDescription className="text-slate-500 text-xs">Update your personal information.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex flex-col items-center gap-3 mb-4">
-              <div className="relative group">
-                <Avatar className="h-20 w-20 border-2 border-primary/20 rounded-[5px]">
-                  <AvatarImage src={(user as any).profilePic || settings?.defaultAvatar || ''} />
-                  <AvatarFallback className="bg-slate-800 text-primary font-bold text-2xl">{user.name[0]}</AvatarFallback>
-                </Avatar>
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-[5px]">
-                  <Camera className="h-6 w-6 text-white" />
-                </div>
-              </div>
-              <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Change Photo</p>
+          <DialogHeader><DialogTitle>Manage Profile</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4 text-center">
+            <div className="relative inline-block mx-auto group">
+              <Avatar className="h-20 w-20 border-2 border-primary/20 rounded-[5px]">
+                <AvatarImage src={(user as any).profilePic || settings?.defaultAvatar || ''} />
+                <AvatarFallback className="bg-slate-800 text-primary font-bold text-2xl">{user.name[0]}</AvatarFallback>
+              </Avatar>
+              <Label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-[5px]">
+                <Camera className="h-6 w-6 text-white" />
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'avatar')} />
+              </Label>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-xs font-bold uppercase text-slate-500">Display Name</Label>
-              <Input id="name" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-slate-800 border-white/5 rounded-[5px] h-9 text-sm" />
+            <div className="space-y-2 text-left">
+              <Label className="text-xs font-bold uppercase text-slate-500">Display Name</Label>
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-slate-800 border-white/5 rounded-[5px]" />
             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={handleUpdateProfile} className="w-full gap-2 rounded-[5px] h-9 text-xs font-bold uppercase tracking-widest">
-              <Save className="h-4 w-4" /> Save Changes
-            </Button>
-          </DialogFooter>
+          <DialogFooter><Button onClick={handleUpdateProfile} className="w-full">Save Changes</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
         <DialogContent className="bg-slate-900 border-white/5 text-white max-w-3xl rounded-[5px] overflow-y-auto max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> System Configuration</DialogTitle>
-            <DialogDescription className="text-slate-500 text-xs">Customize utility pricing, brand theme, and security protocols.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> System Configuration</DialogTitle>
           </DialogHeader>
-
           <Tabs defaultValue="pricing" className="w-full mt-4">
             <TabsList className="grid grid-cols-6 bg-slate-950/60 p-1 border border-white/5 rounded-[5px] mb-4">
               <TabsTrigger value="pricing" className="text-[10px] uppercase font-bold tracking-tight py-2">Pricing</TabsTrigger>
@@ -632,58 +470,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <TabsContent value="pricing" className="space-y-4 outline-none">
               <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="vat-rate" className="text-[10px] font-bold uppercase text-slate-500">VAT Rate (%)</Label>
-                  <Input 
-                    id="vat-rate" 
-                    type="number" 
-                    step="0.1" 
-                    value={vatRate} 
-                    onChange={e => setVatRate(e.target.value)} 
-                    className="bg-slate-950 border-white/5 h-9 rounded-[5px]" 
-                  />
-                </div>
-
+                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">VAT Rate (%)</Label><Input type="number" step="0.1" value={vatRate} onChange={e => setVatRate(e.target.value)} className="bg-slate-950 border-white/5" /></div>
                 <div className="border-t border-white/5 pt-4 space-y-3">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500 block">Water Price Ranges (per m³)</Label>
+                  <Label className="text-[10px] font-bold uppercase text-slate-500">Water Price Ranges (per m³)</Label>
                   <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
                     {waterRateRanges.map((range, idx) => (
                       <div key={idx} className="flex justify-between items-center p-2.5 bg-slate-950/60 border border-white/5 rounded-[5px] text-xs">
-                        <div className="font-mono text-slate-300">
-                          From: <span className="font-bold text-white">{range.from}</span> To:{' '}
-                          <span className="font-bold text-white">{range.to === null ? 'Unlimited' : range.to}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-black text-green-400">MK {range.price.toFixed(2)}</span>
-                          {waterRateRanges.length > 1 && (
-                            <button onClick={() => handleRemoveRange(idx)} className="text-red-400 hover:text-red-300 p-1">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
+                        <div className="font-mono text-slate-300">From: <span className="font-bold text-white">{range.from}</span> To: <span className="font-bold text-white">{range.to === null ? 'Unlimited' : range.to}</span></div>
+                        <div className="flex items-center gap-3"><span className="font-black text-green-400">MK {range.price.toFixed(2)}</span><button onClick={() => handleRemoveRange(idx)} className="text-red-400 hover:text-red-300"><Trash2 className="h-3.5 w-3.5" /></button></div>
                       </div>
                     ))}
                   </div>
-
                   <div className="p-3 bg-white/5 border border-white/10 rounded-[5px] space-y-3">
-                    <p className="text-[9px] font-black text-primary uppercase tracking-wider">Add New Pricing Bracket</p>
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-[8px] font-bold uppercase text-slate-500">From (m³)</Label>
-                        <Input type="number" placeholder="0" value={newRangeFrom} onChange={e => setNewRangeFrom(e.target.value)} className="bg-slate-950 border-white/5 h-8 text-xs font-mono" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[8px] font-bold uppercase text-slate-500">To (m³)</Label>
-                        <Input type="number" placeholder="Unlimited" value={newRangeTo} onChange={e => setNewRangeTo(e.target.value)} className="bg-slate-950 border-white/5 h-8 text-xs font-mono" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[8px] font-bold uppercase text-slate-500">Price (MK)</Label>
-                        <Input type="number" step="0.01" placeholder="2.5" value={newRangePrice} onChange={e => setNewRangePrice(e.target.value)} className="bg-slate-950 border-white/5 h-8 text-xs font-mono text-green-400" />
-                      </div>
+                      <div className="space-y-1"><Label className="text-[8px] font-bold uppercase text-slate-500">From (m³)</Label><Input type="number" value={newRangeFrom} onChange={e => setNewRangeFrom(e.target.value)} className="bg-slate-950 border-white/5 h-8 text-xs font-mono" /></div>
+                      <div className="space-y-1"><Label className="text-[8px] font-bold uppercase text-slate-500">To (m³)</Label><Input type="number" value={newRangeTo} onChange={e => setNewRangeTo(e.target.value)} className="bg-slate-950 border-white/5 h-8 text-xs font-mono" /></div>
+                      <div className="space-y-1"><Label className="text-[8px] font-bold uppercase text-slate-500">Price (MK)</Label><Input type="number" step="0.01" value={newRangePrice} onChange={e => setNewRangePrice(e.target.value)} className="bg-slate-950 border-white/5 h-8 text-xs font-mono text-green-400" /></div>
                     </div>
-                    <Button onClick={handleAddRange} size="sm" className="w-full h-8 text-[9px] font-bold uppercase bg-primary hover:bg-primary/90 text-white rounded-[5px]">
-                      <Plus className="h-3 w-3 mr-1" /> Add Bracket
-                    </Button>
+                    <Button onClick={handleAddRange} size="sm" className="w-full h-8 text-[9px] font-bold uppercase bg-primary hover:bg-primary/90 text-white rounded-[5px]"><Plus className="h-3 w-3 mr-1" /> Add Bracket</Button>
                   </div>
                 </div>
               </div>
@@ -692,66 +496,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <TabsContent value="branding" className="space-y-4 outline-none">
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-500">Portal Name</Label>
-                    <Input value={companyName} onChange={e => setCompanyName(e.target.value)} className="bg-slate-950 border-white/5 h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-500">Landing Page Headline</Label>
-                    <Input value={landingTitle} onChange={e => setLandingTitle(e.target.value)} className="bg-slate-950 border-white/5 h-9" />
-                  </div>
+                  <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Portal Name</Label><Input value={companyName} onChange={e => setCompanyName(e.target.value)} className="bg-slate-950 border-white/5 h-9" /></div>
+                  <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Landing Page Headline</Label><Input value={landingTitle} onChange={e => setLandingTitle(e.target.value)} className="bg-slate-950 border-white/5 h-9" /></div>
                 </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500">Company Description / Slogan</Label>
-                  <Textarea value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} className="bg-slate-950 border-white/5 h-16 text-xs" />
-                </div>
-
+                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Company Description / Slogan</Label><Textarea value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} className="bg-slate-950 border-white/5 h-16 text-xs" /></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase text-slate-500">System Logo</Label>
                     <div className="flex items-center gap-2">
                       <div className="h-10 w-10 border border-white/5 rounded-[5px] flex items-center justify-center overflow-hidden relative group" style={{ backgroundColor: logoBgColor }}>
                         {logo ? <img src={logo} className="h-8 w-8 object-contain" /> : <Droplets className="h-5 w-5 text-white/50" />}
-                        {logo && (
-                          <button onClick={() => handleRemoveImage('logo')} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Trash2 className="h-4 w-4 text-white" />
-                          </button>
-                        )}
+                        {logo && <button onClick={() => handleRemoveImage('logo')} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-white" /></button>}
                       </div>
                       <Label className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/10 hover:border-primary/50 cursor-pointer p-2 rounded-[5px] bg-slate-950/40 text-[9px] font-bold uppercase text-slate-400">
-                        <UploadCloud className="h-4 w-4 mb-0.5" />
-                        <span>Upload logo</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={e => handleLogoUpload(e, 'logo')} />
+                        <Plus className="h-4 w-4 mb-0.5" /><span>Upload logo</span><input type="file" accept="image/*" className="hidden" onChange={e => handleLogoUpload(e, 'logo')} />
                       </Label>
                     </div>
                   </div>
-
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase text-slate-500">Logo Container BG</Label>
                     <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 border border-white/5 rounded-[5px]">
-                      <input type="color" value={logoBgColor} onChange={e => setLogoBgColor(e.target.value)} className="w-6 h-6 rounded-sm border-none bg-transparent cursor-pointer" />
-                      <span className="text-[9px] font-mono uppercase font-bold text-slate-400">{logoBgColor}</span>
+                      <input type="color" value={logoBgColor} onChange={e => setLogoBgColor(e.target.value)} className="w-6 h-6 rounded-sm border-none bg-transparent cursor-pointer" /><span className="text-[9px] font-mono uppercase font-bold text-slate-400">{logoBgColor}</span>
                     </div>
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase text-slate-500">Landing Background</Label>
                     <div className="flex items-center gap-2">
                       <div className="h-10 w-10 bg-slate-950 border border-white/5 rounded-[5px] flex items-center justify-center overflow-hidden relative group">
-                        {landingBgImage ? <img src={landingBgImage} className="h-full w-full object-cover" /> : <Building className="h-5 w-5 text-slate-500" />}
-                        {landingBgImage && (
-                          <button onClick={() => handleRemoveImage('landing')} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Trash2 className="h-4 w-4 text-white" />
-                          </button>
-                        )}
+                        {landingBgImage ? <img src={landingBgImage} className="h-full w-full object-cover" /> : <Globe className="h-5 w-5 text-slate-500" />}
+                        {landingBgImage && <button onClick={() => handleRemoveImage('landing')} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-white" /></button>}
                       </div>
                       <Label className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/10 hover:border-primary/50 cursor-pointer p-2 rounded-[5px] bg-slate-950/40 text-[9px] font-bold uppercase text-slate-400">
-                        <UploadCloud className="h-4 w-4 mb-0.5" />
-                        <span>Upload BG</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={e => handleLogoUpload(e, 'landing')} />
+                        <Plus className="h-4 w-4 mb-0.5" /><span>Upload BG</span><input type="file" accept="image/*" className="hidden" onChange={e => handleLogoUpload(e, 'landing')} />
                       </Label>
                     </div>
                   </div>
@@ -760,16 +538,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="flex items-center gap-2">
                       <div className="h-10 w-10 bg-slate-950 border border-white/5 rounded-[5px] flex items-center justify-center overflow-hidden relative group">
                         {defaultAvatar ? <img src={defaultAvatar} className="h-full w-full object-cover" /> : <UserIcon className="h-5 w-5 text-slate-500" />}
-                        {defaultAvatar && (
-                          <button onClick={() => handleRemoveImage('avatar')} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Trash2 className="h-4 w-4 text-white" />
-                          </button>
-                        )}
+                        {defaultAvatar && <button onClick={() => handleRemoveImage('avatar')} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-white" /></button>}
                       </div>
                       <Label className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/10 hover:border-primary/50 cursor-pointer p-2 rounded-[5px] bg-slate-950/40 text-[9px] font-bold uppercase text-slate-400">
-                        <UploadCloud className="h-4 w-4 mb-0.5" />
-                        <span>Upload Avatar</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={e => handleLogoUpload(e, 'avatar')} />
+                        <Plus className="h-4 w-4 mb-0.5" /><span>Upload Avatar</span><input type="file" accept="image/*" className="hidden" onChange={e => handleLogoUpload(e, 'avatar')} />
                       </Label>
                     </div>
                   </div>
@@ -779,22 +551,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <TabsContent value="receipt" className="space-y-4 outline-none">
               <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500">Receipt Entity Name</Label>
-                  <Input value={receiptCompanyName} onChange={e => setReceiptCompanyName(e.target.value)} placeholder="e.g. MALAWI WATER BOARD" className="bg-slate-950 border-white/5 h-10 font-bold" />
-                </div>
-
+                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Receipt Entity Name</Label><Input value={receiptCompanyName} onChange={e => setReceiptCompanyName(e.target.value)} className="bg-slate-950 border-white/5 h-10 font-bold" /></div>
                 <div className="p-4 bg-primary/5 border border-primary/10 rounded-[5px] space-y-4">
                   <p className="text-[10px] font-black text-primary uppercase tracking-widest">Receipt Header Preview</p>
                   <div className="bg-white rounded-[3px] p-4 flex items-center justify-between shadow-sm">
                     <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-[3px] flex items-center justify-center" style={{ backgroundColor: logoBgColor }}>
-                        {logo ? <img src={logo} className="h-6 w-6 object-contain" /> : <Droplets className="h-4 w-4 text-white" />}
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-slate-900 leading-none">{receiptCompanyName || 'MALAWI WATER BOARD'}</p>
-                        <p className="text-[7px] font-bold text-slate-500 uppercase tracking-widest mt-1">Utility Bill Invoice</p>
-                      </div>
+                      <div className="h-8 w-8 rounded-[3px] flex items-center justify-center" style={{ backgroundColor: logoBgColor }}>{logo ? <img src={logo} className="h-6 w-6 object-contain" /> : <Droplets className="h-4 w-4 text-white" />}</div>
+                      <div><p className="text-[10px] font-black text-slate-900 leading-none">{receiptCompanyName || 'MALAWI WATER BOARD'}</p><p className="text-[7px] font-bold text-slate-500 uppercase tracking-widest mt-1">Utility Bill Invoice</p></div>
                     </div>
                   </div>
                 </div>
@@ -803,295 +566,64 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <TabsContent value="gateway" className="space-y-4 outline-none">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2">
-                    <Zap className="h-3 w-3" /> BRANDPAY GATEWAY
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-white bg-slate-800/50 rounded-[5px]" onClick={() => { setTempPortalUrl(portalUrl); setPortalDialogOpen(true); }}>
-                      <Settings2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-                
+                <div className="flex items-center justify-between"><Label className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2"><Zap className="h-3 w-3" /> BRANDPAY GATEWAY</Label><Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-white bg-slate-800/50 rounded-[5px]" onClick={() => { setTempPortalUrl(portalUrl); setPortalDialogOpen(true); }}><Settings2 className="h-3.5 w-3.5" /></Button></div>
                 <div className="space-y-3 p-4 bg-primary/5 border border-primary/10 rounded-[5px]">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="pawapay-key" className="text-[9px] font-bold uppercase text-slate-500">API Key</Label>
-                      <Button variant="ghost" size="sm" onClick={() => setTestPurchaseDialogOpen(true)} className="h-6 px-2 text-[8px] font-black uppercase text-accent hover:text-white bg-accent/10 rounded-[3px] gap-1">
-                        <PlayCircle className="h-2.5 w-2.5" /> Start Test
-                      </Button>
-                    </div>
-                    <div className="relative">
-                      <Input id="pawapay-key" type={showApiKey ? "text" : "password"} value={pawapayKey} onChange={(e) => setPawapayKey(e.target.value)} placeholder="PAWAPAY_API_KEY" className="bg-slate-950 border-white/5 h-9 text-sm font-mono pr-10" />
-                      <button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">
-                        {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-1.5">
-                    <Label className="text-[9px] font-bold uppercase text-slate-500">Operation Mode</Label>
-                    <Select value={pawapayMode} onValueChange={setPawapayMode}>
-                      <SelectTrigger className="bg-slate-950 border-white/5 h-9 rounded-[5px]"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-white/10 text-white">
-                        <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>
-                        <SelectItem value="live">Live (Production)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <div className="flex items-center justify-between"><Label className="text-[9px] font-bold uppercase text-slate-500">API Key</Label><Button variant="ghost" size="sm" onClick={() => setTestPurchaseDialogOpen(true)} className="h-6 px-2 text-[8px] font-black uppercase text-accent hover:text-white bg-accent/10 rounded-[3px] gap-1"><PlayCircle className="h-2.5 w-2.5" /> Start Test</Button></div>
+                  <div className="relative"><Input type={showApiKey ? "text" : "password"} value={pawapayKey} onChange={(e) => setPawapayKey(e.target.value)} className="bg-slate-950 border-white/5 h-9 text-sm font-mono pr-10" /><button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-colors">{showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
+                  <div className="space-y-1.5"><Label className="text-[9px] font-bold uppercase text-slate-500">Operation Mode</Label><Select value={pawapayMode} onValueChange={setPawapayMode}><SelectTrigger className="bg-slate-950 border-white/5 h-9 rounded-[5px]"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-white/10 text-white"><SelectItem value="sandbox">Sandbox (Testing)</SelectItem><SelectItem value="live">Live (Production)</SelectItem></SelectContent></Select></div>
                 </div>
               </div>
             </TabsContent>
 
             <TabsContent value="applevel" className="space-y-4 outline-none">
               <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500">Country</Label>
-                  <Select value={country} onValueChange={(val) => {
-                    setCountry(val);
-                    setRegionName('');
-                    setDistrictName('');
-                  }}>
-                    <SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-white/10 text-white">
-                      {Object.keys(GEO_DATA).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500">Deployment Level</Label>
-                  <Select value={appLevel} onValueChange={(val: any) => {
-                    setAppLevel(val);
-                    if (val === 'national') { setRegionName(''); setDistrictName(''); }
-                  }}>
-                    <SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-white/10 text-white">
-                      <SelectItem value="national">National</SelectItem>
-                      <SelectItem value="region">Region / Province</SelectItem>
-                      <SelectItem value="district">District / City</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {appLevel === 'region' && (
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-primary tracking-widest px-1">Locked Region / Province</Label>
-                    <Select value={regionName} onValueChange={(val) => {
-                      setRegionName(val);
-                      setDistrictName('');
-                    }}>
-                      <SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue placeholder="Select Region..." /></SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-white/10 text-white">
-                        {getRegions(country).map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {appLevel === 'district' && (
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-primary tracking-widest px-1">Locked District / City</Label>
-                    <Select value={districtName} onValueChange={(val) => {
-                      setDistrictName(val);
-                      const parentRegion = getRegionForDistrict(country, val);
-                      if (parentRegion) setRegionName(parentRegion);
-                    }}>
-                      <SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue placeholder="Select District..." /></SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-white/10 text-white">
-                        {getAllDistrictsForCountry(country).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Country</Label><Select value={country} onValueChange={(val) => { setCountry(val); setRegionName(''); setDistrictName(''); }}><SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-white/10 text-white">{Object.keys(GEO_DATA).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Deployment Level</Label><Select value={appLevel} onValueChange={(val: any) => { setAppLevel(val); if (val === 'national') { setRegionName(''); setDistrictName(''); } }}><SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-white/10 text-white"><SelectItem value="national">National</SelectItem><SelectItem value="region">Region / Province</SelectItem><SelectItem value="district">District / City</SelectItem></SelectContent></Select></div>
+                {appLevel === 'region' && (<div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-primary tracking-widest px-1">Locked Region</Label><Select value={regionName} onValueChange={(val) => { setRegionName(val); setDistrictName(''); }}><SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue placeholder="Select Region..." /></SelectTrigger><SelectContent className="bg-slate-900 border-white/10 text-white">{getRegions(country).map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select></div>)}
+                {appLevel === 'district' && (<div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-primary tracking-widest px-1">Locked District</Label><Select value={districtName} onValueChange={(val) => { setDistrictName(val); const parentRegion = getRegionForDistrict(country, val); if (parentRegion) setRegionName(parentRegion); }}><SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue placeholder="Select District..." /></SelectTrigger><SelectContent className="bg-slate-900 border-white/10 text-white">{getAllDistrictsForCountry(country).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select></div>)}
               </div>
             </TabsContent>
 
             <TabsContent value="security" className="space-y-6 outline-none">
               <div className="space-y-6">
                 <div className="flex items-center justify-between p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-bold text-white flex items-center gap-2">
-                      <ShieldEllipsis className="h-4 w-4 text-primary" /> Staff Access Feature
-                    </Label>
-                    <p className="text-[10px] text-slate-500 font-medium uppercase tracking-tight">Show or hide the staff portal link on the landing page.</p>
-                  </div>
+                  <div className="space-y-0.5"><Label className="text-sm font-bold text-white flex items-center gap-2">Staff Access Feature</Label><p className="text-[10px] text-slate-500 font-medium uppercase tracking-tight">Show or hide the staff portal link on the landing page.</p></div>
                   <Switch checked={staffAccessToggle} onCheckedChange={setStaffAccessToggle} />
                 </div>
-
                 <div className={cn("space-y-4 p-4 border border-white/5 rounded-[5px] bg-slate-950/40 transition-all", !staffAccessToggle && "opacity-40 grayscale pointer-events-none")}>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-2">
-                      <Keyboard className="h-3 w-3" /> Keyboard Shortcut Command
-                    </Label>
-                    <Input 
-                      value={staffAccessShortcut} 
-                      onChange={e => setStaffAccessShortcut(e.target.value)} 
-                      placeholder="e.g., Ctrl+L" 
-                      className="bg-slate-900 border-white/5 h-10 font-mono text-primary font-black"
-                    />
-                    <p className="text-[9px] text-slate-500 italic">Example formats: Ctrl+L, Alt+A, Shift+S. This command will reveal the hidden staff link on the landing page.</p>
-                  </div>
+                  <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Keyboard Shortcut Command</Label><Input value={staffAccessShortcut} onChange={e => setStaffAccessShortcut(e.target.value)} placeholder="e.g., Ctrl+L" className="bg-slate-900 border-white/5 h-10 font-mono text-primary font-black" /></div>
                 </div>
               </div>
             </TabsContent>
           </Tabs>
-
-          <DialogFooter className="mt-6 border-t border-white/5 pt-4">
-            <Button onClick={handleUpdateSettings} className="w-full gap-2 rounded-[5px] h-10 text-xs font-bold uppercase tracking-widest bg-primary hover:bg-primary/90 text-white">
-              <Save className="h-4 w-4" /> Save Configuration
-            </Button>
-          </DialogFooter>
+          <DialogFooter className="mt-6 border-t border-white/5 pt-4"><Button onClick={handleUpdateSettings} className="w-full">Save Configuration</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       
-      {/* Test Status Feedback Dialog */}
-      <Dialog open={testStatus !== 'idle'} onOpenChange={(open) => { if (!open) setTestStatus('idle'); }}>
-        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] py-10 text-center">
-          {testStatus === 'processing' && (
-            <div className="space-y-6">
-              <div className="relative mx-auto w-16 h-16">
-                <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-                <div className="absolute inset-0 rounded-full border-4 border-t-primary animate-spin" />
-              </div>
-              <DialogTitle className="uppercase tracking-widest text-sm">Verifying Communication Protocol</DialogTitle>
-              <p className="text-[10px] text-slate-500 uppercase font-bold">Synchronizing with BrandPay Gateway...</p>
+      {testStatus !== 'idle' && (
+        <Dialog open={true} onOpenChange={() => setTestStatus('idle')}>
+          <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] py-10 text-center">
+            {testStatus === 'processing' ? <div className="space-y-6"><PlayCircle className="h-10 w-10 text-primary animate-spin mx-auto" /><DialogTitle>Verifying Protocol</DialogTitle></div> : 
+             testStatus === 'success' ? <div className="space-y-6"><CheckCircle2 className="h-10 w-10 text-green-500 mx-auto" /><DialogTitle>Handshake Success</DialogTitle><Button onClick={() => setReceiptDialogOpen(true)} className="w-full">View Test Receipt</Button></div> :
+             <div className="space-y-6"><XCircle className="h-10 w-10 text-red-500 mx-auto" /><DialogTitle>Verification Rejected</DialogTitle></div>}
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {receiptData && (
+        <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
+          <DialogContent className="bg-white text-slate-900 max-w-sm rounded-[5px] p-0 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="bg-slate-900 px-6 py-5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3"><div className="p-2 rounded-[3px]" style={{ backgroundColor: logoBgColor }}>{logo ? <img src={logo} className="h-5 w-5 object-contain" /> : <Droplets className="h-5 w-5 text-white" />}</div><div><DialogTitle className="text-xs font-black text-white uppercase tracking-widest">{receiptCompanyName}</DialogTitle><p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Gateway Test Document</p></div></div><Receipt className="h-5 w-5 text-primary opacity-70" />
             </div>
-          )}
+            <div className="flex-1 overflow-y-auto px-6 py-6 text-center"><p className="text-4xl font-black text-slate-900"><span className="text-primary text-2xl">MK</span> {parseFloat(receiptData.amount).toLocaleString()}</p></div>
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0"><Button variant="outline" className="flex-1 h-9 rounded-[5px] text-[10px] font-bold uppercase" onClick={() => window.print()}>Print</Button><Button variant="default" className="flex-1 h-9 rounded-[5px] text-[10px] font-bold uppercase bg-slate-900 text-white" onClick={() => setReceiptDialogOpen(false)}>Close</Button></div>
+          </DialogContent>
+        </Dialog>
+      )}
 
-          {testStatus === 'success' && (
-            <div className="space-y-6 animate-in zoom-in-95 duration-300">
-              <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="h-10 w-10 text-green-500" />
-              </div>
-              <div>
-                <DialogTitle className="uppercase tracking-widest text-sm text-green-500">Gateway Verified</DialogTitle>
-                <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Transaction Handshake Completed Successfully</p>
-              </div>
-              <div className="pt-4 flex flex-col gap-2">
-                <Button onClick={() => setReceiptDialogOpen(true)} className="bg-primary hover:bg-primary/90 text-white font-bold uppercase text-[10px] h-9">
-                  <FileText className="h-4 w-4 mr-2" /> View Test Receipt
-                </Button>
-                <Button variant="ghost" onClick={() => setTestStatus('idle')} className="text-slate-400 hover:text-white uppercase text-[10px] font-bold">
-                  Close Feedback
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {testStatus === 'failure' && (
-            <div className="space-y-6">
-              <div className="mx-auto w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
-                <XCircle className="h-10 w-10 text-red-500" />
-              </div>
-              <DialogTitle className="uppercase tracking-widest text-sm text-red-500">Verification Rejected</DialogTitle>
-              <p className="text-[10px] text-slate-500 uppercase font-bold">Gateway Refused the Communication Request</p>
-              <Button variant="outline" onClick={() => setTestStatus('idle')} className="w-full mt-4 border-white/10 text-white uppercase text-[10px] font-bold">
-                Retry Handshake
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* High-Fidelity Test Receipt Viewer */}
-      <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
-        <DialogContent className="bg-white text-slate-900 max-w-sm rounded-[5px] p-0 overflow-hidden max-h-[90vh] flex flex-col">
-          <div className="bg-slate-900 px-6 py-5 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-[3px]" style={{ backgroundColor: logoBgColor || '#2563eb' }}>
-                {logo ? (
-                  <img src={logo} className="h-5 w-5 object-contain" />
-                ) : (
-                  <Droplets className="h-5 w-5 text-white" />
-                )}
-              </div>
-              <div>
-                <DialogTitle className="text-xs font-black text-white uppercase tracking-widest">
-                  {receiptCompanyName?.toUpperCase() || 'MALAWI WATER BOARD'}
-                </DialogTitle>
-                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Gateway Test Document</p>
-              </div>
-            </div>
-            <Receipt className="h-5 w-5 text-primary opacity-70" />
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            <div className="bg-primary/10 border-primary/20 border-b px-6 py-3 flex justify-between items-center">
-              <div>
-                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Receipt No.</p>
-                <p className="text-xs font-black text-slate-800 font-mono">{lastTestResult?.receiptNo}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Verified At</p>
-                <p className="text-[10px] font-bold text-slate-700">{lastTestResult?.date}</p>
-              </div>
-            </div>
-
-            <div className="border-slate-200 border-dashed border-b px-6 py-8 text-center">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Amount Verified</p>
-              <p className="text-4xl font-black text-slate-900"><span className="text-primary text-2xl">MK</span> {parseFloat(lastTestResult?.amount || '0').toLocaleString()}</p>
-              <div className="bg-green-100 text-green-700 mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full">
-                <CheckCircle2 className="h-3 w-3" />
-                <span className="text-[9px] font-black uppercase tracking-wider">Handshake Success</span>
-              </div>
-            </div>
-
-            <div className="px-6 py-5 space-y-3">
-              {[
-                { label: 'PRODUCT / SERVICE', value: lastTestResult?.product },
-                { label: 'GATEWAY PROTOCOL', value: 'PAWAPAY-v2' },
-                { label: 'OPERATION MODE', value: pawapayMode.toUpperCase() },
-                { label: 'STATUS', value: 'VERIFIED' }
-              ].map(row => (
-                <div key={row.label} className="flex justify-between items-center text-[10px]">
-                  <span className="font-bold text-slate-400 uppercase tracking-wider">{row.label}</span>
-                  <span className="font-black text-slate-800">{row.value}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-slate-200 border-dashed border-t px-6 pb-4 pt-4">
-              <div className="flex justify-center mb-3">
-                <div className="flex gap-px">
-                  {Array.from({ length: 40 }).map((_, i) => (
-                    <div key={i} className="bg-slate-800" style={{ 
-                      width: `${(i % 3 === 0) ? 3 : 2}px`, 
-                      height: `${24 + (i % 5) * 4}px` 
-                    }} />
-                  ))}
-                </div>
-              </div>
-              <p className="text-[8px] text-center text-slate-400 font-mono tracking-widest">{lastTestResult?.receiptNo} • SYSTEM-AUDIT-COMPLIANCE</p>
-            </div>
-          </div>
-
-          <div className="bg-slate-50 border-slate-200 border-t flex gap-2 p-4 shrink-0">
-            <Button variant="outline" className="text-slate-600 border-slate-200 flex-1 h-9 gap-2 rounded-[5px] text-[10px] font-bold uppercase" onClick={handleDownloadReceipt}>
-              <Download className="h-3.5 w-3.5" /> Download
-            </Button>
-            <Button variant="default" className="bg-slate-900 hover:bg-slate-800 text-white flex-1 h-9 rounded-[5px] text-[10px] font-bold uppercase" onClick={() => setReceiptDialogOpen(false)}>
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Legacy Gateway Settings Dialog... */}
       <Dialog open={portalDialogOpen} onOpenChange={setPortalDialogOpen}>
-        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
-          <DialogHeader>
-            <DialogTitle>Gateway Dashboard URL</DialogTitle>
-            <DialogDescription className="text-slate-500 text-xs">Update the management link for the payment provider.</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Label className="text-xs font-bold uppercase text-slate-500">Provider URL</Label>
-            <Input value={tempPortalUrl} onChange={e => setTempPortalUrl(e.target.value)} className="bg-slate-800 border-white/5 mt-2" />
-          </div>
-          <DialogFooter>
-            <Button onClick={() => { setPortalUrl(tempPortalUrl); setPortalDialogOpen(false); }} className="bg-primary w-full font-bold uppercase text-xs h-9">Update URL</Button>
-          </DialogFooter>
-        </DialogContent>
+        <DialogContent className="bg-slate-900 border-white/5 text-white max-sm rounded-[5px]"><DialogHeader><DialogTitle>Gateway URL</DialogTitle></DialogHeader><div className="py-4"><Input value={tempPortalUrl} onChange={e => setTempPortalUrl(e.target.value)} className="bg-slate-800 border-white/5" /></div><DialogFooter><Button onClick={() => { setPortalUrl(tempPortalUrl); setPortalDialogOpen(false); }} className="w-full">Update</Button></DialogFooter></DialogContent>
       </Dialog>
     </SidebarProvider>
   );

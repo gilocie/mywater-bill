@@ -2,37 +2,34 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
-import { Broadcast, SupportTicket, User, SupportMessage } from '@/app/lib/mock-data';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Broadcast, SupportTicket, SupportMessage } from '@/app/lib/mock-data';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Megaphone, MessageSquare, Send, Clock, CheckCircle2, AlertTriangle, ShieldAlert, Pin, Users, Trash2, ArrowUpRight, LifeBuoy, MoreVertical, ShieldCheck, Mail, History, Plus } from 'lucide-react';
+import { Megaphone, MessageSquare, Send, Clock, ShieldAlert, Pin, Trash2, LifeBuoy, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
 export default function BroadcastsPage() {
-  const { user, settings } = useAuth();
+  const { user } = useAuth();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const chatScrollRef = useRef<HTMLDivElement>(null);
   
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
   
-  // Dialog Control
   const [bcDialogOpen, setBcDialogOpen] = useState(false);
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
 
-  // Admin Creation State
   const [newBroadcast, setNewBroadcast] = useState({
     title: '',
     message: '',
@@ -42,30 +39,32 @@ export default function BroadcastsPage() {
     expiryDate: ''
   });
 
-  // Support State
   const [newTicket, setNewTicket] = useState({ subject: '', message: '' });
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [replyText, setReplyText] = useState('');
 
-  // Initial data load and storage listener
+  const loadData = () => {
+    const storedB = localStorage.getItem('mywater_broadcasts') || '[]';
+    setBroadcasts(JSON.parse(storedB));
+
+    const storedT = localStorage.getItem('mywater_support_tickets') || '[]';
+    const allTickets: SupportTicket[] = JSON.parse(storedT);
+    setTickets(allTickets);
+
+    // Check for deep link to ticket
+    const ticketId = searchParams.get('ticketId');
+    if (ticketId) {
+      const target = allTickets.find(t => t.id === ticketId);
+      if (target) setSelectedTicket(target);
+    }
+  };
+
   useEffect(() => {
-    const loadData = () => {
-      const storedB = localStorage.getItem('mywater_broadcasts') || '[]';
-      setBroadcasts(JSON.parse(storedB));
-
-      const storedT = localStorage.getItem('mywater_support_tickets') || '[]';
-      setTickets(JSON.parse(storedT));
-
-      const storedU = localStorage.getItem('mywater_all_users') || '[]';
-      setAllUsers(JSON.parse(storedU));
-    };
-
     loadData();
     window.addEventListener('storage', loadData);
     return () => window.removeEventListener('storage', loadData);
-  }, []);
+  }, [searchParams]);
 
-  // Mark as read only when component mounts or user identity changes
   useEffect(() => {
     if (user?.id) {
       localStorage.setItem(`mywater_last_read_${user.id}`, Date.now().toString());
@@ -73,7 +72,6 @@ export default function BroadcastsPage() {
     }
   }, [user?.id]);
 
-  // Auto-scroll chat
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
@@ -93,24 +91,17 @@ export default function BroadcastsPage() {
 
   const filteredTickets = useMemo(() => {
     if (!user) return [];
-    if (user.role === 'CUSTOMER') {
-      return tickets.filter(t => t.customerId === user.id);
-    }
-    
-    // Staff/Admin filtering: only see tickets in their area, unless escalated to them
-    return tickets.filter(t => {
+    const tics = tickets.filter(t => {
+      if (user.role === 'CUSTOMER') return t.customerId === user.id;
       if (user.role === 'SUPER_ADMIN') return true;
       if (t.escalatedTo === 'SUPER_ADMIN') return user.role === 'SUPER_ADMIN'; 
-      if (t.escalatedTo === 'ACCOUNTS') return false; 
-      
-      // Territory match for District Staff
       return t.area === user.area && t.district === user.district;
-    }).sort((a, b) => new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime());
+    });
+    return tics.sort((a, b) => new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime());
   }, [tickets, user]);
 
   const handleSendBroadcast = () => {
     if (!newBroadcast.title || !newBroadcast.message) return;
-    
     const broadcast: Broadcast = {
       id: `bc-${Date.now()}`,
       title: newBroadcast.title,
@@ -122,26 +113,19 @@ export default function BroadcastsPage() {
       createdAt: new Date().toISOString(),
       authorName: user?.name || 'Administrator'
     };
-
-    // If pinning, unpin others
     let updated = [...broadcasts];
-    if (broadcast.isPinned) {
-      updated = updated.map(b => ({ ...b, isPinned: false }));
-    }
+    if (broadcast.isPinned) updated = updated.map(b => ({ ...b, isPinned: false }));
     updated.push(broadcast);
-    
     localStorage.setItem('mywater_broadcasts', JSON.stringify(updated));
     setBroadcasts(updated);
     setBcDialogOpen(false);
     window.dispatchEvent(new Event('storage'));
-    
     setNewBroadcast({ title: '', message: '', target: 'ALL', type: 'INFO', isPinned: false, expiryDate: '' });
-    toast({ title: "Broadcast Sent", description: "Your message has been distributed." });
+    toast({ title: "Broadcast Sent" });
   };
 
   const handleCreateTicket = () => {
     if (!newTicket.subject || !newTicket.message) return;
-    
     const ticket: SupportTicket = {
       id: `tic-${Date.now()}`,
       customerId: user!.id,
@@ -150,37 +134,27 @@ export default function BroadcastsPage() {
       area: user!.area || 'Unknown',
       district: user!.district || 'Unknown',
       status: 'OPEN',
-      messages: [{
-        senderId: user!.id,
-        senderName: user!.name,
-        text: newTicket.message,
-        timestamp: new Date().toISOString()
-      }],
+      messages: [{ senderId: user!.id, senderName: user!.name, text: newTicket.message, timestamp: new Date().toISOString() }],
       lastUpdate: new Date().toISOString()
     };
-
     const updated = [ticket, ...tickets];
     localStorage.setItem('mywater_support_tickets', JSON.stringify(updated));
     setTickets(updated);
     setTicketDialogOpen(false);
     window.dispatchEvent(new Event('storage'));
-    
     setNewTicket({ subject: '', message: '' });
-    toast({ title: "Support Ticket Opened", description: "Routed to your area field staff." });
+    toast({ title: "Ticket Opened" });
   };
 
   const handleReply = (ticket: SupportTicket) => {
     if (!replyText || !user) return;
-
     const isStaff = user.role !== 'CUSTOMER';
-    
     const newMessage: SupportMessage = {
       senderId: user.id,
       senderName: user.name,
       text: replyText,
       timestamp: new Date().toISOString()
     };
-
     const updatedTickets = tickets.map(t => {
       if (t.id === ticket.id) {
         return {
@@ -194,358 +168,132 @@ export default function BroadcastsPage() {
       }
       return t;
     });
-
     localStorage.setItem('mywater_support_tickets', JSON.stringify(updatedTickets));
     setTickets(updatedTickets);
     window.dispatchEvent(new Event('storage'));
     setReplyText('');
     setSelectedTicket(updatedTickets.find(t => t.id === ticket.id) || null);
-    toast({ title: "Message Sent" });
   };
 
   const handleEscalate = (ticket: SupportTicket, level: 'ACCOUNTS' | 'SUPER_ADMIN') => {
     const updatedTickets = tickets.map(t => {
-      if (t.id === ticket.id) {
-        return {
-          ...t,
-          status: 'ESCALATED',
-          escalatedTo: level,
-          lastUpdate: new Date().toISOString()
-        };
-      }
+      if (t.id === ticket.id) return { ...t, status: 'ESCALATED', escalatedTo: level, lastUpdate: new Date().toISOString() };
       return t;
     });
     localStorage.setItem('mywater_support_tickets', JSON.stringify(updatedTickets));
     setTickets(updatedTickets);
     window.dispatchEvent(new Event('storage'));
     setSelectedTicket(null);
-    toast({ title: "Escalated", description: `Forwarded to ${level.replace('_', ' ')}.` });
-  };
-
-  const deleteBroadcast = (id: string) => {
-    const updated = broadcasts.filter(b => b.id !== id);
-    localStorage.setItem('mywater_broadcasts', JSON.stringify(updated));
-    setBroadcasts(updated);
-    window.dispatchEvent(new Event('storage'));
+    toast({ title: "Escalated" });
   };
 
   if (!user) return null;
 
   return (
     <div className="h-full flex flex-col space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-        {/* Left Column: Active Broadcasts */}
-        <div className="lg:col-span-1 h-full max-h-[calc(100vh-140px)]">
-          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] h-full flex flex-col overflow-hidden">
-            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0 flex flex-row items-center justify-between">
-              <CardTitle className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                <Megaphone className="h-4 w-4" /> Active Announcements
-              </CardTitle>
-              {user.role === 'SUPER_ADMIN' && (
-                <Dialog open={bcDialogOpen} onOpenChange={setBcDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/10 rounded-[3px] h-7 text-[9px] font-black uppercase tracking-tighter gap-1">
-                      <Plus className="h-3 w-3" /> Create
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-slate-900 border-white/10 text-white max-w-4xl rounded-[5px]">
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2 uppercase tracking-tighter">
-                        <Megaphone className="h-5 w-5 text-primary" /> Distribute Announcement
-                      </DialogTitle>
-                      <DialogDescription className="text-slate-500 text-xs">Send a verified notice to specific user groups.</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6">
-                      <div className="space-y-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold uppercase text-slate-500">Subject</Label>
-                          <Input value={newBroadcast.title} onChange={e => setNewBroadcast({...newBroadcast, title: e.target.value})} placeholder="e.g. System Maintenance" className="bg-slate-950 border-white/5 h-10" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold uppercase text-slate-500">Notice Type</Label>
-                          <Select value={newBroadcast.type} onValueChange={v => setNewBroadcast({...newBroadcast, type: v})}>
-                            <SelectTrigger className="bg-slate-950 border-white/5 h-10"><SelectValue /></SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-white/10 text-white">
-                              <SelectItem value="INFO">Information</SelectItem>
-                              <SelectItem value="UPDATE">Utility Update</SelectItem>
-                              <SelectItem value="ALERT">Critical Alert</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold uppercase text-slate-500">Distribution Channel</Label>
-                          <Select value={newBroadcast.target} onValueChange={v => setNewBroadcast({...newBroadcast, target: v})}>
-                            <SelectTrigger className="bg-slate-950 border-white/5 h-10"><SelectValue /></SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-white/10 text-white">
-                              <SelectItem value="ALL">Entire Population (All)</SelectItem>
-                              <SelectItem value="STAFF">Staff & Agents Only</SelectItem>
-                              <SelectItem value="CUSTOMERS">Customers Only</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold uppercase text-slate-500">Message Payload</Label>
-                          <Textarea value={newBroadcast.message} onChange={e => setNewBroadcast({...newBroadcast, message: e.target.value})} className="bg-slate-950 border-white/5 min-h-[100px] text-xs" placeholder="Type your announcement content here..." />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="flex items-center justify-between p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                            <div className="flex items-center gap-2">
-                              <Pin className={cn("h-3.5 w-3.5", newBroadcast.isPinned ? "text-primary" : "text-slate-600")} />
-                              <span className="text-[10px] font-bold uppercase">Pin</span>
-                            </div>
-                            <Switch checked={newBroadcast.isPinned} onCheckedChange={v => setNewBroadcast({...newBroadcast, isPinned: v})} />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[10px] font-bold uppercase text-slate-500">Auto-Disappear</Label>
-                            <Input type="datetime-local" value={newBroadcast.expiryDate} onChange={e => setNewBroadcast({...newBroadcast, expiryDate: e.target.value})} className="bg-slate-950 border-white/5 h-10 text-[10px] text-white" />
-                          </div>
-                        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0 h-[calc(100vh-140px)]">
+        <Card className="lg:col-span-1 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
+          <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0 flex flex-row items-center justify-between">
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2"><Megaphone className="h-4 w-4" /> Announcements</CardTitle>
+            {user.role === 'SUPER_ADMIN' && (
+              <Dialog open={bcDialogOpen} onOpenChange={setBcDialogOpen}>
+                <DialogTrigger asChild><Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10 rounded-[3px] h-7 text-[9px] font-black uppercase gap-1"><Plus className="h-3 w-3" /> Create</Button></DialogTrigger>
+                <DialogContent className="bg-slate-900 border-white/10 text-white max-w-4xl rounded-[5px]">
+                  <DialogHeader><DialogTitle className="flex items-center gap-2 uppercase tracking-tighter"><Megaphone className="h-5 w-5 text-primary" /> Distribute Notice</DialogTitle></DialogHeader>
+                  <div className="grid grid-cols-2 gap-6 py-6">
+                    <div className="space-y-4">
+                      <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Subject</Label><Input value={newBroadcast.title} onChange={e => setNewBroadcast({...newBroadcast, title: e.target.value})} className="bg-slate-950 border-white/5" /></div>
+                      <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Notice Type</Label><Select value={newBroadcast.type} onValueChange={v => setNewBroadcast({...newBroadcast, type: v})}><SelectTrigger className="bg-slate-950 border-white/5"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-white/10 text-white"><SelectItem value="INFO">Information</SelectItem><SelectItem value="UPDATE">Update</SelectItem><SelectItem value="ALERT">Alert</SelectItem></SelectContent></Select></div>
+                      <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Target</Label><Select value={newBroadcast.target} onValueChange={v => setNewBroadcast({...newBroadcast, target: v})}><SelectTrigger className="bg-slate-950 border-white/5"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-white/10 text-white"><SelectItem value="ALL">All</SelectItem><SelectItem value="STAFF">Staff</SelectItem><SelectItem value="CUSTOMERS">Customers</SelectItem></SelectContent></Select></div>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Message</Label><Textarea value={newBroadcast.message} onChange={e => setNewBroadcast({...newBroadcast, message: e.target.value})} className="bg-slate-950 border-white/5 min-h-[100px]" /></div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center justify-between p-3 bg-slate-950/40 border border-white/5 rounded-[5px]"><div className="flex items-center gap-2"><Pin className={cn("h-3.5 w-3.5", newBroadcast.isPinned ? "text-primary" : "text-slate-600")} /><span className="text-[10px] font-bold uppercase">Pin</span></div><Switch checked={newBroadcast.isPinned} onCheckedChange={v => setNewBroadcast({...newBroadcast, isPinned: v})} /></div>
+                        <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Expiry</Label><Input type="datetime-local" value={newBroadcast.expiryDate} onChange={e => setNewBroadcast({...newBroadcast, expiryDate: e.target.value})} className="bg-slate-950 border-white/5" /></div>
                       </div>
                     </div>
-                    <DialogFooter>
-                      <Button onClick={handleSendBroadcast} className="w-full bg-primary hover:bg-primary/90 text-white h-11 font-black uppercase tracking-widest text-[11px] rounded-[5px]">
-                        <Send className="h-4 w-4 mr-2" /> Distribute Now
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </CardHeader>
-            <CardContent className="p-0 flex-1 overflow-y-auto">
-              {activeBroadcasts.length > 0 ? (
+                  </div>
+                  <DialogFooter><Button onClick={handleSendBroadcast} className="w-full bg-primary h-11 font-black uppercase text-[11px]">Distribute Now</Button></DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </CardHeader>
+          <CardContent className="p-0 flex-1 overflow-y-auto">
+            {activeBroadcasts.length > 0 ? (
+              <div className="divide-y divide-white/5">
+                {activeBroadcasts.map(b => (
+                  <div key={b.id} className={cn("p-6 space-y-3 transition-all", b.isPinned ? "bg-primary/5 border-l-2 border-primary" : "hover:bg-white/5")}>
+                    <div className="flex items-center justify-between"><Badge className="text-[8px] font-black uppercase px-2 rounded-[3px] bg-primary/10 text-primary border-primary/20">{b.type}</Badge><span className="text-[9px] text-slate-500 font-mono">{format(new Date(b.createdAt), 'dd MMM, HH:mm')}</span></div>
+                    <h4 className="text-sm font-black text-white uppercase">{b.title}</h4>
+                    <p className="text-xs text-slate-400 leading-relaxed font-medium">{b.message}</p>
+                    <div className="flex items-center justify-between pt-2"><p className="text-[9px] text-slate-600 font-bold uppercase">By: {b.authorName}</p>{b.expiresAt && <div className="flex items-center gap-1 text-[9px] text-amber-500/60 font-bold"><Clock className="h-2.5 w-2.5" />Exp: {format(new Date(b.expiresAt), 'dd MMM')}</div>}</div>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="p-12 text-center text-slate-800 italic uppercase text-[10px] font-bold">No announcements</div>}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2 shadow-2xl border-white/5 bg-slate-900 rounded-[5px] flex flex-col overflow-hidden">
+          <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 flex flex-row items-center justify-between shrink-0">
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2"><MessageSquare className="h-4 w-4 text-primary" /> Support Portal</CardTitle>
+            {user.role === 'CUSTOMER' && (
+              <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
+                <DialogTrigger asChild><Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10 rounded-[3px] h-7 text-[9px] font-black uppercase gap-1"><Plus className="h-3.5 w-3.5" /> New Ticket</Button></DialogTrigger>
+                <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px]">
+                  <DialogHeader><DialogTitle className="uppercase tracking-tighter flex items-center gap-2"><LifeBuoy className="h-5 w-5 text-primary" /> Request Assistance</DialogTitle></DialogHeader>
+                  <div className="space-y-4 py-4"><div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Subject</Label><Input value={newTicket.subject} onChange={e => setNewTicket({...newTicket, subject: e.target.value})} className="bg-slate-900 border-white/5" /></div><div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">Message</Label><Textarea value={newTicket.message} onChange={e => setNewTicket({...newTicket, message: e.target.value})} className="bg-slate-900 border-white/5 min-h-[120px]" /></div></div>
+                  <DialogFooter><Button onClick={handleCreateTicket} className="w-full bg-primary h-11 font-black uppercase text-[11px]">Submit Request</Button></DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </CardHeader>
+          <CardContent className="p-0 flex-1 flex overflow-hidden">
+            <div className="w-1/3 border-r border-white/5 overflow-y-auto h-full">
+              {filteredTickets.length > 0 ? (
                 <div className="divide-y divide-white/5">
-                  {activeBroadcasts.map(b => (
-                    <div key={b.id} className={cn("p-6 space-y-3 group relative transition-all", b.isPinned ? "bg-primary/5 border-l-2 border-primary" : "hover:bg-white/5")}>
-                      <div className="flex items-center justify-between">
-                        <Badge className={cn("text-[8px] font-black uppercase px-2 rounded-[3px]", 
-                          b.type === 'ALERT' ? "bg-red-500/10 text-red-500 border-red-500/20" : 
-                          b.type === 'UPDATE' ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-primary/10 text-primary border-primary/20"
-                        )}>
-                          {b.type}
-                        </Badge>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] text-slate-500 font-mono">{format(new Date(b.createdAt), 'dd MMM, HH:mm')}</span>
-                          {user.role === 'SUPER_ADMIN' && (
-                            <button onClick={() => deleteBroadcast(b.id)} className="text-slate-700 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <h4 className="text-sm font-black text-white uppercase tracking-tight">{b.title}</h4>
-                      <p className="text-xs text-slate-400 leading-relaxed font-medium">{b.message}</p>
-                      <div className="flex items-center justify-between pt-2">
-                        <p className="text-[9px] text-slate-600 font-bold uppercase">By: {b.authorName}</p>
-                        {b.expiresAt && (
-                          <div className="flex items-center gap-1 text-[9px] text-amber-500/60 font-bold">
-                            <Clock className="h-2.5 w-2.5" />
-                            Exp: {format(new Date(b.expiresAt), 'dd MMM, HH:mm')}
-                          </div>
-                        )}
-                      </div>
+                  {filteredTickets.map(t => (
+                    <div key={t.id} onClick={() => setSelectedTicket(t)} className={cn("p-4 space-y-2 cursor-pointer transition-all", selectedTicket?.id === t.id ? "bg-primary/10" : "hover:bg-white/5")}>
+                      <div className="flex items-center justify-between"><span className="text-[8px] font-black text-slate-600 font-mono uppercase">#{t.id.slice(-6)}</span><Badge className={cn("text-[7px] font-black px-1.5 h-4", t.status === 'OPEN' ? "bg-green-500/10 text-green-500" : "bg-blue-500/10 text-blue-500")}>{t.status}</Badge></div>
+                      <h5 className="text-[11px] font-black text-white uppercase truncate">{t.subject}</h5>
+                      <div className="flex items-center justify-between"><p className="text-[9px] text-slate-500 truncate">{t.customerName}</p><span className="text-[8px] text-slate-600 font-bold">{format(new Date(t.lastUpdate), 'dd MMM')}</span></div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="p-12 text-center text-slate-600 space-y-3">
-                  <Megaphone className="h-8 w-8 mx-auto opacity-20" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest">No active broadcasts.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column: Support Tickets */}
-        <div className="lg:col-span-2 h-full max-h-[calc(100vh-140px)]">
-          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px] h-full flex flex-col overflow-hidden">
-            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 flex flex-row items-center justify-between shrink-0">
-              <div>
-                <CardTitle className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-primary" /> Territory Support Portal
-                </CardTitle>
-              </div>
-              
-              {user.role === 'CUSTOMER' && (
-                <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/10 rounded-[3px] h-7 text-[9px] font-black uppercase tracking-tighter gap-1">
-                      <Plus className="h-3 w-3" /> New Ticket
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px]">
-                    <DialogHeader>
-                      <DialogTitle className="uppercase tracking-tighter flex items-center gap-2">
-                        <LifeBuoy className="h-5 w-5 text-primary" /> Request Assistance
-                      </DialogTitle>
-                      <DialogDescription className="text-slate-500 text-xs">Describe your issue for the area field staff.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-slate-500">Subject</Label>
-                        <Input value={newTicket.subject} onChange={e => setNewTicket({...newTicket, subject: e.target.value})} placeholder="e.g. Meter Faulty" className="bg-slate-900 border-white/5" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-slate-500">Message</Label>
-                        <Textarea value={newTicket.message} onChange={e => setNewTicket({...newTicket, message: e.target.value})} className="bg-slate-900 border-white/5 min-h-[120px] text-xs" />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={handleCreateTicket} className="w-full bg-primary h-11 font-black uppercase tracking-widest text-[11px] rounded-[5px]">Submit Request</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </CardHeader>
-            
-            <CardContent className="p-0 flex-1 flex overflow-hidden">
-              {/* Ticket List */}
-              <div className="w-1/3 border-r border-white/5 overflow-y-auto h-full">
-                {filteredTickets.length > 0 ? (
-                  <div className="divide-y divide-white/5">
-                    {filteredTickets.map(t => {
-                      const isLocked = t.assignedStaffId && t.assignedStaffId !== user.id && user.role !== 'CUSTOMER' && user.role !== 'SUPER_ADMIN';
+              ) : <div className="p-12 text-center text-slate-800 uppercase text-[10px] font-bold">No tickets</div>}
+            </div>
+            <div className="flex-1 flex flex-col bg-slate-950/20 relative h-full overflow-hidden">
+              {selectedTicket ? (
+                <>
+                  <div className="px-6 py-4 border-b border-white/5 bg-slate-950/40 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black text-primary border border-primary/20">{selectedTicket.customerName[0]}</div><div><h4 className="text-xs font-black text-white uppercase tracking-tight">{selectedTicket.subject}</h4><p className="text-[9px] text-slate-500 font-bold uppercase">{selectedTicket.area}, {selectedTicket.district}</p></div></div>
+                    {user.role !== 'CUSTOMER' && (
+                      <div className="flex items-center gap-2"><Button variant="ghost" size="sm" onClick={() => handleEscalate(selectedTicket, 'SUPER_ADMIN')} className="h-7 text-[8px] font-black uppercase text-slate-500 hover:text-white">Escalate</Button></div>
+                    )}
+                  </div>
+                  <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 h-full">
+                    {selectedTicket.messages.map((m, i) => {
+                      const isMe = m.senderId === user.id;
                       return (
-                        <div 
-                          key={t.id} 
-                          onClick={() => setSelectedTicket(t)}
-                          className={cn("p-4 space-y-2 cursor-pointer transition-all relative group", 
-                            selectedTicket?.id === t.id ? "bg-primary/10" : "hover:bg-white/5"
-                          )}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-[8px] font-black text-slate-600 font-mono uppercase tracking-tighter">#{t.id.slice(-6)}</span>
-                            <Badge className={cn("text-[7px] font-black px-1.5 h-4", 
-                              t.status === 'OPEN' ? "bg-green-500/10 text-green-500" :
-                              t.status === 'REPLIED' ? "bg-blue-500/10 text-blue-500" : "bg-amber-500/10 text-amber-500"
-                            )}>
-                              {t.status}
-                            </Badge>
+                        <div key={i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
+                          <div className={cn("max-w-[85%] rounded-[5px] p-3 space-y-1 shadow-sm", isMe ? "bg-primary text-white" : "bg-slate-900 border border-white/5 text-slate-300")}>
+                            {!isMe && <p className="text-[9px] font-black uppercase opacity-60 mb-0.5">{m.senderName}</p>}
+                            <p className="text-xs leading-relaxed font-medium break-words">{m.text}</p>
+                            <p className={cn("text-[8px] font-bold text-right mt-1", isMe ? "text-white/60" : "text-slate-600")}>{format(new Date(m.timestamp), 'HH:mm')}</p>
                           </div>
-                          <h5 className="text-[11px] font-black text-white uppercase truncate">{t.subject}</h5>
-                          <div className="flex items-center justify-between">
-                            <p className="text-[9px] text-slate-500 truncate">{t.customerName}</p>
-                            <span className="text-[8px] text-slate-600 font-bold">{format(new Date(t.lastUpdate), 'dd MMM')}</span>
-                          </div>
-                          {isLocked && (
-                            <div className="flex items-center gap-1.5 text-[8px] text-amber-500 font-black uppercase mt-1">
-                              <ShieldAlert className="h-2.5 w-2.5" /> Handled by {t.assignedStaffName?.split(' ')[0]}
-                            </div>
-                          )}
                         </div>
                       );
                     })}
                   </div>
-                ) : (
-                  <div className="p-12 text-center text-slate-700 italic text-[10px] uppercase font-bold">No tickets found.</div>
-                )}
-              </div>
-
-              {/* Chat View */}
-              <div className="flex-1 flex flex-col bg-slate-950/20 relative h-full overflow-hidden">
-                {selectedTicket ? (
-                  <>
-                    <div className="px-6 py-4 border-b border-white/5 bg-slate-950/40 flex items-center justify-between shrink-0">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black text-primary border border-primary/20">
-                          {selectedTicket.customerName[0]}
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-black text-white uppercase tracking-tight">{selectedTicket.subject}</h4>
-                          <p className="text-[9px] text-slate-500 font-bold uppercase">{selectedTicket.area}, {selectedTicket.district}</p>
-                        </div>
-                      </div>
-                      
-                      {user.role !== 'CUSTOMER' && (
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleEscalate(selectedTicket, 'SUPER_ADMIN')}
-                            className="h-7 text-[8px] font-black uppercase text-slate-500 hover:text-white rounded-[3px]"
-                          >
-                            Escalate
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="h-7 text-[8px] font-black uppercase border-white/5 rounded-[3px] text-red-400 hover:bg-red-400/10"
-                            onClick={() => {
-                              const updated = tickets.map(t => t.id === selectedTicket.id ? { ...t, status: 'CLOSED' as any } : t);
-                              localStorage.setItem('mywater_support_tickets', JSON.stringify(updated));
-                              setTickets(updated);
-                              setSelectedTicket(null);
-                            }}
-                          >
-                            Close
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 h-full">
-                      {selectedTicket.messages.map((m, i) => {
-                        const isMe = m.senderId === user.id;
-                        return (
-                          <div key={i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
-                            <div className={cn("max-w-[85%] rounded-[5px] p-3 space-y-1 relative shadow-sm", 
-                              isMe ? "bg-primary text-white" : "bg-slate-900 border border-white/5 text-slate-300"
-                            )}>
-                              {!isMe && <p className="text-[9px] font-black uppercase opacity-60 mb-0.5">{m.senderName}</p>}
-                              <p className="text-xs leading-relaxed font-medium break-words">{m.text}</p>
-                              <p className={cn("text-[8px] font-bold text-right mt-1", isMe ? "text-white/60" : "text-slate-600")}>
-                                {format(new Date(m.timestamp), 'HH:mm')}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="p-4 border-t border-white/5 bg-slate-950/40 shrink-0">
-                      {(() => {
-                        const isLocked = selectedTicket.assignedStaffId && 
-                                       selectedTicket.assignedStaffId !== user.id && 
-                                       user.role !== 'CUSTOMER' && 
-                                       user.role !== 'SUPER_ADMIN';
-                        
-                        if (isLocked) {
-                          return (
-                            <div className="text-center py-2 bg-amber-500/5 border border-amber-500/20 rounded-[5px]">
-                              <p className="text-[9px] font-black uppercase text-amber-500">Handled by {selectedTicket.assignedStaffName}</p>
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div className="flex gap-2">
-                            <Input 
-                              value={replyText} 
-                              onChange={e => setReplyText(e.target.value)} 
-                              onKeyDown={e => e.key === 'Enter' && handleReply(selectedTicket)}
-                              placeholder="Type your message..." 
-                              className="bg-slate-950 border-white/5 h-10 text-xs text-white" 
-                            />
-                            <Button onClick={() => handleReply(selectedTicket)} disabled={!replyText} className="h-10 w-10 p-0 bg-primary rounded-[5px]">
-                              <Send className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </>
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-slate-800 space-y-4">
-                    <MessageSquare className="h-12 w-12 opacity-10" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-30">Select a conversation</p>
+                  <div className="p-4 border-t border-white/5 bg-slate-950/40 shrink-0">
+                    <div className="flex gap-2"><Input value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleReply(selectedTicket)} placeholder="Type message..." className="bg-slate-950 border-white/5 h-10 text-xs text-white" /><Button onClick={() => handleReply(selectedTicket)} disabled={!replyText} className="h-10 w-10 p-0 bg-primary"><Send className="h-4 w-4" /></Button></div>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                </>
+              ) : <div className="h-full flex flex-col items-center justify-center text-slate-800 space-y-4"><MessageSquare className="h-12 w-12 opacity-10" /><p className="text-[10px] font-bold uppercase tracking-widest opacity-30">Select a conversation</p></div>}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
