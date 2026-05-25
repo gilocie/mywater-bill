@@ -37,7 +37,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import Link from 'next/link';
 
-export default function DashboardLayout({ children }: { children: React.Node }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout, updateUser, waterRate, setWaterRate, settings, updateSettings } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -132,7 +132,7 @@ export default function DashboardLayout({ children }: { children: React.Node }) 
     loadBroadcasts();
     window.addEventListener('storage', loadBroadcasts);
     return () => window.removeEventListener('storage', loadBroadcasts);
-  }, [user]);
+  }, [user?.id]); // Use id as stable dependency
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -164,7 +164,7 @@ export default function DashboardLayout({ children }: { children: React.Node }) 
         setStaffAccessShortcut(settings.staffAccessShortcut || 'Ctrl+L');
       }
     }
-  }, [user, settings]);
+  }, [user?.id, settings]); // Use id as stable dependency
 
   const handleUpdateProfile = () => {
     updateUser({ name: newName });
@@ -980,7 +980,7 @@ export default function DashboardLayout({ children }: { children: React.Node }) 
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            <div className="bg-primary/10 border-b border-primary/20 px-6 py-3 flex justify-between items-center">
+            <div className="bg-primary/10 border-primary/20 border-b px-6 py-3 flex justify-between items-center">
               <div>
                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Receipt No.</p>
                 <p className="text-xs font-black text-slate-800 font-mono">{lastTestResult?.receiptNo}</p>
@@ -991,10 +991,10 @@ export default function DashboardLayout({ children }: { children: React.Node }) 
               </div>
             </div>
 
-            <div className="px-6 py-8 text-center border-b border-dashed border-slate-200">
+            <div className="border-slate-200 border-dashed border-b px-6 py-8 text-center">
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Amount Verified</p>
-              <p className="text-4xl font-black text-slate-900"><span className="text-primary text-xl">MK</span> {parseFloat(lastTestResult?.amount || '0').toLocaleString()}</p>
-              <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700">
+              <p className="text-4xl font-black text-slate-900"><span className="text-primary text-2xl">MK</span> {parseFloat(lastTestResult?.amount || '0').toLocaleString()}</p>
+              <div className="bg-green-100 text-green-700 mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full">
                 <CheckCircle2 className="h-3 w-3" />
                 <span className="text-[9px] font-black uppercase tracking-wider">Handshake Success</span>
               </div>
@@ -1014,7 +1014,7 @@ export default function DashboardLayout({ children }: { children: React.Node }) 
               ))}
             </div>
 
-            <div className="px-6 pb-4 border-t border-dashed border-slate-200 pt-4">
+            <div className="border-slate-200 border-dashed border-t px-6 pb-4 pt-4">
               <div className="flex justify-center mb-3">
                 <div className="flex gap-px">
                   {Array.from({ length: 40 }).map((_, i) => (
@@ -1029,11 +1029,11 @@ export default function DashboardLayout({ children }: { children: React.Node }) 
             </div>
           </div>
 
-          <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0">
-            <Button variant="outline" className="flex-1 h-9 text-[10px] font-bold uppercase border-slate-200 text-slate-600 gap-2 rounded-[5px]" onClick={handleDownloadReceipt}>
+          <div className="bg-slate-50 border-slate-200 border-t flex gap-2 p-4 shrink-0">
+            <Button variant="outline" className="text-slate-600 border-slate-200 flex-1 h-9 gap-2 rounded-[5px] text-[10px] font-bold uppercase" onClick={handleDownloadReceipt}>
               <Download className="h-3.5 w-3.5" /> Download
             </Button>
-            <Button variant="default" className="flex-1 h-9 bg-slate-900 hover:bg-slate-800 text-[10px] font-bold uppercase text-white rounded-[5px]" onClick={() => setReceiptDialogOpen(false)}>
+            <Button variant="default" className="bg-slate-900 hover:bg-slate-800 text-white flex-1 h-9 rounded-[5px] text-[10px] font-bold uppercase" onClick={() => setReceiptDialogOpen(false)}>
               Close
             </Button>
           </div>
@@ -1052,7 +1052,7 @@ export default function DashboardLayout({ children }: { children: React.Node }) 
             <Input value={tempPortalUrl} onChange={e => setTempPortalUrl(e.target.value)} className="bg-slate-800 border-white/5 mt-2" />
           </div>
           <DialogFooter>
-            <Button onClick={() => { setPortalUrl(tempPortalUrl); setPortalDialogOpen(false); }} className="w-full bg-primary font-bold uppercase text-xs h-9">Update URL</Button>
+            <Button onClick={() => { setPortalUrl(tempPortalUrl); setPortalDialogOpen(false); }} className="bg-primary w-full font-bold uppercase text-xs h-9">Update URL</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

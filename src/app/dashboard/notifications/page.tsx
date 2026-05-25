@@ -42,6 +42,7 @@ export default function BroadcastsPage() {
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [replyText, setReplyText] = useState('');
 
+  // Initial data load and storage listener
   useEffect(() => {
     const loadData = () => {
       const storedB = localStorage.getItem('mywater_broadcasts') || '[]';
@@ -52,18 +53,20 @@ export default function BroadcastsPage() {
 
       const storedU = localStorage.getItem('mywater_all_users') || '[]';
       setAllUsers(JSON.parse(storedU));
-
-      // Mark as read when page is visited
-      if (user) {
-        localStorage.setItem(`mywater_last_read_${user.id}`, Date.now().toString());
-        window.dispatchEvent(new Event('storage'));
-      }
     };
 
     loadData();
     window.addEventListener('storage', loadData);
     return () => window.removeEventListener('storage', loadData);
-  }, [user]);
+  }, []);
+
+  // Mark as read only when component mounts or user identity changes
+  useEffect(() => {
+    if (user?.id) {
+      localStorage.setItem(`mywater_last_read_${user.id}`, Date.now().toString());
+      window.dispatchEvent(new Event('storage'));
+    }
+  }, [user?.id]);
 
   const activeBroadcasts = useMemo(() => {
     const now = new Date();

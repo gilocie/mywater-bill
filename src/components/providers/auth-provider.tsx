@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Role, SystemSettings } from '@/app/lib/mock-data';
 
 interface AuthContextType {
@@ -86,6 +86,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [waterRate, setWaterRateState] = useState(2.5);
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
 
+  const logout = useCallback(() => {
+    setUser(null);
+    localStorage.removeItem('mywater_user');
+  }, []);
+
   useEffect(() => {
     if (!localStorage.getItem('mywater_all_users')) {
       localStorage.setItem('mywater_all_users', JSON.stringify([]));
@@ -116,8 +121,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(res => res.json())
       .then(data => {
         if (data) {
-          setSettings(prev => ({ ...prev, ...data }));
-          localStorage.setItem('mywater_settings', JSON.stringify(data));
+          setSettings(prev => {
+            const merged = { ...prev, ...data };
+            localStorage.setItem('mywater_settings', JSON.stringify(merged));
+            return merged;
+          });
           if (typeof data.waterRate === 'number') {
             setWaterRateState(data.waterRate);
             localStorage.setItem('mywater_rate', data.waterRate.toString());
@@ -136,17 +144,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handleStorageChange = () => {
       const savedUser = localStorage.getItem('mywater_user');
       if (savedUser) {
-        try { setUser(JSON.parse(savedUser)); } catch (e) {}
+        try {
+          const parsed = JSON.parse(savedUser);
+          setUser(prev => {
+            // Prevent unnecessary updates if data hasn't changed structurally
+            if (prev?.id === parsed.id && prev?.walletBalance === parsed.walletBalance && prev?.role === parsed.role) {
+              return prev;
+            }
+            return parsed;
+          });
+        } catch (e) {}
       }
 
       const savedSettings = localStorage.getItem('mywater_settings');
       if (savedSettings) {
         try {
           const parsed = JSON.parse(savedSettings);
-          setSettings(prev => ({ ...prev, ...parsed }));
-          if (typeof parsed.waterRate === 'number') {
-            setWaterRateState(parsed.waterRate);
-          }
+          setSettings(prev => {
+            // Check if settings actually changed to prevent infinite loops
+            if (JSON.stringify(prev) === savedSettings) return prev;
+            if (typeof parsed.waterRate === 'number') {
+              setWaterRateState(parsed.waterRate);
+            }
+            return { ...prev, ...parsed };
+          });
         } catch (e) {}
       }
     };
@@ -183,33 +204,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('mywater_user');
-  };
-
   const register = async (name: string, email: string, password: string) => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     const allUsers = getAllUsers();
-    const registeredStaffCount = allUsers.filter(u => u.role !== 'CUSTOMER').length;
-    const role: Role = registeredStaffCount === 0 ? 'SUPER_ADMIN' : 'DISTRICT_STAFF';
-
     const newUser: User = {
       id: `u-${Date.now()}`,
       name,
       email,
-      role,
+      role: 'DISTRICT_STAFF',
       walletBalance: 0,
-      pin: password,
-      district: 'Lilongwe',
-      area: role === 'DISTRICT_STAFF' ? 'Area 47' : undefined
+      pin: password
     };
 
     const updatedUsers = [...allUsers, newUser];
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
-    
     setUser(newUser);
     localStorage.setItem('mywater_user', JSON.stringify(newUser));
     setIsLoading(false);
