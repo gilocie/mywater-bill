@@ -224,8 +224,8 @@ export default function BroadcastsPage() {
   if (!user) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 flex flex-col">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-white uppercase flex items-center gap-3">
             <Megaphone className="h-8 w-8 text-primary" /> Broadcast Hub
@@ -306,16 +306,16 @@ export default function BroadcastsPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 h-[calc(100vh-200px)] lg:min-h-0">
         {/* Left Column: Active Broadcasts */}
-        <div className="lg:col-span-1 space-y-4">
-          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] h-full overflow-hidden">
-            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4">
+        <div className="lg:col-span-1 h-full">
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] h-full flex flex-col overflow-hidden">
+            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0">
               <CardTitle className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                 <Megaphone className="h-4 w-4" /> Active Announcements
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 max-h-[600px] overflow-y-auto">
+            <CardContent className="p-0 flex-1 overflow-y-auto">
               {activeBroadcasts.length > 0 ? (
                 <div className="divide-y divide-white/5">
                   {activeBroadcasts.map(b => (
@@ -361,9 +361,9 @@ export default function BroadcastsPage() {
         </div>
 
         {/* Right Column: Support Tickets */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 h-full">
           <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px] h-full flex flex-col overflow-hidden">
-            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 flex flex-row items-center justify-between">
+            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 flex flex-row items-center justify-between shrink-0">
               <div>
                 <CardTitle className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-primary" /> Territory Support Portal
@@ -446,10 +446,10 @@ export default function BroadcastsPage() {
               </div>
 
               {/* Chat View */}
-              <div className="flex-1 flex flex-col bg-slate-950/20 relative">
+              <div className="flex-1 flex flex-col bg-slate-950/20 relative h-full">
                 {selectedTicket ? (
                   <>
-                    <div className="px-6 py-4 border-b border-white/5 bg-slate-950/40 flex items-center justify-between">
+                    <div className="px-6 py-4 border-b border-white/5 bg-slate-950/40 flex items-center justify-between shrink-0">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black text-primary border border-primary/20">
                           {selectedTicket.customerName[0]}
@@ -492,12 +492,12 @@ export default function BroadcastsPage() {
                         const isMe = m.senderId === user.id;
                         return (
                           <div key={i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
-                            <div className={cn("max-w-[80%] rounded-[5px] p-3 space-y-1 relative", 
-                              isMe ? "bg-primary text-white shadow-lg shadow-primary/10" : "bg-slate-900 border border-white/5 text-slate-300"
+                            <div className={cn("max-w-[85%] lg:max-w-[70%] rounded-[5px] p-3 space-y-1 relative shadow-sm", 
+                              isMe ? "bg-primary text-white" : "bg-slate-900 border border-white/5 text-slate-300"
                             )}>
                               {!isMe && <p className="text-[9px] font-black uppercase opacity-60 mb-0.5">{m.senderName}</p>}
-                              <p className="text-xs leading-relaxed font-medium">{m.text}</p>
-                              <p className={cn("text-[8px] font-bold text-right", isMe ? "text-white/60" : "text-slate-600")}>
+                              <p className="text-xs leading-relaxed font-medium break-words">{m.text}</p>
+                              <p className={cn("text-[8px] font-bold text-right mt-1", isMe ? "text-white/60" : "text-slate-600")}>
                                 {format(new Date(m.timestamp), 'HH:mm')}
                               </p>
                             </div>
@@ -506,7 +506,7 @@ export default function BroadcastsPage() {
                       })}
                     </div>
 
-                    <div className="p-4 border-t border-white/5 bg-slate-950/40">
+                    <div className="p-4 border-t border-white/5 bg-slate-950/40 shrink-0">
                       {(() => {
                         const isLocked = selectedTicket.assignedStaffId && 
                                        selectedTicket.assignedStaffId !== user.id && 

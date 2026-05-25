@@ -11,7 +11,7 @@ import { GEO_DATA, getRegions, getDistrictNames, getLocations, getAllDistrictsFo
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Broadcast, SupportTicket } from '@/app/lib/mock-data';
+import { Broadcast, SupportTicket, User } from '@/app/lib/mock-data';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -109,9 +109,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       
       const storedBroadcasts = localStorage.getItem('mywater_broadcasts');
       const storedTickets = localStorage.getItem('mywater_support_tickets');
+      const storedUsers = localStorage.getItem('mywater_all_users');
       const lastRead = parseInt(localStorage.getItem(`mywater_last_read_${user.id}`) || '0');
       
       let count = 0;
+      const allUsers: User[] = JSON.parse(storedUsers || '[]');
 
       // 1. Check Broadcasts
       if (storedBroadcasts) {
@@ -152,7 +154,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           count += areaTickets.filter(t => {
             // New ticket or new reply from customer since last read
             const lastMsg = t.messages[t.messages.length - 1];
-            const isCustomerMsg = !allUsers.find(u => u.id === lastMsg.senderId && u.role !== 'CUSTOMER');
             return lastMsg.senderId !== user.id && new Date(t.lastUpdate).getTime() > lastRead;
           }).length;
         }
@@ -164,7 +165,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     loadNotificationCounts();
     window.addEventListener('storage', loadNotificationCounts);
     return () => window.removeEventListener('storage', loadNotificationCounts);
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
