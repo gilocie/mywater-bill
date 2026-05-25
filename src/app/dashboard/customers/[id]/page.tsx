@@ -29,7 +29,8 @@ import {
   History,
   CheckCircle2,
   AlertCircle,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -80,8 +81,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     name: '',
     email: '',
     phoneNumber: '',
+    region: '',
     district: '',
     area: '',
+    address: '',
     meterNumber: '',
     lastMeterReading: 0
   });
@@ -99,10 +102,12 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         setCustomer(found);
         setEditForm({
           name: found.name,
-          email: found.email,
+          email: found.email || '',
           phoneNumber: found.phoneNumber || '',
+          region: found.region || 'Southern',
           district: found.district || '',
           area: found.area || '',
+          address: found.address || '',
           meterNumber: found.meterNumber || '',
           lastMeterReading: found.lastMeterReading || 0
         });
@@ -129,6 +134,16 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     const allUsers: User[] = JSON.parse(usersStr);
     const updatedUsers = allUsers.map(u => u.id === id ? { ...u, ...editForm } : u);
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+    
+    // Sync current session if this is the active user
+    const sessionUserStr = localStorage.getItem('mywater_user');
+    if (sessionUserStr) {
+      const sessionUser = JSON.parse(sessionUserStr);
+      if (sessionUser.id === id) {
+        localStorage.setItem('mywater_user', JSON.stringify({ ...sessionUser, ...editForm }));
+      }
+    }
+
     window.dispatchEvent(new Event('storage'));
     setEditDialogOpen(false);
     toast({ title: "Profile Updated", description: "Customer identity records synchronized." });
@@ -193,6 +208,16 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     } : u);
     
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+    
+    // Sync current session if this is the active user
+    const sessionUserStr = localStorage.getItem('mywater_user');
+    if (sessionUserStr) {
+      const sessionUser = JSON.parse(sessionUserStr);
+      if (sessionUser.id === id) {
+        localStorage.setItem('mywater_user', JSON.stringify({ ...sessionUser, suspensionStatus: newStatus }));
+      }
+    }
+
     window.dispatchEvent(new Event('storage'));
     
     setSuspendDialogOpen(false);
@@ -252,6 +277,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     } : u);
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
 
+    // Sync session
+    const sessionUserStr = localStorage.getItem('mywater_user');
+    if (sessionUserStr) {
+      const sessionUser = JSON.parse(sessionUserStr);
+      if (sessionUser.id === id) {
+        localStorage.setItem('mywater_user', JSON.stringify({ ...sessionUser, lastMeterReading: currentReading, currentMeterReading: currentReading }));
+      }
+    }
+
     setMeterLiters('');
     setInvoiceDialogOpen(false);
     window.dispatchEvent(new Event('storage'));
@@ -261,7 +295,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   if (loading) return null;
   if (!customer) return <div className="h-96 text-center py-12 text-slate-500 uppercase font-black text-[10px]">Registry error</div>;
 
-  const outstandingBalance = bills.filter(b => b.status !== 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
+  const unsettledBalance = bills.filter(b => b.status !== 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
   const isSuspended = customer.suspensionStatus === 'SUSPENDED';
   const totalConsumption = bills.reduce((sum, b) => sum + (b.consumption || 0), 0);
 
@@ -275,7 +309,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="space-y-3">
-      <Button variant="ghost" className="gap-2 -ml-2 text-slate-400 hover:text-primary transition-colors h-6 px-2 rounded-[5px] text-[9px]" onClick={() => router.back()}>
+      <Button variant="ghost" className="gap-2 -ml-2 text-slate-400 hover:text-primary transition-colors h-6 px-2 rounded-[5px] text-[9px]" onClick={() => router.push('/dashboard/customers')}>
         <ArrowLeft className="h-3 w-3" /> Back to Customers
       </Button>
 
@@ -331,7 +365,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </div>
                 <div className="p-2 bg-red-500/5 border border-red-500/10 rounded-[5px]">
                   <p className="text-[7px] text-red-500/60 font-bold uppercase tracking-widest mb-0.5">Unsettled Balance</p>
-                  <p className="text-base font-black text-red-500">MK {fmt(outstandingBalance)}</p>
+                  <p className="text-base font-black text-red-500">MK {fmt(unsettledBalance)}</p>
                 </div>
                 <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <div className="flex items-center justify-between mb-0.5">
@@ -475,54 +509,67 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     </button>
                   </DialogTrigger>
                   <DialogContent className="bg-[#0b101a] border-white/10 text-white rounded-[5px] max-w-md p-0 overflow-hidden shadow-2xl">
-                    <div className="px-8 pt-8 pb-4">
-                      <DialogTitle className="text-xl font-black uppercase tracking-tight mb-1">Edit Customer Identity</DialogTitle>
-                      <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Update profile information and service point details.</p>
+                    <div className="bg-[#1a2333] px-8 py-6 flex items-center gap-3 border-b border-white/5">
+                       <div className="bg-primary/20 p-2 rounded-[5px]">
+                          <Edit className="h-4 w-4 text-primary" />
+                       </div>
+                       <div>
+                          <DialogTitle className="text-sm font-black uppercase tracking-tight">Edit Customer Profile</DialogTitle>
+                          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Modify registry details for **{customer.name}**.</p>
+                       </div>
                     </div>
 
-                    <div className="px-8 py-6 space-y-6">
-                      <div className="space-y-2">
+                    <div className="px-8 py-6 space-y-5 overflow-y-auto max-h-[70vh]">
+                      <div className="space-y-1.5">
                         <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Full Name</Label>
-                        <Input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-bold" />
+                        <Input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="bg-[#0b101a] border-none h-11 text-white font-bold" />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Email Address</Label>
+                        <Input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="bg-[#0b101a] border-none h-11 text-white font-bold" />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Phone Number</Label>
+                        <Input value={editForm.phoneNumber} onChange={e => setEditForm({...editForm, phoneNumber: e.target.value})} className="bg-[#0b101a] border-none h-11 text-white font-bold" />
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Email</Label>
-                          <Input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-bold" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Phone</Label>
-                          <Input value={editForm.phoneNumber} onChange={e => setEditForm({...editForm, phoneNumber: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-bold" />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">District</Label>
-                          <Input value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-bold" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Area</Label>
-                          <Input value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-bold" />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                           <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Meter Number</Label>
-                          <Input value={editForm.meterNumber} onChange={e => setEditForm({...editForm, meterNumber: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-mono font-bold" />
+                          <Input value={editForm.meterNumber} onChange={e => setEditForm({...editForm, meterNumber: e.target.value})} className="bg-[#0b101a] border-none h-11 text-white font-mono font-bold" />
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Prev Meter Reading</Label>
-                          <Input type="number" value={editForm.lastMeterReading} onChange={e => setEditForm({...editForm, lastMeterReading: parseFloat(e.target.value) || 0})} className="bg-[#1a2333] border-none h-11 text-white font-mono font-bold" />
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Last Meter Reading (m³)</Label>
+                          <Input type="number" value={editForm.lastMeterReading} onChange={e => setEditForm({...editForm, lastMeterReading: parseFloat(e.target.value) || 0})} className="bg-[#0b101a] border-none h-11 text-white font-mono font-bold" />
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Region</Label>
+                          <Input value={editForm.region} onChange={e => setEditForm({...editForm, region: e.target.value})} className="bg-[#0b101a] border-none h-10 text-white font-bold text-xs" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">District</Label>
+                          <Input value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})} className="bg-[#0b101a] border-none h-10 text-white font-bold text-xs" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Area</Label>
+                          <Input value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="bg-[#0b101a] border-none h-10 text-white font-bold text-xs" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Address Details</Label>
+                        <Textarea value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} className="bg-[#0b101a] border-none min-h-[80px] text-white font-bold" />
                       </div>
                     </div>
 
-                    <div className="px-8 pb-8">
-                      <Button onClick={handleUpdateProfile} className="w-full h-12 bg-primary hover:bg-primary/90 font-black uppercase text-[11px] tracking-[0.2em] rounded-[5px]">
-                        Update Profile
+                    <div className="px-8 pb-8 pt-4">
+                      <Button onClick={handleUpdateProfile} className="w-full h-12 bg-primary hover:bg-primary/90 font-black uppercase text-[11px] tracking-[0.2em] rounded-[5px] shadow-lg shadow-primary/20">
+                        SAVE PROFILE CHANGES
                       </Button>
                     </div>
                   </DialogContent>
