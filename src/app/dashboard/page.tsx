@@ -97,7 +97,7 @@ export default function DashboardPage() {
   const [gracePeriod, setGracePeriod] = useState('14');
   const [isInvoicing, setIsInvoicing] = useState(false);
 
-  // Currency Formatter
+  // Currency Formatter - 2 decimal places forced
   const format2Dec = (val: number) => {
     return Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
@@ -226,7 +226,7 @@ export default function DashboardPage() {
 
     setMeterLiters('');
     setIsInvoicing(false);
-    toast({ title: "Invoice Issued", description: `MK ${totalAmount.toLocaleString()} generated for ${customer.name}.` });
+    toast({ title: "Invoice Issued", description: `MK ${format2Dec(totalAmount)} generated for ${customer.name}.` });
     window.dispatchEvent(new Event('storage'));
   };
 
@@ -289,7 +289,7 @@ export default function DashboardPage() {
           updateUser({ lastMeterReading: maxReading, currentMeterReading: maxReading });
         }
 
-        toast({ title: "Success", description: `MK ${paidAmount.toLocaleString()} processed.` });
+        toast({ title: "Success", description: `MK ${format2Dec(paidAmount)} processed.` });
         window.dispatchEvent(new Event('storage'));
       },
       onFailure: (error: any) => {
@@ -350,13 +350,13 @@ export default function DashboardPage() {
           <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
             <CardHeader className="pb-2">
               <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-500">District Collection</CardDescription>
-              <CardTitle className="text-2xl font-black text-green-500">MK {districtRevenue.toLocaleString()}</CardTitle>
+              <CardTitle className="text-2xl font-black text-green-500">MK {format2Dec(districtRevenue)}</CardTitle>
             </CardHeader>
           </Card>
           <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
             <CardHeader className="pb-2">
               <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Arrears (Unpaid)</CardDescription>
-              <CardTitle className="text-2xl font-black text-red-500">MK {outstandingArrears.toLocaleString()}</CardTitle>
+              <CardTitle className="text-2xl font-black text-red-500">MK {format2Dec(outstandingArrears)}</CardTitle>
             </CardHeader>
           </Card>
           <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
@@ -468,7 +468,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-black text-white">MK {bill?.totalAmount.toLocaleString()}</p>
+                          <p className="text-sm font-black text-white">MK {format2Dec(bill?.totalAmount || 0)}</p>
                           <span className="text-[8px] font-black text-amber-500 uppercase tracking-tighter bg-amber-500/10 px-1.5 py-0.5 rounded">Pending Payment</span>
                         </div>
                       </div>
@@ -495,7 +495,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-black text-red-500">MK {bill?.totalAmount.toLocaleString()}</p>
+                          <p className="text-sm font-black text-red-500">MK {format2Dec(bill?.totalAmount || 0)}</p>
                           <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase text-white bg-red-500/20 rounded-[3px] mt-1" onClick={() => router.push(`/dashboard/customers/${cust.id}`)}>Disconnect Notice</Button>
                         </div>
                       </div>
@@ -539,7 +539,7 @@ export default function DashboardPage() {
   if (user.role === 'SUPER_ADMIN') {
     const totalCustomers = allUsers.filter(u => u.role === 'CUSTOMER').length;
     const totalRevenue = allBills.filter(b => b.status === 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
-    const totalConsumption = allBills.reduce((sum, b) => sum + b.meterReadingLiters, 0);
+    const totalConsumption = allBills.reduce((sum, b) => sum + (b.consumption || b.meterReadingLiters), 0);
 
     // Dynamic Grouping of Billing Data for the Curve Chart
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -623,42 +623,24 @@ export default function DashboardPage() {
       ? `${path} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`
       : '';
 
-    // Status statistics
-    let paidCount = allBills.filter(b => b.status === 'PAID').length;
-    let pendingCount = allBills.filter(b => b.status === 'PENDING').length;
-    let overdueCount = allBills.filter(b => b.status === 'OVERDUE').length;
-
-    if (allBills.length === 0) {
-      paidCount = 18;
-      pendingCount = 5;
-      overdueCount = 2;
-    }
-    const statusTotal = paidCount + pendingCount + overdueCount;
-    const paidPercent = statusTotal > 0 ? (paidCount / statusTotal) : 0.75;
-    const circumference = 2 * Math.PI * 18;
-
     const appLevel   = settings?.appLevel   || 'district';
     const appCountry = settings?.country    || 'Malawi';
     const appRegion  = settings?.regionName || '';
     const appDistrict= settings?.districtName || '';
 
-    let zoneLabel = 'District';
     let zoneSubtitle = 'Consumption output by district.';
     let zoneKeys: string[] = [];
     let zoneGroupField: 'area' | 'district' | 'region' = 'district';
 
     if (appLevel === 'district') {
-      zoneLabel = 'Area';
       zoneSubtitle = `Consumption by area — ${appDistrict || 'District'} scope.`;
       zoneGroupField = 'area';
       zoneKeys = appDistrict && appRegion ? getLocations(appCountry, appRegion, appDistrict) : ['Chirimba', 'Ndirande', 'Kanjedza', 'Chilomoni', 'Limbe'];
     } else if (appLevel === 'region') {
-      zoneLabel = 'District';
       zoneSubtitle = `Consumption by district — ${appRegion || 'Region'} scope.`;
       zoneGroupField = 'district';
       zoneKeys = appRegion ? getDistrictNames(appCountry, appRegion) : ['Blantyre', 'Zomba', 'Mangochi', 'Mulanje', 'Thyolo'];
     } else {
-      zoneLabel = 'Region';
       zoneSubtitle = 'Consumption by region — National scope.';
       zoneGroupField = 'region';
       zoneKeys = getRegions(appCountry);
@@ -678,15 +660,6 @@ export default function DashboardPage() {
 
     const sortedPerformance = performance.sort((a, b) => b.consumption - a.consumption);
     const hasPerformanceData = sortedPerformance.some(s => s.consumption > 0);
-    const activePerformances = sortedPerformance.filter(p => p.consumption > 0);
-    const avgConsGlobal = activePerformances.length > 0 ? activePerformances.reduce((sum, p) => sum + p.consumption, 0) / activePerformances.length : 0;
-
-    const getUsageCategory = (cons: number) => {
-      if (!hasPerformanceData || cons === 0) return 'LOW';
-      if (cons >= avgConsGlobal * 1.2) return 'HIGH';
-      if (cons < avgConsGlobal * 0.5) return 'LOW';
-      return 'AVERAGE';
-    };
 
     const districtPerformance = !hasPerformanceData ? zoneKeys.slice(0, 5).map(key => ({ name: key, customers: 0, consumption: 0, revenue: 0 })) : sortedPerformance;
     
@@ -702,7 +675,7 @@ export default function DashboardPage() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full -mr-12 -mt-12 blur-2xl" />
             <CardHeader className="pb-2">
               <CardDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Total Revenue</CardDescription>
-              <CardTitle className="text-4xl font-black">MK {totalRevenue.toLocaleString()}</CardTitle>
+              <CardTitle className="text-4xl font-black">MK {format2Dec(totalRevenue)}</CardTitle>
             </CardHeader>
             <CardContent><div className="text-xs text-green-400 flex items-center gap-1 mt-1 font-bold"><ArrowUpRight className="h-3 w-3" /> Real-time</div></CardContent>
           </Card>
@@ -736,7 +709,7 @@ export default function DashboardPage() {
                     <g key={i}><circle cx={p.x} cy={p.y} r="6" fill="#020617" stroke="#2563eb" strokeWidth="2.5" onMouseEnter={() => setHoveredPoint(p)} onMouseLeave={() => setHoveredPoint(null)} /><text x={p.x} y="172" textAnchor="middle" fill="#64748b" className="text-[9px] font-bold font-mono tracking-tighter">{p.data.month}</text></g>
                   ))}
                 </svg>
-                {hoveredPoint && <div className="absolute bg-slate-900/95 backdrop-blur border border-white/10 p-2.5 rounded shadow-xl text-center" style={{ left: `${(hoveredPoint.x / 500) * 85 + 5}%`, top: `${(hoveredPoint.y / 180) * 50}%` }}><p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{hoveredPoint.data.month} Analytics</p><p className="text-xs font-black text-white">{chartView === 'consumption' ? `${hoveredPoint.val.toLocaleString()} m³` : `MK ${hoveredPoint.val.toLocaleString()}`}</p></div>}
+                {hoveredPoint && <div className="absolute bg-slate-900/95 backdrop-blur border border-white/10 p-2.5 rounded shadow-xl text-center" style={{ left: `${(hoveredPoint.x / 500) * 85 + 5}%`, top: `${(hoveredPoint.y / 180) * 50}%` }}><p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{hoveredPoint.data.month} Analytics</p><p className="text-xs font-black text-white">{chartView === 'consumption' ? `${hoveredPoint.val.toLocaleString()} m³` : `MK ${format2Dec(hoveredPoint.val)}`}</p></div>}
               </div>
             </CardContent>
           </Card>
@@ -757,13 +730,11 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Reuse the existing Zone Metrics dialog... */}
       </div>
     );
   }
 
-  // CUSTOMER VIEW (UNMODIFIED)
+  // CUSTOMER VIEW
   if (user.role === 'CUSTOMER') {
     const userBills = allBills.filter(b => b.customerId === user.id);
     const pendingBills = userBills.filter(b => b.status !== 'PAID');

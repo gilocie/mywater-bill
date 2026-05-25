@@ -554,7 +554,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           <span className="font-bold text-white">{range.to === null ? 'Unlimited' : range.to}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-black text-green-400">MK {range.price}</span>
+                          <span className="font-black text-green-400">MK {range.price.toFixed(2)}</span>
                           {waterRateRanges.length > 1 && (
                             <button 
                               onClick={() => handleRemoveRange(idx)} 
@@ -748,7 +748,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   
                   <div className="space-y-1.5">
                     <Label className="text-[9px] font-bold uppercase text-slate-500">Operation Mode</Label>
-                    <Select value={pawapayMode} onValueChange={setPawapayMode}>
+                    <Select value={pawapayMode} onValueChange={pawapayMode}>
                       <SelectTrigger className="bg-slate-950 border-white/5 h-9 rounded-[5px]"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-slate-900 border-white/10 text-white">
                         <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>

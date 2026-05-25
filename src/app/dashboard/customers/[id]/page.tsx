@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { use, useState, useEffect } from 'react';
@@ -97,6 +96,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [editCurrentReadingVal, setEditCurrentReadingVal] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  // Currency helper – 2 decimal places
+  const fmt = (val: number) =>
+    Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   const handleSaveLastReading = () => {
     const readingVal = parseFloat(editLastReading);
     if (isNaN(readingVal) || readingVal < 0) {
@@ -188,7 +191,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const handleSaveConsumption = () => {
     const cons = parseFloat(editConsumptionVal);
     const curr = parseFloat(editCurrentReadingVal);
-    const last = customer?.lastMeterReading || 0;
 
     if (isNaN(cons) || cons < 0) {
       toast({ title: "Error", description: "Please enter a valid consumption.", variant: "destructive" });
@@ -275,7 +277,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       status: 'PENDING',
       dueDate: dueDateStr,
       gracePeriodDays: grace,
-      // New fields
       lastMeterReading: lastReading,
       currentMeterReading: currentReading,
       consumption: consumption,
@@ -302,7 +303,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     
     toast({
       title: "Invoice Issued",
-      description: `MK ${totalAmount.toLocaleString()} generated for ${customer?.name}.`
+      description: `MK ${fmt(totalAmount)} generated for ${customer?.name}.`
     });
     
     window.dispatchEvent(new Event('storage'));
@@ -412,7 +413,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </div>
                 <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">Wallet</p>
-                  <p className="text-sm font-bold text-primary">MK {(customer.walletBalance || 0).toLocaleString()}</p>
+                  <p className="text-sm font-bold text-primary">MK {fmt(customer.walletBalance || 0)}</p>
                 </div>
                 <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">Assigned Area</p>
@@ -440,7 +441,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </div>
                 <div className="p-4 bg-red-500/5 border border-red-500/10 rounded-[5px]">
                   <p className="text-[10px] text-red-500/70 font-bold uppercase tracking-widest mb-1">Unsettled Balance</p>
-                  <p className="text-xl font-black text-red-500">MK {outstandingBalance.toLocaleString()}</p>
+                  <p className="text-xl font-black text-red-500">MK {fmt(outstandingBalance)}</p>
                 </div>
                 <div className="p-4 bg-accent/5 border border-accent/10 rounded-[5px] flex flex-col justify-between">
                   <div className="flex justify-between items-start mb-1">
@@ -501,7 +502,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                             <span>{bill.meterReadingLiters.toLocaleString()} L</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm font-bold text-white text-right">MK {bill.totalAmount.toLocaleString()}</TableCell>
+                        <TableCell className="text-sm font-bold text-white text-right">MK {fmt(bill.totalAmount)}</TableCell>
                         <TableCell className="text-right">
                           <Badge className={bill.status === 'PAID' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-destructive/10 text-destructive border-destructive/20'}>
                             {bill.status}
@@ -590,15 +591,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                             </div>
                             <div className="flex justify-between border-t border-white/5 pt-1.5 mt-1">
                               <span className="text-[9px] font-bold text-slate-500 uppercase">Base Charge</span>
-                              <span className="font-bold text-white">MK {base.toLocaleString()}</span>
+                              <span className="font-bold text-white">MK {fmt(base)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-[9px] font-bold text-slate-500 uppercase">VAT ({settings?.vatRate ?? 16.5}%)</span>
-                              <span className="font-bold text-white">MK {vat.toLocaleString()}</span>
+                              <span className="font-bold text-white">MK {fmt(vat)}</span>
                             </div>
                             <div className="flex justify-between border-t border-white/10 pt-1.5">
                               <span className="text-[9px] font-bold text-slate-500 uppercase font-black">Calculated Total</span>
-                              <span className="font-black text-green-400">MK {tot.toLocaleString()}</span>
+                              <span className="font-black text-green-400">MK {fmt(tot)}</span>
                             </div>
                           </div>
                         );
@@ -696,7 +697,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
       {/* Last Reading Correction Dialog */}
       <Dialog open={lastReadingDialogOpen} onOpenChange={setLastReadingDialogOpen}>
-        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
+        <DialogContent className="bg-slate-900 border-white/5 text-white max-sm rounded-[5px]">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold text-primary flex items-center gap-1.5">
               <Edit className="h-4 w-4" /> Correct Meter Reading
@@ -764,7 +765,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Amount Due</p>
                 <p className="text-4xl font-black text-slate-900">
                   <span className="text-primary text-xl">MK</span>{' '}
-                  {selectedBill.totalAmount.toLocaleString()}
+                  {fmt(selectedBill.totalAmount)}
                 </p>
                 <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${
                   selectedBill.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
@@ -814,7 +815,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-2">
                   <span className="font-bold text-slate-400 uppercase tracking-wider">Subtotal</span>
                   <span className="font-black text-slate-800">
-                    MK {((selectedBill.totalAmount) - (selectedBill.vatAmount || 0)).toLocaleString()}
+                    MK {fmt((selectedBill.totalAmount) - (selectedBill.vatAmount || 0))}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-[10px]">
@@ -822,7 +823,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     VAT ({selectedBill.vatRate !== undefined ? selectedBill.vatRate : settings?.vatRate ?? 16.5}%)
                   </span>
                   <span className="font-black text-slate-800">
-                    MK {(selectedBill.vatAmount || 0).toLocaleString()}
+                    MK {fmt(selectedBill.vatAmount || 0)}
                   </span>
                 </div>
               </div>
@@ -1082,15 +1083,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                   <div className="flex justify-between border-t border-white/5 pt-1.5">
                     <span className="text-[9px] font-bold text-slate-500 uppercase">Base Charge</span>
-                    <span className="font-bold text-white">MK {base.toLocaleString()}</span>
+                    <span className="font-bold text-white">MK {fmt(base)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[9px] font-bold text-slate-500 uppercase">VAT ({settings?.vatRate ?? 16.5}%)</span>
-                    <span className="font-bold text-white">MK {vat.toLocaleString()}</span>
+                    <span className="font-bold text-white">MK {fmt(vat)}</span>
                   </div>
                   <div className="flex justify-between border-t border-white/10 pt-1.5">
                     <span className="text-[9px] font-bold text-slate-500 uppercase font-black">Recalculated Total</span>
-                    <span className="font-black text-green-400">MK {tot.toLocaleString()}</span>
+                    <span className="font-black text-green-400">MK {fmt(tot)}</span>
                   </div>
                 </div>
               );
