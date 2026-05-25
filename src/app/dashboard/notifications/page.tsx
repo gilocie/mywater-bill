@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Megaphone, MessageSquare, Send, Clock, CheckCircle2, AlertTriangle, ShieldAlert, Pin, Users, Trash2, ArrowUpRight, LifeBuoy, MoreVertical, ShieldCheck, Mail, History } from 'lucide-react';
+import { Megaphone, MessageSquare, Send, Clock, CheckCircle2, AlertTriangle, ShieldAlert, Pin, Users, Trash2, ArrowUpRight, LifeBuoy, MoreVertical, ShieldCheck, Mail, History, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
