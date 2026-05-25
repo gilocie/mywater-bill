@@ -6,14 +6,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell, Search, Settings, User as UserIcon, Camera, Save, LogOut, ShieldCheck, Zap, Eye, EyeOff, Settings2, PlayCircle, CheckCircle2, XCircle, FileText, Download, Droplets, Receipt, Plus, Trash2, Globe, Keyboard, Megaphone, X, MessageSquare, MessageCircle } from 'lucide-react';
-import { getRegions, getDistrictNames, getAllDistrictsForCountry, getRegionForDistrict, getLocations } from '@/app/lib/geo-data';
+import { Bell, Search, Settings, User as UserIcon, Camera, LogOut, ShieldCheck, PlayCircle, CheckCircle2, XCircle, Droplets, Receipt, Plus, Trash2, Globe, Megaphone, X, MessageCircle } from 'lucide-react';
+import { getRegions, getDistrictNames, getAllDistrictsForCountry, getRegionForDistrict } from '@/app/lib/geo-data';
 import { GEO_DATA } from '@/app/lib/geo-data';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Broadcast, SupportTicket, User } from '@/app/lib/mock-data';
+import { Broadcast, SupportTicket } from '@/app/lib/mock-data';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +25,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -40,7 +39,7 @@ import { Switch } from '@/components/ui/switch';
 import Link from 'next/link';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, logout, updateUser, waterRate, settings, updateSettings } = useAuth();
+  const { user, isLoading, logout, updateUser, settings, updateSettings } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -300,22 +299,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setWaterRateRanges(waterRateRanges.filter((_, i) => i !== idx));
   };
 
-  const handleTestPurchase = () => {
-    if (!(window as any).BrandPay) return;
-    setTestPurchaseDialogOpen(false);
-    setSettingsDialogOpen(false);
-    (window as any).BrandPay.openCheckout({
-      amount: parseFloat(testPrice),
-      apiKey: pawapayKey,
-      mode: pawapayMode,
-      onSuccess: (result: any) => {
-        setLastTestResult({ ...result, product: testProduct, amount: testPrice, date: new Date().toLocaleString(), receiptNo: `TEST-${Date.now().toString(36).toUpperCase()}` });
-        setTestStatus('success');
-      },
-      onFailure: () => setTestStatus('failure')
-    });
-  };
-
   const handleNotificationClick = (item: any) => {
     router.push(item.link);
   };
@@ -338,14 +321,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex items-center gap-3">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px] relative">
+                  <button className="relative p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px] transition-colors">
                     <Bell className="h-5 w-5" />
                     {unreadCount > 0 && (
                       <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-primary text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-slate-950">
                         {unreadCount}
                       </span>
                     )}
-                  </Button>
+                  </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80 bg-slate-900 border-white/5 text-slate-300 rounded-[5px] p-0 overflow-hidden shadow-2xl">
                   <DropdownMenuLabel className="px-4 py-3 bg-slate-950/50 flex items-center justify-between">
