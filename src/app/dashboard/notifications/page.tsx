@@ -100,7 +100,7 @@ export default function BroadcastsPage() {
     // Staff/Admin filtering: only see tickets in their area, unless escalated to them
     return tickets.filter(t => {
       if (user.role === 'SUPER_ADMIN') return true;
-      if (t.escalatedTo === 'SUPER_ADMIN') return false; 
+      if (t.escalatedTo === 'SUPER_ADMIN') return user.role === 'SUPER_ADMIN'; 
       if (t.escalatedTo === 'ACCOUNTS') return false; 
       
       // Territory match for District Staff
@@ -232,96 +232,86 @@ export default function BroadcastsPage() {
   if (!user) return null;
 
   return (
-    <div className="h-full flex flex-col space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white uppercase flex items-center gap-3">
-            <Megaphone className="h-8 w-8 text-primary" /> Broadcast Hub
-          </h2>
-          <p className="text-slate-400 font-medium">Global announcements and decentralized consumer support.</p>
-        </div>
-        
-        {user.role === 'SUPER_ADMIN' && (
-          <Dialog open={bcDialogOpen} onOpenChange={setBcDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-white rounded-[5px] h-9 gap-2 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">
-                <Plus className="h-4 w-4" /> Create Broadcast
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-slate-900 border-white/10 text-white max-w-4xl rounded-[5px]">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 uppercase tracking-tighter">
-                  <Megaphone className="h-5 w-5 text-primary" /> Distribute Announcement
-                </DialogTitle>
-                <DialogDescription className="text-slate-500 text-xs">Send a verified notice to specific user groups.</DialogDescription>
-              </DialogHeader>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6">
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-500">Subject</Label>
-                    <Input value={newBroadcast.title} onChange={e => setNewBroadcast({...newBroadcast, title: e.target.value})} placeholder="e.g. System Maintenance" className="bg-slate-950 border-white/5 h-10" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-500">Notice Type</Label>
-                    <Select value={newBroadcast.type} onValueChange={v => setNewBroadcast({...newBroadcast, type: v})}>
-                      <SelectTrigger className="bg-slate-950 border-white/5 h-10"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-white/10 text-white">
-                        <SelectItem value="INFO">Information</SelectItem>
-                        <SelectItem value="UPDATE">Utility Update</SelectItem>
-                        <SelectItem value="ALERT">Critical Alert</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-500">Distribution Channel</Label>
-                    <Select value={newBroadcast.target} onValueChange={v => setNewBroadcast({...newBroadcast, target: v})}>
-                      <SelectTrigger className="bg-slate-950 border-white/5 h-10"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-white/10 text-white">
-                        <SelectItem value="ALL">Entire Population (All)</SelectItem>
-                        <SelectItem value="STAFF">Staff & Agents Only</SelectItem>
-                        <SelectItem value="CUSTOMERS">Customers Only</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-500">Message Payload</Label>
-                    <Textarea value={newBroadcast.message} onChange={e => setNewBroadcast({...newBroadcast, message: e.target.value})} className="bg-slate-950 border-white/5 min-h-[100px] text-xs" placeholder="Type your announcement content here..." />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex items-center justify-between p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                      <div className="flex items-center gap-2">
-                        <Pin className={cn("h-3.5 w-3.5", newBroadcast.isPinned ? "text-primary" : "text-slate-600")} />
-                        <span className="text-[10px] font-bold uppercase">Pin</span>
-                      </div>
-                      <Switch checked={newBroadcast.isPinned} onCheckedChange={v => setNewBroadcast({...newBroadcast, isPinned: v})} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-slate-500">Auto-Disappear (Date & Time)</Label>
-                      <Input type="datetime-local" value={newBroadcast.expiryDate} onChange={e => setNewBroadcast({...newBroadcast, expiryDate: e.target.value})} className="bg-slate-950 border-white/5 h-10 text-[10px] text-white" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleSendBroadcast} className="w-full bg-primary hover:bg-primary/90 text-white h-11 font-black uppercase tracking-widest text-[11px] rounded-[5px]">
-                  <Send className="h-4 w-4 mr-2" /> Distribute Now
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-
+    <div className="h-full flex flex-col space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
         {/* Left Column: Active Broadcasts */}
-        <div className="lg:col-span-1 h-full max-h-[calc(100vh-240px)]">
+        <div className="lg:col-span-1 h-full max-h-[calc(100vh-140px)]">
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] h-full flex flex-col overflow-hidden">
-            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0">
+            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0 flex flex-row items-center justify-between">
               <CardTitle className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                 <Megaphone className="h-4 w-4" /> Active Announcements
               </CardTitle>
+              {user.role === 'SUPER_ADMIN' && (
+                <Dialog open={bcDialogOpen} onOpenChange={setBcDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/10 rounded-[3px] h-7 text-[9px] font-black uppercase tracking-tighter gap-1">
+                      <Plus className="h-3 w-3" /> Create
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-900 border-white/10 text-white max-w-4xl rounded-[5px]">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2 uppercase tracking-tighter">
+                        <Megaphone className="h-5 w-5 text-primary" /> Distribute Announcement
+                      </DialogTitle>
+                      <DialogDescription className="text-slate-500 text-xs">Send a verified notice to specific user groups.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6">
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold uppercase text-slate-500">Subject</Label>
+                          <Input value={newBroadcast.title} onChange={e => setNewBroadcast({...newBroadcast, title: e.target.value})} placeholder="e.g. System Maintenance" className="bg-slate-950 border-white/5 h-10" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold uppercase text-slate-500">Notice Type</Label>
+                          <Select value={newBroadcast.type} onValueChange={v => setNewBroadcast({...newBroadcast, type: v})}>
+                            <SelectTrigger className="bg-slate-950 border-white/5 h-10"><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-slate-900 border-white/10 text-white">
+                              <SelectItem value="INFO">Information</SelectItem>
+                              <SelectItem value="UPDATE">Utility Update</SelectItem>
+                              <SelectItem value="ALERT">Critical Alert</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold uppercase text-slate-500">Distribution Channel</Label>
+                          <Select value={newBroadcast.target} onValueChange={v => setNewBroadcast({...newBroadcast, target: v})}>
+                            <SelectTrigger className="bg-slate-950 border-white/5 h-10"><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-slate-900 border-white/10 text-white">
+                              <SelectItem value="ALL">Entire Population (All)</SelectItem>
+                              <SelectItem value="STAFF">Staff & Agents Only</SelectItem>
+                              <SelectItem value="CUSTOMERS">Customers Only</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold uppercase text-slate-500">Message Payload</Label>
+                          <Textarea value={newBroadcast.message} onChange={e => setNewBroadcast({...newBroadcast, message: e.target.value})} className="bg-slate-950 border-white/5 min-h-[100px] text-xs" placeholder="Type your announcement content here..." />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="flex items-center justify-between p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                            <div className="flex items-center gap-2">
+                              <Pin className={cn("h-3.5 w-3.5", newBroadcast.isPinned ? "text-primary" : "text-slate-600")} />
+                              <span className="text-[10px] font-bold uppercase">Pin</span>
+                            </div>
+                            <Switch checked={newBroadcast.isPinned} onCheckedChange={v => setNewBroadcast({...newBroadcast, isPinned: v})} />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] font-bold uppercase text-slate-500">Auto-Disappear</Label>
+                            <Input type="datetime-local" value={newBroadcast.expiryDate} onChange={e => setNewBroadcast({...newBroadcast, expiryDate: e.target.value})} className="bg-slate-950 border-white/5 h-10 text-[10px] text-white" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={handleSendBroadcast} className="w-full bg-primary hover:bg-primary/90 text-white h-11 font-black uppercase tracking-widest text-[11px] rounded-[5px]">
+                        <Send className="h-4 w-4 mr-2" /> Distribute Now
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-y-auto">
               {activeBroadcasts.length > 0 ? (
@@ -369,7 +359,7 @@ export default function BroadcastsPage() {
         </div>
 
         {/* Right Column: Support Tickets */}
-        <div className="lg:col-span-2 h-full max-h-[calc(100vh-240px)]">
+        <div className="lg:col-span-2 h-full max-h-[calc(100vh-140px)]">
           <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px] h-full flex flex-col overflow-hidden">
             <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 flex flex-row items-center justify-between shrink-0">
               <div>
@@ -381,8 +371,8 @@ export default function BroadcastsPage() {
               {user.role === 'CUSTOMER' && (
                 <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm" className="bg-slate-800 text-white border border-white/5 rounded-[3px] h-7 text-[9px] font-black uppercase tracking-tighter">
-                      Open New Ticket
+                    <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/10 rounded-[3px] h-7 text-[9px] font-black uppercase tracking-tighter gap-1">
+                      <Plus className="h-3 w-3" /> New Ticket
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px]">
@@ -500,7 +490,7 @@ export default function BroadcastsPage() {
                         const isMe = m.senderId === user.id;
                         return (
                           <div key={i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
-                            <div className={cn("max-w-[85%] lg:max-w-[70%] rounded-[5px] p-3 space-y-1 relative shadow-sm", 
+                            <div className={cn("max-w-[85%] rounded-[5px] p-3 space-y-1 relative shadow-sm", 
                               isMe ? "bg-primary text-white" : "bg-slate-900 border border-white/5 text-slate-300"
                             )}>
                               {!isMe && <p className="text-[9px] font-black uppercase opacity-60 mb-0.5">{m.senderName}</p>}

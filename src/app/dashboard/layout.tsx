@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
@@ -149,6 +149,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           // Staff see new tickets or escalations in their area
           const areaTickets = tickets.filter(t => {
             if (user.role === 'SUPER_ADMIN') return true;
+            if (t.escalatedTo === 'SUPER_ADMIN') return user.role === 'SUPER_ADMIN'; 
+            if (t.escalatedTo === 'ACCOUNTS') return false; 
+            
+            // Territory match for District Staff
             return t.area === user.area && t.district === user.district;
           });
           count += areaTickets.filter(t => {
@@ -165,7 +169,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     loadNotificationCounts();
     window.addEventListener('storage', loadNotificationCounts);
     return () => window.removeEventListener('storage', loadNotificationCounts);
-  }, [user?.id]);
+  }, [user?.id, user?.role, user?.area, user?.district]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
