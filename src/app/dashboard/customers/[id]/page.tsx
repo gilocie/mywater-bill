@@ -99,7 +99,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   });
 
   const fmt = (val: number) =>
-    Number(val).toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const loadData = () => {
     const usersStr = localStorage.getItem('mywater_all_users');
