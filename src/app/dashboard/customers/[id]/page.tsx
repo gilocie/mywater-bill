@@ -538,59 +538,63 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       {/* Recalculate Consumption Dialog */}
       <Dialog open={recalculateDialogOpen} onOpenChange={setRecalculateDialogOpen}>
         <DialogContent className="bg-[#0b101a] border-white/10 text-white max-w-sm rounded-[5px] p-0 overflow-hidden shadow-2xl">
-          <div className="bg-[#1a2333] px-6 py-4 flex items-center gap-3 border-b border-white/5">
-             <div className="bg-primary/20 p-2 rounded-[5px]">
-                <Edit className="h-4 w-4 text-primary" />
+          <div className="bg-[#1a2333] px-6 py-2.5 flex items-center gap-3 border-b border-white/5">
+             <div className="bg-primary/20 p-1.5 rounded-[5px]">
+                <Edit className="h-3.5 w-3.5 text-primary" />
              </div>
              <div>
-                <DialogTitle className="text-sm font-black uppercase tracking-tight">Edit Consumption & Recalculate</DialogTitle>
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Recalculate the active outstanding invoice charge for **{customer.name}**.</p>
+                <DialogTitle className="text-xs font-black uppercase tracking-tight">Edit Consumption & Recalculate</DialogTitle>
+                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Recalculate the active outstanding invoice charge.</p>
              </div>
           </div>
           
-          <div className="px-6 py-6 space-y-6">
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Consumption (m³)</Label>
+          <div className="px-6 py-3 space-y-3">
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Consumption (m³)</Label>
                 <input 
                   type="number" 
                   value={editConsumptionValue} 
                   onChange={e => setEditConsumptionValue(e.target.value)} 
                   placeholder="e.g. 250" 
-                  className="w-full rounded-md bg-[#121926] border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
+                  className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Equivalent Current Reading (m³)</Label>
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Equivalent Current Reading (m³)</Label>
                 <input 
                   type="number" 
-                  readOnly
-                  value={recalcCurrentReading} 
-                  className="w-full rounded-md bg-[#0b101a] border-white/5 h-10 px-3 font-black text-slate-400 text-sm cursor-not-allowed" 
+                  value={String(recalcCurrentReading)} 
+                  onChange={e => {
+                    const val = parseFloat(e.target.value);
+                    const lastReading = customer?.lastMeterReading || 0;
+                    setEditConsumptionValue(isNaN(val) ? '' : String(val - lastReading));
+                  }} 
+                  className="w-full rounded-md bg-[#121926] border-white/5 h-8 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
                 />
               </div>
             </div>
 
-            <div className="space-y-3 pt-2">
-              <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+            <div className="space-y-2 pt-1">
+              <div className="flex justify-between items-center text-[8px] font-bold text-slate-500">
                 <span className="uppercase">Last Reading</span>
                 <span className="font-mono text-slate-300">{recalcLastReading} m³</span>
               </div>
-              <div className="flex justify-between items-center text-[10px] font-black border-t border-white/5 pt-2 text-primary">
+              <div className="flex justify-between items-center text-[9px] font-black border-t border-white/5 pt-1.5 text-primary">
                 <span className="uppercase">New Consumption</span>
                 <span className="font-mono">{recalcConsumption} m³</span>
               </div>
               
-              <div className="border-t border-white/5 pt-3 space-y-2">
-                 <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+              <div className="border-t border-white/5 pt-2 space-y-1">
+                 <div className="flex justify-between items-center text-[8px] font-bold text-slate-500">
                     <span className="uppercase">Base Charge</span>
                     <span className="text-white">MK {fmt(recalcBaseCharge)}</span>
                  </div>
-                 <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+                 <div className="flex justify-between items-center text-[8px] font-bold text-slate-500">
                     <span className="uppercase">VAT (16.5%)</span>
                     <span className="text-white">MK {fmt(recalcVatAmount)}</span>
                  </div>
-                 <div className="flex justify-between items-center text-[12px] font-black border-t border-white/5 pt-2 text-green-500">
+                 <div className="flex justify-between items-center text-[10px] font-black border-t border-white/5 pt-1.5 text-green-500">
                     <span className="uppercase tracking-widest">Recalculated Total</span>
                     <span className="font-mono">MK {fmt(recalcTotal)}</span>
                  </div>
@@ -598,8 +602,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
 
-          <div className="px-6 pb-6 pt-2">
-            <Button onClick={handleRecalculateAndSave} className="w-full h-11 bg-primary hover:bg-primary/90 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-primary/20 rounded-[5px]">
+          <div className="px-6 pb-4 pt-1">
+            <Button onClick={handleRecalculateAndSave} className="w-full h-9 bg-primary hover:bg-primary/90 font-black uppercase text-[9px] tracking-[0.2em] shadow-lg shadow-primary/20 rounded-[5px]">
               RECALCULATE & SAVE
             </Button>
           </div>
@@ -889,4 +893,3 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     </div>
   );
 }
-
