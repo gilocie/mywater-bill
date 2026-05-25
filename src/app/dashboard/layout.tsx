@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -6,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell, Search, Settings, User as UserIcon, Camera, LogOut, ShieldCheck, PlayCircle, CheckCircle2, XCircle, Droplets, Receipt, Plus, Trash2, Globe, Megaphone, X, MessageCircle } from 'lucide-react';
+import { Bell, Search, Settings, User as UserIcon, Camera, LogOut, ShieldCheck, PlayCircle, CheckCircle2, XCircle, Droplets, Receipt, Plus, Trash2, Globe, Megaphone, X, MessageCircle, Eye, EyeOff } from 'lucide-react';
 import { getRegions, getDistrictNames, getAllDistrictsForCountry, getRegionForDistrict } from '@/app/lib/geo-data';
 import { GEO_DATA } from '@/app/lib/geo-data';
 import { Input } from '@/components/ui/input';
@@ -34,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs as TabsRoot } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import Link from 'next/link';
@@ -99,12 +99,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Security States
   const [staffAccessToggle, setStaffAccessToggle] = useState(true);
   const [staffAccessShortcut, setStaffAccessShortcut] = useState('Ctrl+L');
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/');
-    }
-  }, [user, isLoading, router]);
 
   const loadNotificationCounts = useCallback(() => {
     if (!user) return;
@@ -173,6 +167,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setUnreadCount(count);
     setUnreadItems(items);
   }, [user]);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/');
+    }
+  }, [user, isLoading, router]);
 
   useEffect(() => {
     loadNotificationCounts();
@@ -442,7 +442,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> System Configuration</DialogTitle>
           </DialogHeader>
-          <Tabs defaultValue="pricing" className="w-full mt-4">
+          <TabsRoot defaultValue="pricing" className="w-full mt-4">
             <TabsList className="grid grid-cols-6 bg-slate-950/60 p-1 border border-white/5 rounded-[5px] mb-4">
               <TabsTrigger value="pricing" className="text-[10px] uppercase font-bold tracking-tight py-2">Pricing</TabsTrigger>
               <TabsTrigger value="branding" className="text-[10px] uppercase font-bold tracking-tight py-2">Brand</TabsTrigger>
@@ -576,7 +576,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               </div>
             </TabsContent>
-          </Tabs>
+          </TabsRoot>
           <DialogFooter className="mt-6 border-t border-white/5 pt-4"><Button onClick={handleUpdateSettings} className="w-full">Save Configuration</Button></DialogFooter>
         </DialogContent>
       </Dialog>
