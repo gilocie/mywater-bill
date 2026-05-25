@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { use, useState, useEffect } from 'react';
+import React, { use, useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { User, Bill, SupportTicket, SupportMessage } from '@/app/lib/mock-data';
@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from '@/lib/utils';
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -292,6 +293,17 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     toast({ title: "Invoice Issued", description: `MK ${fmt(totalAmount)} generated.` });
   };
 
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    return [...bills]
+      .reverse()
+      .slice(-6)
+      .map(b => ({
+        date: b.date.split(' ')[0] + ' ' + b.date.split(' ')[1],
+        amount: b.consumption || 0
+      }));
+  }, [bills]);
+
   if (loading) return null;
   if (!customer) return <div className="h-96 text-center py-12 text-slate-500 uppercase font-black text-[10px]">Registry error</div>;
 
@@ -444,21 +456,21 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <Label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Current Meter Reading</Label>
-                          <Input 
+                          <input 
                             type="number" 
                             value={meterLiters} 
                             onChange={e => setMeterLiters(e.target.value)} 
                             placeholder={`Min: ${customer.lastMeterReading || 0}`} 
-                            className="bg-[#0b101a] border-white/5 h-10 font-black text-white focus:border-primary transition-all text-sm placeholder:text-slate-700" 
+                            className="w-full rounded-md bg-[#0b101a] border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm placeholder:text-slate-700" 
                           />
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Grace Period (Days)</Label>
-                          <Input 
+                          <input 
                             type="number" 
                             value={gracePeriod} 
                             onChange={e => setGracePeriod(e.target.value)} 
-                            className="bg-[#0b101a] border-white/5 h-10 font-black text-white focus:border-primary transition-all text-sm" 
+                            className="w-full rounded-md bg-[#0b101a] border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
                           />
                         </div>
                       </div>
@@ -496,7 +508,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
                     <div className="px-6 pb-6 pt-2">
                       <Button onClick={handleIssueInvoice} className="w-full h-11 bg-primary hover:bg-primary/90 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-primary/20 rounded-[5px]">
-                        Generate & Send
+                        GENERATE & SEND
                       </Button>
                     </div>
                   </DialogContent>
@@ -519,56 +531,56 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                        </div>
                     </div>
 
-                    <div className="px-8 py-6 space-y-5 overflow-y-auto max-h-[70vh]">
-                      <div className="space-y-1.5">
+                    <div className="px-8 py-6 space-y-4 overflow-y-auto max-h-[70vh]">
+                      <div className="space-y-1">
                         <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Full Name</Label>
-                        <Input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="bg-[#0b101a] border-none h-11 text-white font-bold" />
+                        <input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
                       </div>
 
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Email Address</Label>
-                        <Input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="bg-[#0b101a] border-none h-11 text-white font-bold" />
+                        <input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
                       </div>
 
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Phone Number</Label>
-                        <Input value={editForm.phoneNumber} onChange={e => setEditForm({...editForm, phoneNumber: e.target.value})} className="bg-[#0b101a] border-none h-11 text-white font-bold" />
+                        <input value={editForm.phoneNumber} onChange={e => setEditForm({...editForm, phoneNumber: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-3 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Meter Number</Label>
-                          <Input value={editForm.meterNumber} onChange={e => setEditForm({...editForm, meterNumber: e.target.value})} className="bg-[#0b101a] border-none h-11 text-white font-mono font-bold" />
+                          <input value={editForm.meterNumber} onChange={e => setEditForm({...editForm, meterNumber: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-3 text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Last Meter Reading (m³)</Label>
-                          <Input type="number" value={editForm.lastMeterReading} onChange={e => setEditForm({...editForm, lastMeterReading: parseFloat(e.target.value) || 0})} className="bg-[#0b101a] border-none h-11 text-white font-mono font-bold" />
+                          <input type="number" value={editForm.lastMeterReading} onChange={e => setEditForm({...editForm, lastMeterReading: parseFloat(e.target.value) || 0})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-3 text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-3 gap-3">
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Region</Label>
-                          <Input value={editForm.region} onChange={e => setEditForm({...editForm, region: e.target.value})} className="bg-[#0b101a] border-none h-10 text-white font-bold text-xs" />
+                          <input value={editForm.region} onChange={e => setEditForm({...editForm, region: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-2 text-white font-bold text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">District</Label>
-                          <Input value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})} className="bg-[#0b101a] border-none h-10 text-white font-bold text-xs" />
+                          <input value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-2 text-white font-bold text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Area</Label>
-                          <Input value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="bg-[#0b101a] border-none h-10 text-white font-bold text-xs" />
+                          <input value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 h-9 px-2 text-white font-bold text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
                         </div>
                       </div>
 
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Address Details</Label>
-                        <Textarea value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} className="bg-[#0b101a] border-none min-h-[80px] text-white font-bold" />
+                        <textarea value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} className="w-full rounded-md bg-[#121926] border-white/5 min-h-[60px] px-3 py-2 text-white font-bold focus:outline-none focus:ring-1 focus:ring-primary text-xs resize-none" />
                       </div>
                     </div>
 
                     <div className="px-8 pb-8 pt-4">
-                      <Button onClick={handleUpdateProfile} className="w-full h-12 bg-primary hover:bg-primary/90 font-black uppercase text-[11px] tracking-[0.2em] rounded-[5px] shadow-lg shadow-primary/20">
+                      <Button onClick={handleUpdateProfile} className="w-full h-11 bg-primary hover:bg-primary/90 font-black uppercase text-[10px] tracking-[0.2em] rounded-[5px] shadow-lg shadow-primary/20">
                         SAVE PROFILE CHANGES
                       </Button>
                     </div>
@@ -631,7 +643,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <CardContent className="px-4 py-2 space-y-2">
               <Textarea 
                 placeholder="Add field notes..." 
-                className="bg-slate-950 border-white/5 text-[9px] min-h-[70px] resize-none focus:border-primary transition-all rounded-[5px] p-2" 
+                className="bg-slate-950 border-white/5 text-[9px] min-h-[60px] resize-none focus:border-primary transition-all rounded-[5px] p-2" 
                 value={note} 
                 onChange={e => setNote(e.target.value)} 
               />
@@ -677,19 +689,82 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       <Dialog open={usageReportsOpen} onOpenChange={setUsageReportsOpen}>
-        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-xl rounded-[5px]">
-          <DialogHeader>
-            <DialogTitle className="uppercase tracking-tight flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" /> Consumption Analytics
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-12 text-center">
-            <History className="h-12 w-12 text-slate-700 mx-auto mb-4" />
-            <p className="text-slate-500 font-medium text-sm">Detailed consumption charts and seasonal trends for {customer.name} will be available in the next system update.</p>
+        <DialogContent className="bg-[#0b101a] border-white/10 text-white max-w-2xl rounded-[5px] p-0 overflow-hidden shadow-2xl">
+          <div className="bg-[#1a2333] px-6 py-4 flex items-center gap-3 border-b border-white/5">
+             <div className="bg-primary/20 p-2 rounded-[5px]">
+                <BarChart3 className="h-4 w-4 text-primary" />
+             </div>
+             <div>
+                <DialogTitle className="text-sm font-black uppercase tracking-tight">Consumption Analytics</DialogTitle>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Historical usage trends for **{customer.name}**.</p>
+             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={() => setUsageReportsOpen(false)} className="w-full bg-slate-800 hover:bg-slate-700 uppercase font-bold text-xs">Close Analytics</Button>
-          </DialogFooter>
+          
+          <div className="px-6 py-8">
+            {chartData.length > 0 ? (
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorUsage" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="#64748b" 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      stroke="#64748b" 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false}
+                      tickFormatter={(value) => `${value}m³`}
+                    />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '5px', fontSize: '10px' }}
+                      itemStyle={{ color: '#2563eb', fontWeight: 'bold' }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="amount" 
+                      stroke="#2563eb" 
+                      strokeWidth={3}
+                      fillOpacity={1} 
+                      fill="url(#colorUsage)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="py-12 text-center">
+                <History className="h-12 w-12 text-slate-700 mx-auto mb-4" />
+                <p className="text-slate-500 font-medium text-sm">No billing records found for this customer.</p>
+              </div>
+            )}
+            
+            <div className="mt-6 grid grid-cols-2 gap-4">
+              <div className="p-3 bg-slate-900/50 border border-white/5 rounded-[5px]">
+                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-1">Lifetime Consumption</p>
+                <p className="text-xl font-black text-white">{totalConsumption} m³</p>
+              </div>
+              <div className="p-3 bg-slate-900/50 border border-white/5 rounded-[5px]">
+                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-1">Total Invoices</p>
+                <p className="text-xl font-black text-white">{bills.length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 pb-6 pt-2">
+            <Button onClick={() => setUsageReportsOpen(false)} className="w-full h-11 bg-slate-800 hover:bg-slate-700 font-black uppercase text-[10px] tracking-[0.2em] rounded-[5px]">
+              CLOSE ANALYTICS
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
