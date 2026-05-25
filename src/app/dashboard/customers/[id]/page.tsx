@@ -371,7 +371,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <div className="flex items-center justify-between mb-0.5">
                     <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Last Metre Reading</p>
-                    <Edit className="h-2 w-2 text-primary opacity-50" />
+                    <button onClick={() => setEditDialogOpen(true)} className="hover:scale-110 transition-transform">
+                      <Edit className="h-3 w-3 text-primary" />
+                    </button>
                   </div>
                   <p className="text-base font-black text-white">{customer.lastMeterReading || 0} m³</p>
                 </div>
@@ -382,7 +384,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <div className="flex items-center justify-between mb-0.5">
                     <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Consumption</p>
-                    <Droplets className="h-2 w-2 text-primary opacity-50" />
+                    <button onClick={() => setEditDialogOpen(true)} className="hover:scale-110 transition-transform">
+                      <Edit className="h-3 w-3 text-primary" />
+                    </button>
                   </div>
                   <p className="text-base font-black text-white">{totalConsumption} m³</p>
                 </div>
@@ -401,7 +405,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               <div className="rounded-[5px] border border-white/5 overflow-hidden">
                 <Table>
                   <TableHeader className="bg-slate-950/50">
-                    <TableRow className="border-b border-white/5 hover:bg-transparent">
+                    <TableRow className="border-b border-white/5 hover:bg-transparent h-10">
                       <TableHead className="text-[7px] font-bold uppercase text-slate-500 tracking-widest h-6">Date</TableHead>
                       <TableHead className="text-[7px] font-bold uppercase text-slate-500 tracking-widest h-6">Usage</TableHead>
                       <TableHead className="text-[7px] font-bold uppercase text-slate-500 tracking-widest h-6">Amount</TableHead>
