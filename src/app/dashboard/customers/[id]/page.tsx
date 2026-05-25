@@ -27,12 +27,13 @@ import {
   ShieldAlert,
   Trash2,
   FileText,
-  Printer,
   Receipt,
   CheckCircle2,
-  AlertTriangle,
   History,
-  XCircle
+  XCircle,
+  Wallet,
+  Activity,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -69,22 +70,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [note, setNote] = useState('');
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [meterLiters, setMeterLiters] = useState('');
+  const [gracePeriod, setGracePeriod] = useState('14');
   
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [viewBillDialogOpen, setViewBillDialogOpen] = useState(false);
-
-  const [editProfileOpen, setEditProfileOpen] = useState(false);
-  const [profileForm, setProfileForm] = useState({
-    name: '',
-    email: '',
-    phoneNumber: '',
-    meterNumber: '',
-    region: '',
-    district: '',
-    area: '',
-    address: '',
-    lastMeterReading: '0'
-  });
 
   const [usageReportsOpen, setUsageReportsOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -99,19 +88,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       const users: User[] = JSON.parse(usersStr);
       found = users.find(u => u.id === id) || null;
       setCustomer(found);
-      if (found) {
-        setProfileForm({
-          name: found.name || '',
-          email: found.email || '',
-          phoneNumber: found.phoneNumber || '',
-          meterNumber: found.meterNumber || '',
-          region: found.region || 'Southern',
-          district: found.district || 'Blantyre',
-          area: found.area || '',
-          address: found.address || '',
-          lastMeterReading: (found.lastMeterReading || 0).toString()
-        });
-      }
     }
 
     const billsStr = localStorage.getItem('mywater_all_bills') || '[]';
@@ -220,7 +196,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       totalAmount: totalAmount,
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       status: 'PENDING',
-      dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + parseInt(gracePeriod) * 86400000).toISOString().split('T')[0],
       lastMeterReading: lastReading,
       currentMeterReading: currentReading,
       consumption,
@@ -246,6 +222,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   const outstandingBalance = bills.filter(b => b.status !== 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
   const isSuspended = customer.suspensionStatus === 'SUSPENDED';
+  const totalConsumption = bills.reduce((sum, b) => sum + (b.consumption || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -260,12 +237,12 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <CardHeader className="pb-4 pt-6 px-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-2xl font-black text-white uppercase">{customer.name}</CardTitle>
+                  <CardTitle className="text-3xl font-black text-white uppercase">{customer.name}</CardTitle>
                   <CardDescription className="flex items-center gap-2 mt-1 text-slate-400 font-medium">
                     <MapPin className="h-3.5 w-3.5 text-primary" /> {customer.district}, {customer.area}
                   </CardDescription>
                 </div>
-                <Badge className="h-7 bg-primary/10 text-primary border-primary/20 font-mono font-bold px-3 rounded-[5px]">
+                <Badge className="h-7 bg-slate-800 text-primary border-white/5 font-mono font-bold px-3 rounded-[5px] uppercase tracking-widest">
                   METER: {customer.meterNumber}
                 </Badge>
               </div>
@@ -283,15 +260,36 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </div>
                 <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">Region</p>
-                  <p className="text-sm font-bold text-white">{customer.region || 'Southern'}</p>
+                  <p className="text-sm font-bold text-white uppercase">{customer.region || 'Southern'}</p>
                 </div>
                 <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">Wallet</p>
                   <p className="text-sm font-bold text-primary">MK {fmt(customer.walletBalance || 0)}</p>
                 </div>
                 <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">Unsettled Balance</p>
-                  <p className="text-sm font-black text-red-500">MK {fmt(outstandingBalance)}</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">Assigned Area</p>
+                  <p className="text-sm font-bold text-white uppercase">{customer.area || 'Unknown'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Last Metre Reading</p>
+                    <Edit className="h-3 w-3 text-primary" />
+                  </div>
+                  <p className="text-2xl font-black text-white">{customer.lastMeterReading || 0} m³</p>
+                </div>
+                <div className="p-4 bg-red-500/5 border border-red-500/10 rounded-[5px]">
+                  <p className="text-[10px] text-red-500/60 font-bold uppercase tracking-widest mb-1.5">Unsettled Balance</p>
+                  <p className="text-2xl font-black text-red-500">MK {fmt(outstandingBalance)}</p>
+                </div>
+                <div className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Consumption</p>
+                    <Droplets className="h-3 w-3 text-primary" />
+                  </div>
+                  <p className="text-2xl font-black text-white">{totalConsumption} m³</p>
                 </div>
               </div>
             </CardContent>
@@ -300,7 +298,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="px-6 pt-6 pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-bold text-white uppercase tracking-tight">Billing History</CardTitle>
+                <CardTitle className="text-lg font-black text-white uppercase tracking-tighter">Billing History</CardTitle>
                 <History className="h-4 w-4 text-slate-500" />
               </div>
             </CardHeader>
@@ -309,20 +307,20 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <Table>
                   <TableHeader className="bg-slate-950/50">
                     <TableRow className="border-b border-white/5 hover:bg-transparent">
-                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Date</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Usage</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest text-right">Amount</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest text-right">Status</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Date</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Usage</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Amount</TableHead>
+                      <TableHead className="text-right text-[10px] font-bold uppercase text-slate-500 tracking-widest h-10">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {bills.length > 0 ? bills.map((bill) => (
                       <TableRow key={bill.id} onClick={() => { setSelectedBill(bill); setViewBillDialogOpen(true); }} className="border-b border-white/5 hover:bg-white/5 cursor-pointer">
-                        <TableCell className="text-xs text-white font-medium">{bill.date}</TableCell>
-                        <TableCell className="text-xs text-slate-400">{bill.consumption} m³</TableCell>
-                        <TableCell className="text-sm font-bold text-white text-right">MK {fmt(bill.totalAmount)}</TableCell>
+                        <TableCell className="text-xs text-white font-bold">{bill.date}</TableCell>
+                        <TableCell className="text-xs text-slate-400">{bill.consumption || 0} m³</TableCell>
+                        <TableCell className="text-sm font-black text-white">MK {fmt(bill.totalAmount)}</TableCell>
                         <TableCell className="text-right">
-                          <Badge className={cn("text-[10px] uppercase", bill.status === 'PAID' ? 'bg-green-500/10 text-green-500' : 'bg-destructive/10 text-destructive')}>
+                          <Badge className={cn("text-[9px] uppercase h-5 font-black tracking-tighter", bill.status === 'PAID' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500')}>
                             {bill.status}
                           </Badge>
                         </TableCell>
@@ -337,104 +335,117 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
         <div className="w-full md:w-80 space-y-4">
           <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
-            <CardHeader className="px-5 pt-6 pb-3">
+            <CardHeader className="px-5 pt-6 pb-3 border-b border-white/5">
               <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Operational Actions</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 px-5 pb-4">
+            <CardContent className="space-y-3 px-5 py-4">
               <div className="grid grid-cols-2 gap-2">
                 <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="w-full bg-primary hover:bg-primary/90 text-white gap-1.5 h-9 text-[10px] font-bold uppercase rounded-[5px]">
+                    <button className="flex items-center justify-center gap-1.5 w-full bg-primary hover:bg-primary/90 text-white h-10 text-[10px] font-black uppercase rounded-[5px] transition-all">
                       <FileText className="h-3.5 w-3.5" /> Issue Invoice
-                    </Button>
+                    </button>
                   </DialogTrigger>
-                  <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
+                  <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px]">
                     <DialogHeader>
-                      <DialogTitle className="text-sm font-bold flex items-center gap-2 text-primary">
-                        <FileText className="h-4 w-4" /> Issue Invoice
+                      <DialogTitle className="text-sm font-bold flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary" /> Generate Bill
                       </DialogTitle>
                     </DialogHeader>
                     <div className="py-4 space-y-4">
                       <div className="space-y-1.5">
-                        <Label className="text-[9px] font-bold uppercase text-slate-500">Current Meter Reading</Label>
+                        <Label className="text-[9px] font-bold uppercase text-slate-500">Current Reading (m³)</Label>
                         <Input 
                           type="number" 
                           value={meterLiters} 
                           onChange={e => setMeterLiters(e.target.value)} 
-                          placeholder={`Min: ${customer.lastMeterReading || 0}`} 
-                          className="bg-slate-950 border-white/5 h-10 font-bold text-white" 
+                          placeholder={`Last: ${customer.lastMeterReading || 0}`} 
+                          className="bg-slate-900 border-white/5 h-10 font-bold" 
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-bold uppercase text-slate-500">Grace Period (Days)</Label>
+                        <Input 
+                          type="number" 
+                          value={gracePeriod} 
+                          onChange={e => setGracePeriod(e.target.value)} 
+                          className="bg-slate-900 border-white/5 h-10" 
                         />
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={handleIssueInvoice} className="w-full h-10 bg-primary font-bold uppercase">Generate & Send</Button>
+                      <Button onClick={handleIssueInvoice} className="w-full h-11 bg-primary font-black uppercase">Execute Invoice</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-                <Button onClick={() => setEditProfileOpen(true)} variant="outline" className="w-full border-white/5 bg-slate-800 text-white hover:bg-slate-700 h-9 text-[10px] font-bold uppercase rounded-[5px]">
-                  <Edit className="h-3 w-3 mr-1.5" /> Edit Profile
-                </Button>
+                <button className="flex items-center justify-center gap-1.5 w-full border border-white/10 bg-slate-800/40 text-white hover:bg-slate-800 h-10 text-[10px] font-black uppercase rounded-[5px] transition-all">
+                  <Edit className="h-3.5 w-3.5" /> Edit Profile
+                </button>
               </div>
               
-              <Button 
+              <button 
                 onClick={handleSuspend} 
-                className={cn("w-full gap-1.5 h-9 text-[10px] font-bold uppercase rounded-[5px] text-white transition-all", isSuspended ? "bg-green-600 hover:bg-green-700" : "bg-red-500 hover:bg-red-600")}
+                className={cn("flex items-center justify-center gap-1.5 w-full h-10 text-[10px] font-black uppercase rounded-[5px] text-white transition-all shadow-lg", 
+                isSuspended ? "bg-green-600 hover:bg-green-700 shadow-green-500/10" : "bg-red-500 hover:bg-red-600 shadow-red-500/10")}
               >
-                <Power className="h-3.5 w-3.5" /> {isSuspended ? "Restore Service" : "Suspend Service"}
-              </Button>
+                <Power className="h-4 w-4" /> {isSuspended ? "Restore Service" : "Suspend Service"}
+              </button>
 
-              <Button 
-                variant="ghost" 
+              <button 
                 onClick={() => setUsageReportsOpen(true)}
-                className="w-full text-slate-500 hover:text-white hover:bg-white/5 text-[10px] font-bold uppercase rounded-[5px] h-8 gap-2"
+                className="flex items-center justify-center gap-2 w-full text-slate-500 hover:text-primary transition-colors text-[10px] font-bold uppercase h-8"
               >
                 <BarChart3 className="h-3.5 w-3.5" /> Usage Reports
-              </Button>
+              </button>
             </CardContent>
           </Card>
 
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
-            <CardHeader className="px-5 pt-5 pb-3">
+            <CardHeader className="px-5 pt-5 pb-3 border-b border-white/5">
               <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                <MessageSquare className="h-3 w-3" /> Communication Log
+                <MessageSquare className="h-3.5 w-3.5" /> Communication Log
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-5 pb-4 space-y-3">
+            <CardContent className="px-5 py-4 space-y-3">
               <Textarea 
                 placeholder="Add field notes..." 
-                className="bg-slate-950 border-white/5 text-[11px] min-h-[100px]" 
+                className="bg-slate-950 border-white/5 text-[11px] min-h-[100px] resize-none focus:border-primary transition-all" 
                 value={note} 
                 onChange={e => setNote(e.target.value)} 
               />
-              <Button onClick={handleUpdateLog} disabled={!note} className="w-full h-8 bg-primary hover:bg-primary/90 text-[10px] font-bold uppercase rounded-[5px] transition-all shadow-lg shadow-primary/20">
-                <Send className="h-3 w-3 mr-2" /> Update Log
-              </Button>
+              <button 
+                onClick={handleUpdateLog} 
+                disabled={!note} 
+                className="flex items-center justify-center gap-2 w-full h-9 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[10px] font-black uppercase rounded-[3px] transition-all"
+              >
+                <Send className="h-3.5 w-3.5" /> Update Log
+              </button>
             </CardContent>
           </Card>
 
-          <Card className="shadow-2xl border-white/5 bg-red-500/5 border-red-500/10 rounded-[5px]">
+          <Card className="shadow-2xl border-red-500/10 bg-red-500/[0.02] rounded-[5px]">
             <CardHeader className="px-5 pt-4 pb-2">
-              <div className="flex items-center gap-2 text-red-500/60">
-                <ShieldAlert className="h-3 w-3" />
-                <span className="text-[9px] font-bold uppercase tracking-[0.2em]">Record Termination</span>
+              <div className="flex items-center gap-2 text-red-500/40">
+                <ShieldAlert className="h-3.5 w-3.5" />
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Record Termination</span>
               </div>
             </CardHeader>
             <CardContent className="px-5 pb-4">
               <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" className="w-full text-red-500/40 hover:text-red-500 hover:bg-red-500/10 text-[9px] font-bold uppercase h-8 rounded-[5px] justify-start px-0">
-                    <Trash2 className="h-3 w-3 mr-2 ml-4" /> Delete Profile
-                  </Button>
+                  <button className="w-full border border-red-500/20 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 text-[9px] font-black uppercase h-9 rounded-[5px] transition-all">
+                    Delete Customer
+                  </button>
                 </DialogTrigger>
                 <DialogContent className="bg-slate-950 border-white/10 text-white rounded-[5px] max-w-sm">
                   <DialogHeader>
                     <DialogTitle className="uppercase tracking-tighter text-red-500">Confirm Deletion</DialogTitle>
-                    <DialogDescription className="text-slate-500 text-xs">
-                      This action is irreversible. All consumption data and invoices for {customer.name} will remain in audit but the profile will be purged.
+                    <DialogDescription className="text-slate-500 text-xs mt-2">
+                      This action is irreversible. All consumption data and invoices for {customer.name} will be purged from the active registry.
                     </DialogDescription>
                   </DialogHeader>
-                  <DialogFooter>
-                    <Button variant="destructive" onClick={handleDeleteProfile} className="w-full h-11 font-bold uppercase">Execute Purge</Button>
+                  <DialogFooter className="mt-4">
+                    <Button variant="destructive" onClick={handleDeleteProfile} className="w-full h-11 font-black uppercase">Execute Purge</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -442,39 +453,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </Card>
         </div>
       </div>
-
-      <Dialog open={viewBillDialogOpen} onOpenChange={setViewBillDialogOpen}>
-        <DialogContent className="bg-white text-slate-900 max-w-sm rounded-[5px] p-0 overflow-hidden max-h-[90vh] flex flex-col">
-          <div className="bg-slate-900 px-6 py-5 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="bg-primary p-2 rounded-[3px]">
-                {settings?.logo ? <img src={settings.logo} className="h-5 w-5 object-contain" /> : <Droplets className="h-5 w-5 text-white" />}
-              </div>
-              <div>
-                <DialogTitle className="text-xs font-black text-white uppercase tracking-widest">{settings?.companyName}</DialogTitle>
-                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Utility Invoice</p>
-              </div>
-            </div>
-            <Receipt className="h-5 w-5 text-primary opacity-70" />
-          </div>
-          {selectedBill && (
-            <div className="flex-1 overflow-y-auto">
-              <div className="bg-primary/10 border-b border-primary/20 px-6 py-3 flex justify-between items-center">
-                <div><p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Invoice ID</p><p className="text-xs font-black text-slate-800 font-mono">INV-{selectedBill.id.slice(-6).toUpperCase()}</p></div>
-                <div className="text-right"><p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Billing Date</p><p className="text-[10px] font-bold text-slate-700">{selectedBill.date}</p></div>
-              </div>
-              <div className="px-6 py-6 text-center border-b border-dashed border-slate-200">
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Amount Due</p>
-                <p className="text-4xl font-black text-slate-900"><span className="text-primary text-xl">MK</span> {fmt(selectedBill.totalAmount)}</p>
-              </div>
-              <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-2">
-                <Button variant="outline" className="flex-1 h-9 rounded-[5px] text-[10px] font-bold uppercase" onClick={() => window.print()}>Print Bill</Button>
-                <Button className="flex-1 h-9 rounded-[5px] text-[10px] font-bold uppercase bg-slate-900 text-white" onClick={() => setViewBillDialogOpen(false)}>Close</Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={usageReportsOpen} onOpenChange={setUsageReportsOpen}>
         <DialogContent className="bg-slate-900 border-white/5 text-white max-w-xl rounded-[5px]">
@@ -488,7 +466,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <p className="text-slate-500 font-medium">Detailed consumption charts and seasonal trends for {customer.name} will be available in the next system update.</p>
           </div>
           <DialogFooter>
-            <Button onClick={() => setUsageReportsOpen(false)} className="w-full bg-slate-800 hover:bg-slate-700">Close Analytics</Button>
+            <Button onClick={() => setUsageReportsOpen(false)} className="w-full bg-slate-800 hover:bg-slate-700 uppercase font-bold text-xs">Close Analytics</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
