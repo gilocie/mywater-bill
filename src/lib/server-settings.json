@@ -40,5 +40,7 @@
   "companyDescription": "Utility Management Portal",
   "logoBgColor": "#ffffff",
   "landingTitle": "Manage Your Utility with ease",
-  "receiptCompanyName": "BLANTYRE WATER BOARD"
+  "receiptCompanyName": "BLANTYRE WATER BOARD",
+  "staffAccessToggle": true,
+  "staffAccessShortcut": "Ctrl+L"
 }
