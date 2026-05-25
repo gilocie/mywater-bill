@@ -75,7 +75,9 @@ export async function initiateDeposit(payload: any) {
       }
     },
     customerMessage: (payload.title || payload.statementDescription || 'Utility Payment').substring(0, 22),
-    metadata: payload.metadata || []
+    metadata: (payload.metadata && Array.isArray(payload.metadata) && payload.metadata.length > 0)
+      ? payload.metadata 
+      : [ { systemName: 'MyWaterBill' } ]
   };
 
   const response = await fetch(`${baseUrl}/v2/deposits`, {

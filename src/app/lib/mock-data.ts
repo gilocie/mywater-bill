@@ -19,6 +19,10 @@ export interface User {
   // Suspension details
   suspensionGracePeriodDate?: string; // ISO Date
   suspensionStatus?: 'ACTIVE' | 'WARNING' | 'SUSPENDED';
+  lastMeterReading?: number;
+  currentMeterReading?: number;
+  mobileMoneyNumber?: string;
+  suspensionReason?: string;
 }
 
 export interface Bill {
@@ -29,6 +33,13 @@ export interface Bill {
   totalAmount: number;
   date: string;
   status: 'PENDING' | 'PAID' | 'OVERDUE';
+  dueDate?: string;
+  gracePeriodDays?: number;
+  lastMeterReading?: number;
+  currentMeterReading?: number;
+  consumption?: number;
+  vatAmount?: number;
+  vatRate?: number;
 }
 
 export interface Transaction {
@@ -58,3 +69,31 @@ export const REGIONS = ['Northern', 'Central', 'Southern'];
 export const DISTRICTS = ['Blantyre', 'Lilongwe', 'Mzuzu', 'Zomba', 'Kasungu', 'Mangochi'];
 export const AREAS = ['Area 47', 'Area 18', 'Chirimba', 'Ndirande', 'Kanjedza', 'Chilomoni'];
 export const GLOBAL_WATER_RATE = 2.5; 
+
+export interface WaterRateRange {
+  from: number;
+  to: number | null;
+  price: number;
+}
+
+export interface SystemSettings {
+  pawapayKey: string;
+  pawapayMode: string;
+  portalUrl: string;
+  waterRate: number;
+  companyName?: string;
+  logo?: string;
+  defaultAvatar?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  backgroundColor?: string;
+  landingBgImage?: string;
+  vatRate?: number;
+  waterRateRanges?: WaterRateRange[];
+  // Geographic scope
+  appLevel?: 'national' | 'region' | 'district';
+  country?: string;
+  regionName?: string;
+  districtName?: string;
+}
+

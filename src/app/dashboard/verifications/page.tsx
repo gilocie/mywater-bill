@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/providers/auth-provider';
-import { Transaction, User } from '@/app/lib/mock-data';
+import { Transaction, User, Bill } from '@/app/lib/mock-data';
 import { 
   Table, 
   TableBody, 
@@ -16,8 +16,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShieldCheck, Check, X, Eye, Clock, User as UserIcon, FileText } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 export default function VerificationsPage() {
   const { user: authUser } = useAuth();
@@ -53,8 +54,29 @@ export default function VerificationsPage() {
     if (status === 'COMPLETED') {
       const customer = allUsers.find(u => u.id === selectedTrans.userId);
       if (customer) {
-        const updatedUsers = allUsers.map(u => u.id === customer.id ? { ...u, walletBalance: (u.walletBalance || 0) + selectedTrans.amount } : u);
-        localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+        if (selectedTrans.type === 'BILL_PAYMENT') {
+          const billsStr = localStorage.getItem('mywater_all_bills') || '[]';
+          const allBills: Bill[] = JSON.parse(billsStr);
+          
+          const customerPendingBills = allBills.filter(b => b.customerId === customer.id && b.status !== 'PAID');
+          const maxReading = customerPendingBills.reduce((max, b) => {
+            const val = b.currentMeterReading !== undefined ? b.currentMeterReading : (b.lastMeterReading || 0) + b.meterReadingLiters;
+            return val > max ? val : max;
+          }, customer.lastMeterReading || 0);
+
+          const updatedBills = allBills.map(b => 
+            (b.customerId === customer.id && b.status !== 'PAID') ? { ...b, status: 'PAID' as const } : b
+          );
+          localStorage.setItem('mywater_all_bills', JSON.stringify(updatedBills));
+          
+          const updatedUsers = allUsers.map(u => 
+            u.id === customer.id ? { ...u, lastMeterReading: maxReading, currentMeterReading: maxReading } : u
+          );
+          localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+        } else {
+          const updatedUsers = allUsers.map(u => u.id === customer.id ? { ...u, walletBalance: (u.walletBalance || 0) + selectedTrans.amount } : u);
+          localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+        }
       }
     }
 

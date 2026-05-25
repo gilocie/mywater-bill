@@ -27,7 +27,7 @@ export default function RootLayout({
           {children}
           <Toaster />
         </AuthProvider>
-        <Script src="https://cdn.jsdelivr.net/gh/gilocie/brandpay-1.0@main/brandpay-sdk.js" strategy="beforeInteractive" />
+        <Script src="/brandpay-sdk.js" strategy="beforeInteractive" />
       </body>
     </html>
   );

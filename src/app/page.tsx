@@ -12,7 +12,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export default function LoginPage() {
-  const { login, user } = useAuth();
+  const { login, user, settings } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -56,13 +56,11 @@ export default function LoginPage() {
     <div className="h-screen w-screen flex flex-col items-center justify-center p-4 relative overflow-hidden bg-slate-950">
       {/* Cinematic Background Image */}
       <div className="absolute inset-0 z-0">
-        <Image 
-          src="https://picsum.photos/seed/water-landing/1920/1080"
+        <img 
+          src={settings?.landingBgImage || "https://picsum.photos/seed/water-landing/1920/1080"}
           alt="Water Background"
-          fill
-          className="object-cover opacity-60 grayscale-[0.2]"
-          priority
-          data-ai-hint="water ripples"
+          className="w-full h-full object-cover opacity-60 grayscale-[0.2]"
+          loading="eager"
         />
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-950/40 to-slate-950" />
       </div>
@@ -70,13 +68,36 @@ export default function LoginPage() {
       {/* Brand Identity - Top Left Corner */}
       <div className="absolute top-8 left-8 z-30 flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-1000">
         <div className="bg-primary/20 backdrop-blur-md border border-primary/30 p-2.5 rounded-[5px] shadow-2xl">
-          <Droplets className="text-white h-7 w-7" />
+          {settings?.logo ? (
+            <img src={settings.logo} className="h-7 w-7 object-contain" alt="Logo" />
+          ) : (
+            <Droplets className="text-white h-7 w-7" />
+          )}
         </div>
         <div>
           <h1 className="text-2xl font-black tracking-tighter text-white uppercase leading-none">
-            My Water <span className="text-primary">Bill</span>
+            {settings?.companyName ? (
+              (() => {
+                const words = settings.companyName.split(' ');
+                if (words.length > 1) {
+                  return (
+                    <>
+                      {words.slice(0, -1).join(' ')}{' '}
+                      <span className="text-primary">{words.slice(-1)[0]}</span>
+                    </>
+                  );
+                }
+                return <span className="text-primary">{settings.companyName}</span>;
+              })()
+            ) : (
+              <>
+                My Water <span className="text-primary">Bill</span>
+              </>
+            )}
           </h1>
-          <p className="text-[8px] font-bold tracking-[0.3em] text-slate-400 uppercase opacity-80">Malawi Water Board</p>
+          <p className="text-[8px] font-bold tracking-[0.3em] text-slate-400 uppercase opacity-80">
+            {settings?.companyName || 'Malawi Water Board'}
+          </p>
         </div>
       </div>
 
@@ -100,10 +121,10 @@ export default function LoginPage() {
             <form onSubmit={handleCustomerLogin} className="space-y-4">
               <div className="flex items-center gap-2 bg-slate-900/60 backdrop-blur-2xl border border-white/10 p-2 rounded-[5px] shadow-2xl">
                 <Input 
-                  placeholder="MTR-XXXX" 
+                  placeholder="ENTER METER NUMBER" 
                   value={meterNumber}
-                  onChange={(e) => setMeterNumber(e.target.value.toUpperCase())}
-                  className="flex-1 h-12 bg-white/5 border-none text-white font-mono text-xl font-bold tracking-widest placeholder:text-slate-600 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-[5px]"
+                  onChange={(e) => setMeterNumber(e.target.value)}
+                  className="flex-1 h-12 bg-white/5 border-none text-white font-mono text-lg font-bold tracking-widest placeholder:text-slate-600 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-[5px]"
                   autoFocus
                 />
                 <Button 
@@ -137,7 +158,7 @@ export default function LoginPage() {
       </div>
       
       <p className="absolute bottom-8 text-center text-[10px] text-slate-500 font-mono tracking-widest uppercase opacity-40">
-        MWB-SYSTEM-CORE-v2.9.4 • © 2026 MALAWI WATER BOARD
+        MWB-SYSTEM-CORE-v2.9.4 • © {new Date().getFullYear()} {settings?.companyName?.toUpperCase() || 'MALAWI WATER BOARD'}
       </p>
     </div>
   );

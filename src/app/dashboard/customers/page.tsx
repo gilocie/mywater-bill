@@ -4,7 +4,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
-import { User, DISTRICTS } from '@/app/lib/mock-data';
+import { User, Bill } from '@/app/lib/mock-data';
+import { getRegions, getDistrictNames, getLocations } from '@/app/lib/geo-data';
+import { useMemo } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -29,8 +31,12 @@ import {
   Download,
   FileSpreadsheet,
   Trash2,
-  Loader2
+  Loader2,
+  Upload,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 import { 
   Dialog, 
   DialogContent, 
@@ -52,7 +58,27 @@ import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export default function CustomersPage() {
-  const { user } = useAuth();
+  const { user, settings } = useAuth();
+
+  // Derive available geo options from the admin-configured app level
+  const geoOptions = useMemo(() => {
+    const country = settings?.country || 'Malawi';
+    const level = settings?.appLevel || 'district';
+    const configuredRegion = settings?.regionName || '';
+    const configuredDistrict = settings?.districtName || '';
+
+    if (level === 'national') {
+      const regions = getRegions(country);
+      return { regions, districts: [] as string[], locations: [] as string[], level, configuredRegion: '', configuredDistrict: '' };
+    }
+    if (level === 'region') {
+      const districts = getDistrictNames(country, configuredRegion);
+      return { regions: [configuredRegion], districts, locations: [] as string[], level, configuredRegion, configuredDistrict: '' };
+    }
+    // district level
+    const locations = getLocations(country, configuredRegion, configuredDistrict);
+    return { regions: [configuredRegion], districts: [configuredDistrict], locations, level, configuredRegion, configuredDistrict };
+  }, [settings]);
   const router = useRouter();
   const { toast } = useToast();
   
@@ -65,15 +91,23 @@ export default function CustomersPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteProgress, setDeleteProgress] = useState(0);
 
+  // CSV Import State
+  const csvInputRef = React.useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
+  const [importResultDialogOpen, setImportResultDialogOpen] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     meterNumber: '',
-    region: 'Southern',
+    region: '',
     district: '',
     area: '',
     address: '',
     phone: '',
-    email: ''
+    email: '',
+    lastMeterReading: '0'
   });
 
   useEffect(() => {
@@ -150,6 +184,7 @@ export default function CustomersPage() {
   };
 
   const handleAddCustomer = () => {
+    const initialReading = parseFloat(formData.lastMeterReading) || 0;
     const newCustomer: User = {
       id: `c-${Date.now()}`,
       name: formData.name,
@@ -162,7 +197,9 @@ export default function CustomersPage() {
       meterNumber: formData.meterNumber,
       walletBalance: 0,
       phoneNumber: formData.phone,
-      assignedStaffId: user?.id
+      assignedStaffId: user?.id,
+      lastMeterReading: initialReading,
+      currentMeterReading: initialReading
     };
 
     const usersStr = localStorage.getItem('mywater_all_users') || '[]';
@@ -170,21 +207,159 @@ export default function CustomersPage() {
     localStorage.setItem('mywater_all_users', JSON.stringify([...allUsers, newCustomer]));
     window.dispatchEvent(new Event('storage'));
 
+    setFormData({
+      name: '',
+      meterNumber: '',
+      region: '',
+      district: '',
+      area: '',
+      address: '',
+      phone: '',
+      email: '',
+      lastMeterReading: '0'
+    });
+
     setIsDialogOpen(false);
     toast({ title: "Registered", description: `${newCustomer.name} added.` });
   };
 
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset the input so re-selecting same file works
+    e.target.value = '';
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) {
+        toast({ title: "Empty File", description: "No data rows found in the CSV.", variant: "destructive" });
+        return;
+      }
+
+      const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
+      const meterIdx = headers.findIndex(h => h.includes('meter'));
+      const nameIdx  = headers.findIndex(h => h.includes('name'));
+      const regionIdx = headers.findIndex(h => h.includes('region'));
+      const districtIdx = headers.findIndex(h => h.includes('district'));
+      const areaIdx = headers.findIndex(h => h.includes('area'));
+      const phoneIdx = headers.findIndex(h => h.includes('phone'));
+      const emailIdx = headers.findIndex(h => h.includes('email'));
+      const lastMeterIdx = headers.findIndex(h => h.includes('lastmeter') || h.includes('previousreading') || h.includes('lastreading'));
+      const currentMeterIdx = headers.findIndex(h => h.includes('currentmeter') || h.includes('currentreading'));
+
+      if (meterIdx < 0 || nameIdx < 0) {
+        toast({ title: "Invalid Template", description: "CSV must have MeterNumber and Name columns.", variant: "destructive" });
+        return;
+      }
+
+      setIsImporting(true);
+      setImportProgress(0);
+
+      const usersStr = localStorage.getItem('mywater_all_users') || '[]';
+      const allUsers: User[] = JSON.parse(usersStr);
+      const existingMeters = new Set(allUsers.map(u => u.meterNumber?.toLowerCase()));
+
+      const newUsers: User[] = [];
+      const errors: string[] = [];
+      let skipped = 0;
+      const dataRows = lines.slice(1);
+
+      for (let i = 0; i < dataRows.length; i++) {
+        // Animate progress
+        await new Promise(r => setTimeout(r, 60));
+        setImportProgress(Math.round(((i + 1) / dataRows.length) * 100));
+
+        const cols = dataRows[i].split(',').map(c => c.replace(/"/g, '').trim());
+        const meter = cols[meterIdx]?.trim();
+        const name  = cols[nameIdx]?.trim();
+
+        if (!meter || !name) {
+          errors.push(`Row ${i + 2}: Missing meter or name`);
+          continue;
+        }
+
+        if (existingMeters.has(meter.toLowerCase())) {
+          skipped++;
+          continue;
+        }
+
+        existingMeters.add(meter.toLowerCase());
+        newUsers.push({
+          id: `c-${Date.now()}-${i}`,
+          name,
+          email: emailIdx >= 0 ? (cols[emailIdx] || '') : '',
+          role: 'CUSTOMER',
+          region: regionIdx >= 0 ? (cols[regionIdx] || settings?.regionName || 'Southern') : (settings?.regionName || 'Southern'),
+          district: districtIdx >= 0 ? (cols[districtIdx] || settings?.districtName || '') : (settings?.districtName || ''),
+          area: areaIdx >= 0 ? (cols[areaIdx] || '') : '',
+          address: '',
+          meterNumber: meter,
+          walletBalance: 0,
+          phoneNumber: phoneIdx >= 0 ? (cols[phoneIdx] || '') : '',
+          assignedStaffId: user?.id,
+          lastMeterReading: lastMeterIdx >= 0 ? (parseFloat(cols[lastMeterIdx]) || 0) : 0,
+          currentMeterReading: currentMeterIdx >= 0 ? (parseFloat(cols[currentMeterIdx]) || 0) : 0
+        });
+      }
+
+      const updatedUsers = [...allUsers, ...newUsers];
+      localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+      window.dispatchEvent(new Event('storage'));
+      setCustomers(updatedUsers.filter(u => u.role === 'CUSTOMER'));
+
+      setIsImporting(false);
+      setImportProgress(0);
+      setImportResult({ imported: newUsers.length, skipped, errors });
+      setImportResultDialogOpen(true);
+    };
+    reader.readAsText(file);
+  };
+
   const exportToCSV = () => {
-    const headers = ['MeterNumber', 'Name', 'Region', 'District', 'Area', 'Phone', 'Email'];
-    const rows = customers.map(c => [
-      `"\t${c.meterNumber}"`, // Force text
-      `"${c.name}"`,
-      `"${c.region}"`,
-      `"${c.district}"`,
-      `"${c.area}"`,
-      `"\t${c.phoneNumber}"`, // Force text
-      `"${c.email}"`
-    ]);
+    const billsStr = localStorage.getItem('mywater_all_bills') || '[]';
+    const allBills: Bill[] = JSON.parse(billsStr);
+    const level = settings?.appLevel || 'district';
+
+    const headers = ['MeterNumber', 'Name'];
+    if (level === 'national') {
+      headers.push('Region', 'District', 'Area');
+    } else if (level === 'region') {
+      headers.push('District', 'Area');
+    } else {
+      headers.push('Area');
+    }
+    headers.push('Phone', 'Email', 'LastMeterReading', 'CurrentMeterReading', 'OutstandingBalance');
+
+    const rows = customers.map(c => {
+      const customerBills = allBills.filter(b => b.customerId === c.id);
+      const outstandingBalance = customerBills.filter(b => b.status !== 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
+      
+      const row = [
+        `"\t${c.meterNumber}"`, // Force text
+        `"${c.name}"`
+      ];
+
+      if (level === 'national') {
+        row.push(`"${c.region || ''}"`, `"${c.district || ''}"`, `"${c.area || ''}"`);
+      } else if (level === 'region') {
+        row.push(`"${c.district || ''}"`, `"${c.area || ''}"`);
+      } else {
+        row.push(`"${c.area || ''}"`);
+      }
+
+      row.push(
+        `"\t${c.phoneNumber || ''}"`, // Force text
+        `"${c.email || ''}"`,
+        String(c.lastMeterReading !== undefined ? c.lastMeterReading : 0),
+        String(c.currentMeterReading !== undefined ? c.currentMeterReading : 0),
+        String(outstandingBalance)
+      );
+
+      return row;
+    });
+
     const csv = [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -195,14 +370,33 @@ export default function CustomersPage() {
   };
 
   const downloadTemplate = () => {
-    const headers = ['MeterNumber', 'Name', 'Region', 'District', 'Area', 'Phone', 'Email'];
-    const demo = [['123456', 'Gift Ilocie', 'Southern', 'Blantyre', 'Chirimba', '265888000111', 'gift@mwb.mw']];
-    const csv = [headers, ...demo].map(e => e.join(",")).join("\n");
+    const level = settings?.appLevel || 'district';
+    
+    // Core headers
+    const headers = ['MeterNumber', 'Name'];
+    const demo = ['123456', 'Gift Ilocie'];
+    
+    if (level === 'national') {
+      headers.push('Region', 'District', 'Area');
+      demo.push('Southern', 'Blantyre', 'Chirimba');
+    } else if (level === 'region') {
+      headers.push('District', 'Area');
+      demo.push('Blantyre', 'Chirimba');
+    } else { // district level
+      headers.push('Area');
+      demo.push('Chirimba');
+    }
+    
+    // Remaining standard headers
+    headers.push('Phone', 'Email', 'LastMeterReading', 'CurrentMeterReading');
+    demo.push('265888000111', 'gift@mwb.mw', '0', '0');
+    
+    const csv = [headers, demo].map(e => e.join(",")).join("\n");
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'customer_template.csv';
+    a.download = `customer_template_${level}.csv`;
     a.click();
   };
 
@@ -257,6 +451,22 @@ export default function CustomersPage() {
             </div>
             
             <div className="flex items-center gap-2">
+              {/* Hidden file input for CSV import */}
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleImportCSV}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => csvInputRef.current?.click()}
+                className="h-8 border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 text-[10px] font-bold uppercase tracking-widest gap-2 rounded-[5px]"
+              >
+                <Upload className="h-3.5 w-3.5" /> Import CSV
+              </Button>
               <Button variant="outline" size="sm" onClick={exportToCSV} className="h-8 border-white/5 bg-slate-900 text-[10px] font-bold uppercase tracking-widest gap-2 text-white">
                 <Download className="h-3.5 w-3.5" /> Export Agents
               </Button>
@@ -330,7 +540,7 @@ export default function CustomersPage() {
 
       {/* Deletion Progress Overlay */}
       <Dialog open={isDeleting} onOpenChange={() => {}}>
-        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] text-center py-10">
+        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] text-center py-10" hideClose>
           <Loader2 className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
           <DialogTitle className="uppercase tracking-widest text-sm mb-2">Executing Purge Protocol</DialogTitle>
           <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Processing {selectedIds.length} utility records...</p>
@@ -341,6 +551,64 @@ export default function CustomersPage() {
               <span>{deleteProgress}%</span>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Import Progress Overlay */}
+      <Dialog open={isImporting} onOpenChange={() => {}}>
+        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] text-center py-10" hideClose>
+          <Upload className="h-10 w-10 text-primary animate-bounce mx-auto mb-4" />
+          <DialogTitle className="uppercase tracking-widest text-sm mb-2">Importing Records</DialogTitle>
+          <p className="text-[10px] text-slate-500 uppercase font-bold mb-6">Parsing and registering customers...</p>
+          <div className="space-y-2">
+            <Progress value={importProgress} className="h-1.5 bg-slate-900" />
+            <div className="flex justify-between text-[10px] font-mono font-bold text-primary">
+              <span>IMPORTING</span>
+              <span>{importProgress}%</span>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Result Dialog */}
+      <Dialog open={importResultDialogOpen} onOpenChange={setImportResultDialogOpen}>
+        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] py-8">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-500" /> Import Complete
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 text-xs">CSV processing finished. Review the summary below.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-[5px] text-center">
+                <p className="text-3xl font-black text-green-400">{importResult?.imported}</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Imported</p>
+              </div>
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-[5px] text-center">
+                <p className="text-3xl font-black text-yellow-400">{importResult?.skipped}</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Duplicates Skipped</p>
+              </div>
+            </div>
+            {importResult?.errors && importResult.errors.length > 0 && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-[5px]">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                  <p className="text-[9px] font-black text-red-400 uppercase">{importResult.errors.length} Row Errors</p>
+                </div>
+                <div className="space-y-1 max-h-24 overflow-y-auto">
+                  {importResult.errors.map((e, i) => (
+                    <p key={i} className="text-[9px] text-red-300 font-mono">{e}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setImportResultDialogOpen(false)} className="w-full h-9 bg-primary text-[10px] font-bold uppercase rounded-[5px]">
+              Done
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -360,21 +628,74 @@ export default function CustomersPage() {
               <Input value={formData.meterNumber} onChange={e => setFormData({...formData, meterNumber: e.target.value})} className="bg-slate-800 border-none h-9" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-slate-500">District</label>
-              <Select onValueChange={v => setFormData({...formData, district: v})} value={formData.district}>
-                <SelectTrigger className="bg-slate-800 border-none h-9"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-slate-800 border-white/10 text-white">
-                  {DISTRICTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <label className="text-[10px] font-bold uppercase text-slate-500">Last Meter Reading (m³)</label>
+              <Input type="number" value={formData.lastMeterReading} onChange={e => setFormData({...formData, lastMeterReading: e.target.value})} className="bg-slate-800 border-none h-9" />
             </div>
+
+            {/* Region — shown at National level */}
+            {geoOptions.level === 'national' && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-slate-500">Region / Province</label>
+                <Select
+                  onValueChange={v => setFormData({...formData, region: v, district: '', area: ''})}
+                  value={formData.region}
+                >
+                  <SelectTrigger className="bg-slate-800 border-none h-9"><SelectValue placeholder="Select region..." /></SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-white/10 text-white">
+                    {geoOptions.regions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* District */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-slate-500">Area</label>
-              <Input value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} className="bg-slate-800 border-none h-9" />
+              <label className="text-[10px] font-bold uppercase text-slate-500">District</label>
+              {geoOptions.level === 'district' ? (
+                <Input
+                  value={geoOptions.configuredDistrict}
+                  readOnly
+                  className="bg-slate-800/50 border-none h-9 text-slate-400 cursor-not-allowed"
+                />
+              ) : (
+                <Select
+                  onValueChange={v => setFormData({...formData, district: v, area: ''})}
+                  value={formData.district}
+                  disabled={geoOptions.level === 'national' && !formData.region}
+                >
+                  <SelectTrigger className="bg-slate-800 border-none h-9"><SelectValue placeholder="Select district..." /></SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-white/10 text-white">
+                    {(geoOptions.level === 'national'
+                      ? getDistrictNames(settings?.country || 'Malawi', formData.region)
+                      : geoOptions.districts
+                    ).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
+
+            {/* Area / Location */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">Area / Location</label>
+              {geoOptions.level === 'district' && geoOptions.locations.length > 0 ? (
+                <Select onValueChange={v => setFormData({...formData, area: v})} value={formData.area}>
+                  <SelectTrigger className="bg-slate-800 border-none h-9"><SelectValue placeholder="Select area..." /></SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-white/10 text-white">
+                    {geoOptions.locations.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} className="bg-slate-800 border-none h-9" />
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase text-slate-500">Phone</label>
               <Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="bg-slate-800 border-none h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase text-slate-500">Email</label>
+              <Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="bg-slate-800 border-none h-9" />
             </div>
           </div>
           <DialogFooter>

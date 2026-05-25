@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Role } from '@/app/lib/mock-data';
+import { User, Role, SystemSettings } from '@/app/lib/mock-data';
 
 interface AuthContextType {
   user: User | null;
@@ -13,14 +13,72 @@ interface AuthContextType {
   isLoading: boolean;
   waterRate: number;
   setWaterRate: (rate: number) => void;
+  settings: SystemSettings;
+  updateSettings: (newSettings: Partial<SystemSettings>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function hexToTailwindHsl(hex: string): string {
+  hex = hex.replace(/^#/, '');
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  }
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+
+  const hDeg = Math.round(h * 360);
+  const sPct = Math.round(s * 100);
+  const lPct = Math.round(l * 100);
+
+  return `${hDeg} ${sPct}% ${lPct}%`;
+}
+
+const DEFAULT_SETTINGS: SystemSettings = {
+  pawapayKey: '',
+  pawapayMode: 'sandbox',
+  portalUrl: 'https://dashboard.pawapay.io',
+  waterRate: 2.5,
+  companyName: 'My Water Bill',
+  logo: '',
+  primaryColor: '#2563eb',
+  secondaryColor: '#0f172a',
+  backgroundColor: '#020617',
+  landingBgImage: 'https://picsum.photos/seed/water-landing/1920/1080',
+  vatRate: 16.5,
+  waterRateRanges: [
+    { from: 0, to: null, price: 2.5 }
+  ],
+  // Geographic scope defaults
+  appLevel: 'district',
+  country: 'Malawi',
+  regionName: 'Southern Region',
+  districtName: 'Blantyre',
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [waterRate, setWaterRateState] = useState(2.5);
+  const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
     // Ensure user list exists in local storage
@@ -42,7 +100,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setWaterRateState(parseFloat(savedRate));
     }
 
-    setIsLoading(false);
+    const savedSettings = localStorage.getItem('mywater_settings');
+    if (savedSettings) {
+      try {
+        setSettings(JSON.parse(savedSettings));
+      } catch (e) {}
+    }
+
+    // Sync with server-side settings
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          setSettings(data);
+          localStorage.setItem('mywater_settings', JSON.stringify(data));
+          if (typeof data.waterRate === 'number') {
+            setWaterRateState(data.waterRate);
+            localStorage.setItem('mywater_rate', data.waterRate.toString());
+          }
+        }
+      })
+      .catch(err => {
+        console.error('Failed to sync settings on mount:', err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
+  // Synchronize dynamic settings changes in local storage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const savedUser = localStorage.getItem('mywater_user');
+      if (savedUser) {
+        try { setUser(JSON.parse(savedUser)); } catch (e) {}
+      }
+
+      const savedSettings = localStorage.getItem('mywater_settings');
+      if (savedSettings) {
+        try {
+          const parsed = JSON.parse(savedSettings);
+          setSettings(parsed);
+          if (typeof parsed.waterRate === 'number') {
+            setWaterRateState(parsed.waterRate);
+          }
+        } catch (e) {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const getAllUsers = (): User[] => {
@@ -59,7 +165,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     const foundUser = allUsers.find(
       (u) =>
-        (u.email?.toLowerCase() === identifier.toLowerCase() || u.meterNumber === identifier) &&
+        (u.email?.toLowerCase().trim() === identifier.toLowerCase().trim() || 
+         u.meterNumber?.toLowerCase().trim() === identifier.toLowerCase().trim()) &&
         (u.role === 'CUSTOMER' ? true : (u.pin === password || password === 'password'))
     );
 
@@ -116,13 +223,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('mywater_rate', rate.toString());
   };
 
+  const updateSettings = async (newSettings: Partial<SystemSettings>) => {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSettings)
+      });
+      if (!res.ok) throw new Error('Failed to update settings');
+      const data = await res.json();
+      setSettings(data);
+      if (typeof data.waterRate === 'number') {
+        setWaterRateState(data.waterRate);
+        localStorage.setItem('mywater_rate', data.waterRate.toString());
+      }
+      localStorage.setItem('mywater_settings', JSON.stringify(data));
+      window.dispatchEvent(new Event('storage'));
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('mywater_user');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, updateUser, logout, isLoading, waterRate, setWaterRate }}>
+    <AuthContext.Provider value={{ user, login, register, updateUser, logout, isLoading, waterRate, setWaterRate, settings, updateSettings }}>
+      <style>{`
+        :root {
+          ${settings.primaryColor ? `--primary: ${hexToTailwindHsl(settings.primaryColor)};` : ''}
+          ${settings.primaryColor ? `--sidebar-primary: ${hexToTailwindHsl(settings.primaryColor)};` : ''}
+          ${settings.primaryColor ? `--ring: ${hexToTailwindHsl(settings.primaryColor)};` : ''}
+          ${settings.backgroundColor ? `--background: ${hexToTailwindHsl(settings.backgroundColor)};` : ''}
+          ${settings.secondaryColor ? `--secondary: ${hexToTailwindHsl(settings.secondaryColor)};` : ''}
+          ${settings.secondaryColor ? `--card: ${hexToTailwindHsl(settings.secondaryColor)};` : ''}
+          ${settings.secondaryColor ? `--popover: ${hexToTailwindHsl(settings.secondaryColor)};` : ''}
+          ${settings.secondaryColor ? `--sidebar-background: ${hexToTailwindHsl(settings.secondaryColor)};` : ''}
+        }
+      `}</style>
       {children}
     </AuthContext.Provider>
   );

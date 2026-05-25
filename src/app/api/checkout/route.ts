@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { initiateDeposit, getCountryConfig } from '@/lib/pawapay';
+import { getSystemSettings } from '@/lib/settings';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,16 +16,21 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Robust extraction: Check top-level, then look inside metadata fields
-    let apiKey = body.apiKey || process.env.PAWAPAY_API_KEY;
+    const metadataFields = Array.isArray(body.metadata) 
+      ? body.metadata 
+      : (body.metadata?.fields || []);
+
+    const settings = getSystemSettings();
+    let apiKey = body.apiKey || settings.pawapayKey || process.env.PAWAPAY_API_KEY;
     
-    if (!apiKey && body.metadata?.fields) {
-      const field = body.metadata.fields.find((f: any) => f.fieldName === 'apiKey');
+    if (!apiKey) {
+      const field = metadataFields.find((f: any) => f.fieldName === 'apiKey');
       if (field) apiKey = field.fieldValue;
     }
 
     const mode = body.mode || 
-                 body.metadata?.fields?.find((f: any) => f.fieldName === 'mode')?.fieldValue || 
+                 metadataFields.find((f: any) => f.fieldName === 'mode')?.fieldValue || 
+                 settings.pawapayMode ||
                  process.env.PAWAPAY_MODE || 
                  'sandbox';
 
@@ -39,17 +45,48 @@ export async function POST(request: Request) {
       return NextResponse.json(config, { headers: corsHeaders });
     }
     
-    // Clean metadata to avoid length errors (PawaPay limit is 64 chars per field)
-    const cleanMetadata = (body.metadata?.fields || []).filter((f: any) => 
-      !['apiKey', 'mode'].includes(f.fieldName)
-    );
+    // Clean and transform metadata into an array of single key-value objects as required by PawaPay V2 API
+    const v2Metadata: Array<Record<string, string>> = [];
+    if (Array.isArray(body.metadata)) {
+      body.metadata.forEach((f: any) => {
+        if (f && f.fieldName && f.fieldValue && !['apiKey', 'mode'].includes(f.fieldName)) {
+          v2Metadata.push({ [f.fieldName]: String(f.fieldValue) });
+        }
+      });
+    } else if (body.metadata && typeof body.metadata === 'object') {
+      const fields = body.metadata.fields || [];
+      if (Array.isArray(fields)) {
+        fields.forEach((f: any) => {
+          if (f && f.fieldName && f.fieldValue && !['apiKey', 'mode'].includes(f.fieldName)) {
+            v2Metadata.push({ [f.fieldName]: String(f.fieldValue) });
+          }
+        });
+      } else {
+        Object.entries(body.metadata).forEach(([key, val]) => {
+          if (!['apiKey', 'mode', 'fields', 'statementDescription'].includes(key)) {
+            v2Metadata.push({ [key]: String(val) });
+          }
+        });
+      }
+    }
+
+    if (v2Metadata.length === 0) {
+      v2Metadata.push({ 'systemName': 'MyWaterBill' });
+    }
 
     const result = await initiateDeposit({ 
       ...body, 
       apiKey, 
       mode,
-      metadata: cleanMetadata 
+      metadata: v2Metadata 
     });
+
+    if (result.success && result.depositId) {
+      if (!(globalThis as any).pawapayKeys) {
+        (globalThis as any).pawapayKeys = new Map();
+      }
+      (globalThis as any).pawapayKeys.set(result.depositId, { apiKey, mode });
+    }
 
     if (!result.success) {
       return NextResponse.json({ error: result.message }, { status: 400, headers: corsHeaders });

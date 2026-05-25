@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/sidebar';
 
 export function SidebarNav() {
-  const { user, logout } = useAuth();
+  const { user, logout, settings } = useAuth();
   const pathname = usePathname();
 
   const navItems = [
@@ -62,11 +62,31 @@ export function SidebarNav() {
     <Sidebar className="border-r border-white/5 bg-slate-950">
       <SidebarHeader className="p-6 flex flex-row items-center gap-3">
         <div className="bg-primary p-2.5 rounded-[5px] shadow-lg shadow-primary/20">
-          <Droplets className="text-white h-7 w-7" />
+          {settings?.logo ? (
+            <img src={settings.logo} className="h-7 w-7 object-contain" alt="Logo" />
+          ) : (
+            <Droplets className="text-white h-7 w-7" />
+          )}
         </div>
         <div>
           <h1 className="font-headline font-black text-xl tracking-tighter text-white leading-none">
-            My Water <span className="text-primary">Bill</span>
+            {settings?.companyName ? (
+              (() => {
+                const words = settings.companyName.split(' ');
+                if (words.length > 1) {
+                  return (
+                    <>
+                      {words.slice(0, -1).join(' ')} <span className="text-primary">{words.slice(-1)[0]}</span>
+                    </>
+                  );
+                }
+                return <span className="text-primary">{settings.companyName}</span>;
+              })()
+            ) : (
+              <>
+                My Water <span className="text-primary">Bill</span>
+              </>
+            )}
           </h1>
           <p className="text-[9px] text-slate-500 uppercase tracking-[0.2em] font-bold mt-1">Utility Portal</p>
         </div>
