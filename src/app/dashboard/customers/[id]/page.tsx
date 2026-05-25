@@ -28,9 +28,8 @@ import {
   FileText,
   History,
   CheckCircle2,
-  Wallet,
-  Activity,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -66,16 +65,25 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [bills, setBills] = useState<Bill[]>([]);
   const [note, setNote] = useState('');
   
-  // Invoice Dialog States
+  // Dialog States
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [usageReportsOpen, setUsageReportsOpen] = useState(false);
+
+  // Form States
   const [meterLiters, setMeterLiters] = useState('');
   const [gracePeriod, setGracePeriod] = useState('14');
-  
-  const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
-  const [viewBillDialogOpen, setViewBillDialogOpen] = useState(false);
-
-  const [usageReportsOpen, setUsageReportsOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    phoneNumber: '',
+    district: '',
+    area: '',
+    meterNumber: ''
+  });
 
   const fmt = (val: number) =>
     Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -86,7 +94,17 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     if (usersStr) {
       const users: User[] = JSON.parse(usersStr);
       found = users.find(u => u.id === id) || null;
-      setCustomer(found);
+      if (found) {
+        setCustomer(found);
+        setEditForm({
+          name: found.name,
+          email: found.email,
+          phoneNumber: found.phoneNumber || '',
+          district: found.district || '',
+          area: found.area || '',
+          meterNumber: found.meterNumber || ''
+        });
+      }
     }
 
     const billsStr = localStorage.getItem('mywater_all_bills') || '[]';
@@ -102,6 +120,17 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     window.addEventListener('storage', loadData);
     return () => window.removeEventListener('storage', loadData);
   }, [id]);
+
+  const handleUpdateProfile = () => {
+    if (!customer) return;
+    const usersStr = localStorage.getItem('mywater_all_users') || '[]';
+    const allUsers: User[] = JSON.parse(usersStr);
+    const updatedUsers = allUsers.map(u => u.id === id ? { ...u, ...editForm } : u);
+    localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+    window.dispatchEvent(new Event('storage'));
+    setEditDialogOpen(false);
+    toast({ title: "Profile Updated", description: "Customer identity records synchronized." });
+  };
 
   const handleUpdateLog = () => {
     if (!note || !customer || !authUser) return;
@@ -150,15 +179,22 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   const handleSuspend = () => {
     if (!customer) return;
-    const newStatus = customer.suspensionStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
+    const isDisconnecting = customer.suspensionStatus !== 'SUSPENDED';
+    const newStatus = isDisconnecting ? 'SUSPENDED' : 'ACTIVE';
+    
     const usersStr = localStorage.getItem('mywater_all_users') || '[]';
     const allUsers: User[] = JSON.parse(usersStr);
-    const updatedUsers = allUsers.map(u => u.id === id ? { ...u, suspensionStatus: newStatus } : u);
-    localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
+    const updatedUsers = allUsers.map(u => u.id === id ? { 
+      ...u, 
+      suspensionStatus: newStatus,
+      suspensionReason: isDisconnecting ? suspendReason : '' 
+    } : u);
     
-    setCustomer(prev => prev ? { ...prev, suspensionStatus: newStatus } : null);
+    localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
     window.dispatchEvent(new Event('storage'));
     
+    setSuspendDialogOpen(false);
+    setSuspendReason('');
     toast({ 
       title: newStatus === 'SUSPENDED' ? "Service Disconnected" : "Service Restored", 
       description: `Account for ${customer.name} has been updated.`,
@@ -207,7 +243,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     localStorage.setItem('mywater_all_bills', JSON.stringify([newBill, ...JSON.parse(billsStr)]));
     
     const usersStr = localStorage.getItem('mywater_all_users') || '[]';
-    const updatedUsers = JSON.parse(usersStr).map((u: any) => u.id === id ? { ...u, lastMeterReading: currentReading, currentMeterReading: currentReading } : u);
+    const updatedUsers = JSON.parse(usersStr).map((u: any) => u.id === id ? { 
+      ...u, 
+      lastMeterReading: currentReading, 
+      currentMeterReading: currentReading 
+    } : u);
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
 
     setMeterLiters('');
@@ -217,7 +257,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   };
 
   if (loading) return null;
-  if (!customer) return <div className="h-96 text-center py-12 text-slate-500 uppercase font-black text-xs">Registry error</div>;
+  if (!customer) return <div className="h-96 text-center py-12 text-slate-500 uppercase font-black text-[10px]">Registry error</div>;
 
   const outstandingBalance = bills.filter(b => b.status !== 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
   const isSuspended = customer.suspensionStatus === 'SUSPENDED';
@@ -233,7 +273,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="space-y-4">
-      <Button variant="ghost" className="gap-2 -ml-2 text-slate-400 hover:text-primary transition-colors h-7 px-2 rounded-[5px] text-xs" onClick={() => router.back()}>
+      <Button variant="ghost" className="gap-2 -ml-2 text-slate-400 hover:text-primary transition-colors h-7 px-2 rounded-[5px] text-[10px]" onClick={() => router.back()}>
         <ArrowLeft className="h-3.5 w-3.5" /> Back to Customers
       </Button>
 
@@ -244,12 +284,12 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <CardHeader className="pb-3 pt-5 px-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-2xl font-black text-white uppercase tracking-tight">{customer.name}</CardTitle>
-                  <CardDescription className="flex items-center gap-1.5 mt-0.5 text-slate-400 font-medium text-xs">
+                  <CardTitle className="text-xl font-black text-white uppercase tracking-tight">{customer.name}</CardTitle>
+                  <CardDescription className="flex items-center gap-1.5 mt-0.5 text-slate-400 font-medium text-[10px]">
                     <MapPin className="h-3 w-3 text-primary" /> {customer.district}, {customer.area}
                   </CardDescription>
                 </div>
-                <Badge className="h-6 bg-slate-800 text-primary border-white/5 font-mono font-bold px-2 rounded-[5px] uppercase text-[10px] tracking-widest">
+                <Badge className="h-6 bg-slate-800 text-primary border-white/5 font-mono font-bold px-2 rounded-[5px] uppercase text-[9px] tracking-widest">
                   METER: {customer.meterNumber}
                 </Badge>
               </div>
@@ -260,43 +300,43 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Status</p>
                   <div className="flex items-center gap-1.5">
                     <div className={cn("h-1.5 w-1.5 rounded-full", isSuspended ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" : "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]")} />
-                    <span className={cn("text-[10px] font-black uppercase", isSuspended ? "text-red-500" : "text-green-500")}>
+                    <span className={cn("text-[9px] font-black uppercase", isSuspended ? "text-red-500" : "text-green-500")}>
                       {isSuspended ? "Disconnected" : "Active"}
                     </span>
                   </div>
                 </div>
                 <div className="p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Region</p>
-                  <p className="text-xs font-bold text-white uppercase">{customer.region || 'Southern'}</p>
+                  <p className="text-[10px] font-bold text-white uppercase">{customer.region || 'Southern'}</p>
                 </div>
                 <div className="p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Wallet</p>
-                  <p className="text-xs font-black text-primary">MK {fmt(customer.walletBalance || 0)}</p>
+                  <p className="text-[10px] font-black text-primary">MK {fmt(customer.walletBalance || 0)}</p>
                 </div>
                 <div className="p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Assigned Area</p>
-                  <p className="text-xs font-bold text-white uppercase">{customer.area || 'Unknown'}</p>
+                  <p className="text-[10px] font-bold text-white uppercase">{customer.area || 'Unknown'}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                 <div className="p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Last Metre Reading</p>
+                    <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Last Metre Reading</p>
                     <Edit className="h-2.5 w-2.5 text-primary opacity-50" />
                   </div>
-                  <p className="text-xl font-black text-white">{customer.lastMeterReading || 0} m³</p>
+                  <p className="text-lg font-black text-white">{customer.lastMeterReading || 0} m³</p>
                 </div>
                 <div className="p-3 bg-red-500/5 border border-red-500/10 rounded-[5px]">
-                  <p className="text-[9px] text-red-500/60 font-bold uppercase tracking-widest mb-1">Unsettled Balance</p>
-                  <p className="text-xl font-black text-red-500">MK {fmt(outstandingBalance)}</p>
+                  <p className="text-[8px] text-red-500/60 font-bold uppercase tracking-widest mb-1">Unsettled Balance</p>
+                  <p className="text-lg font-black text-red-500">MK {fmt(outstandingBalance)}</p>
                 </div>
                 <div className="p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Consumption</p>
+                    <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Consumption</p>
                     <Droplets className="h-2.5 w-2.5 text-primary opacity-50" />
                   </div>
-                  <p className="text-xl font-black text-white">{totalConsumption} m³</p>
+                  <p className="text-lg font-black text-white">{totalConsumption} m³</p>
                 </div>
               </div>
             </CardContent>
@@ -305,7 +345,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="px-5 pt-5 pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-black text-white uppercase tracking-wider">Billing History</CardTitle>
+                <CardTitle className="text-[10px] font-black text-white uppercase tracking-wider">Billing History</CardTitle>
                 <History className="h-3.5 w-3.5 text-slate-500" />
               </div>
             </CardHeader>
@@ -314,25 +354,25 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <Table>
                   <TableHeader className="bg-slate-950/50">
                     <TableRow className="border-b border-white/5 hover:bg-transparent">
-                      <TableHead className="text-[9px] font-bold uppercase text-slate-500 tracking-widest h-8">Date</TableHead>
-                      <TableHead className="text-[9px] font-bold uppercase text-slate-500 tracking-widest h-8">Usage</TableHead>
-                      <TableHead className="text-[9px] font-bold uppercase text-slate-500 tracking-widest h-8">Amount</TableHead>
-                      <TableHead className="text-right text-[9px] font-bold uppercase text-slate-500 tracking-widest h-8">Status</TableHead>
+                      <TableHead className="text-[8px] font-bold uppercase text-slate-500 tracking-widest h-8">Date</TableHead>
+                      <TableHead className="text-[8px] font-bold uppercase text-slate-500 tracking-widest h-8">Usage</TableHead>
+                      <TableHead className="text-[8px] font-bold uppercase text-slate-500 tracking-widest h-8">Amount</TableHead>
+                      <TableHead className="text-right text-[8px] font-bold uppercase text-slate-500 tracking-widest h-8">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {bills.length > 0 ? bills.map((bill) => (
-                      <TableRow key={bill.id} onClick={() => { setSelectedBill(bill); setViewBillDialogOpen(true); }} className="border-b border-white/5 hover:bg-white/5 cursor-pointer h-10">
-                        <TableCell className="text-[10px] text-white font-bold">{bill.date}</TableCell>
-                        <TableCell className="text-[10px] text-slate-400">{bill.consumption || 0} m³</TableCell>
-                        <TableCell className="text-[11px] font-black text-white">MK {fmt(bill.totalAmount)}</TableCell>
+                      <TableRow key={bill.id} className="border-b border-white/5 hover:bg-white/5 h-10">
+                        <TableCell className="text-[9px] text-white font-bold">{bill.date}</TableCell>
+                        <TableCell className="text-[9px] text-slate-400">{bill.consumption || 0} m³</TableCell>
+                        <TableCell className="text-[10px] font-black text-white">MK {fmt(bill.totalAmount)}</TableCell>
                         <TableCell className="text-right">
-                          <Badge className={cn("text-[8px] uppercase h-4 font-black tracking-tighter", bill.status === 'PAID' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500')}>
+                          <Badge className={cn("text-[7px] uppercase h-4 font-black tracking-tighter", bill.status === 'PAID' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500')}>
                             {bill.status}
                           </Badge>
                         </TableCell>
                       </TableRow>
-                    )) : <TableRow><TableCell colSpan={4} className="h-16 text-center text-slate-600 italic text-[10px]">No records</TableCell></TableRow>}
+                    )) : <TableRow><TableCell colSpan={4} className="h-16 text-center text-slate-600 italic text-[9px]">No records</TableCell></TableRow>}
                   </TableBody>
                 </Table>
               </div>
@@ -425,18 +465,87 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     </div>
                   </DialogContent>
                 </Dialog>
-                <button className="flex items-center justify-center gap-1.5 w-full border border-white/10 bg-slate-800/40 text-white hover:bg-slate-800 h-9 text-[9px] font-black uppercase rounded-[5px] transition-all">
-                  <Edit className="h-3.5 w-3.5" /> Edit Profile
-                </button>
+
+                <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                  <DialogTrigger asChild>
+                    <button className="flex items-center justify-center gap-1.5 w-full border border-white/10 bg-slate-800/40 text-white hover:bg-slate-800 h-9 text-[9px] font-black uppercase rounded-[5px] transition-all">
+                      <Edit className="h-3.5 w-3.5" /> Edit Profile
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-950 border-white/10 text-white rounded-[5px] max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="uppercase tracking-tighter">Edit Customer Identity</DialogTitle>
+                      <DialogDescription className="text-[10px] text-slate-500 uppercase font-bold">Update profile information and service point details.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-4 py-4">
+                      <div className="col-span-2 space-y-1.5">
+                        <Label className="text-[9px] font-bold uppercase text-slate-500">Full Name</Label>
+                        <Input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-bold uppercase text-slate-500">Email</Label>
+                        <Input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-bold uppercase text-slate-500">Phone</Label>
+                        <Input value={editForm.phoneNumber} onChange={e => setEditForm({...editForm, phoneNumber: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-bold uppercase text-slate-500">District</Label>
+                        <Input value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-bold uppercase text-slate-500">Area</Label>
+                        <Input value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
+                      </div>
+                      <div className="col-span-2 space-y-1.5">
+                        <Label className="text-[9px] font-bold uppercase text-slate-500">Meter Number</Label>
+                        <Input value={editForm.meterNumber} onChange={e => setEditForm({...editForm, meterNumber: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={handleUpdateProfile} className="w-full bg-primary font-black uppercase text-[10px]">Update Profile</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
               
-              <button 
-                onClick={handleSuspend} 
-                className={cn("flex items-center justify-center gap-1.5 w-full h-9 text-[9px] font-black uppercase rounded-[5px] text-white transition-all shadow-lg", 
-                isSuspended ? "bg-green-600 hover:bg-green-700 shadow-green-500/10" : "bg-red-500 hover:bg-red-600 shadow-red-500/10")}
-              >
-                <Power className="h-3.5 w-3.5" /> {isSuspended ? "Restore Service" : "Suspend Service"}
-              </button>
+              <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+                <DialogTrigger asChild>
+                  <button 
+                    className={cn("flex items-center justify-center gap-1.5 w-full h-9 text-[9px] font-black uppercase rounded-[5px] text-white transition-all shadow-lg", 
+                    isSuspended ? "bg-green-600 hover:bg-green-700 shadow-green-500/10" : "bg-red-500 hover:bg-red-600 shadow-red-500/10")}
+                  >
+                    <Power className="h-3.5 w-3.5" /> {isSuspended ? "Restore Service" : "Suspend Service"}
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="bg-slate-950 border-white/10 text-white rounded-[5px] max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle className="uppercase tracking-tighter flex items-center gap-2">
+                      <Power className="h-4 w-4 text-red-500" /> Service Interruption
+                    </DialogTitle>
+                    <DialogDescription className="text-[10px] text-slate-500 uppercase font-bold">Provide a justification for disconnecting this service point.</DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4 space-y-3">
+                    <Label className="text-[9px] font-bold uppercase text-slate-500">Reason for Suspension</Label>
+                    <Textarea 
+                      placeholder="e.g., Extended non-payment, Meter tampering, Customer request..." 
+                      className="bg-slate-900 border-white/5 text-[10px] min-h-[100px]"
+                      value={suspendReason}
+                      onChange={e => setSuspendReason(e.target.value)}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button 
+                      variant={isSuspended ? "default" : "destructive"} 
+                      onClick={handleSuspend}
+                      className="w-full h-11 font-black uppercase text-[10px]"
+                    >
+                      {isSuspended ? "Execute Restoration" : "Execute Suspension"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               <button 
                 onClick={() => setUsageReportsOpen(true)}
