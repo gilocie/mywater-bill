@@ -572,7 +572,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           )}
         </header>
-        <main className="p-6 md:p-8">
+        <main className="p-6 md:p-8 flex-1 overflow-hidden">
           {children}
         </main>
       </SidebarInset>

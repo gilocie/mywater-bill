@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/components/providers/auth-provider';
 import { Broadcast, SupportTicket, User, SupportMessage } from '@/app/lib/mock-data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 export default function BroadcastsPage() {
   const { user, settings } = useAuth();
   const { toast } = useToast();
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -71,6 +72,13 @@ export default function BroadcastsPage() {
       window.dispatchEvent(new Event('storage'));
     }
   }, [user?.id]);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [selectedTicket?.messages]);
 
   const activeBroadcasts = useMemo(() => {
     const now = new Date();
@@ -224,7 +232,7 @@ export default function BroadcastsPage() {
   if (!user) return null;
 
   return (
-    <div className="space-y-6 flex flex-col">
+    <div className="h-full flex flex-col space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-white uppercase flex items-center gap-3">
@@ -306,9 +314,9 @@ export default function BroadcastsPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 h-[calc(100vh-200px)] lg:min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
         {/* Left Column: Active Broadcasts */}
-        <div className="lg:col-span-1 h-full">
+        <div className="lg:col-span-1 h-full max-h-[calc(100vh-240px)]">
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] h-full flex flex-col overflow-hidden">
             <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0">
               <CardTitle className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
@@ -361,7 +369,7 @@ export default function BroadcastsPage() {
         </div>
 
         {/* Right Column: Support Tickets */}
-        <div className="lg:col-span-2 h-full">
+        <div className="lg:col-span-2 h-full max-h-[calc(100vh-240px)]">
           <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px] h-full flex flex-col overflow-hidden">
             <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 flex flex-row items-center justify-between shrink-0">
               <div>
@@ -404,7 +412,7 @@ export default function BroadcastsPage() {
             
             <CardContent className="p-0 flex-1 flex overflow-hidden">
               {/* Ticket List */}
-              <div className="w-1/3 border-r border-white/5 overflow-y-auto">
+              <div className="w-1/3 border-r border-white/5 overflow-y-auto h-full">
                 {filteredTickets.length > 0 ? (
                   <div className="divide-y divide-white/5">
                     {filteredTickets.map(t => {
@@ -446,7 +454,7 @@ export default function BroadcastsPage() {
               </div>
 
               {/* Chat View */}
-              <div className="flex-1 flex flex-col bg-slate-950/20 relative h-full">
+              <div className="flex-1 flex flex-col bg-slate-950/20 relative h-full overflow-hidden">
                 {selectedTicket ? (
                   <>
                     <div className="px-6 py-4 border-b border-white/5 bg-slate-950/40 flex items-center justify-between shrink-0">
@@ -487,7 +495,7 @@ export default function BroadcastsPage() {
                       )}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 h-full">
                       {selectedTicket.messages.map((m, i) => {
                         const isMe = m.senderId === user.id;
                         return (
