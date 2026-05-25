@@ -27,6 +27,10 @@ export default function BroadcastsPage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   
+  // Dialog Control
+  const [bcDialogOpen, setBcDialogOpen] = useState(false);
+  const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+
   // Admin Creation State
   const [newBroadcast, setNewBroadcast] = useState({
     title: '',
@@ -88,8 +92,8 @@ export default function BroadcastsPage() {
     // Staff/Admin filtering: only see tickets in their area, unless escalated to them
     return tickets.filter(t => {
       if (user.role === 'SUPER_ADMIN') return true;
-      if (t.escalatedTo === 'SUPER_ADMIN') return false; // Handled by Super Admin only
-      if (t.escalatedTo === 'ACCOUNTS') return false; // Handled by accounts department specifically (stretch)
+      if (t.escalatedTo === 'SUPER_ADMIN') return false; 
+      if (t.escalatedTo === 'ACCOUNTS') return false; 
       
       // Territory match for District Staff
       return t.area === user.area && t.district === user.district;
@@ -120,10 +124,11 @@ export default function BroadcastsPage() {
     
     localStorage.setItem('mywater_broadcasts', JSON.stringify(updated));
     setBroadcasts(updated);
+    setBcDialogOpen(false);
     window.dispatchEvent(new Event('storage'));
     
     setNewBroadcast({ title: '', message: '', target: 'ALL', type: 'INFO', isPinned: false, expiryDate: '' });
-    toast({ title: "Broadcast Sent", description: "Your message has been distributed to the target audience." });
+    toast({ title: "Broadcast Sent", description: "Your message has been distributed." });
   };
 
   const handleCreateTicket = () => {
@@ -149,16 +154,16 @@ export default function BroadcastsPage() {
     const updated = [ticket, ...tickets];
     localStorage.setItem('mywater_support_tickets', JSON.stringify(updated));
     setTickets(updated);
+    setTicketDialogOpen(false);
     window.dispatchEvent(new Event('storage'));
     
     setNewTicket({ subject: '', message: '' });
-    toast({ title: "Support Ticket Opened", description: "Your request has been routed to your area field staff." });
+    toast({ title: "Support Ticket Opened", description: "Routed to your area field staff." });
   };
 
   const handleReply = (ticket: SupportTicket) => {
     if (!replyText || !user) return;
 
-    // Logic: if customer replies, anyone can take it. If staff replies, lock to them.
     const isStaff = user.role !== 'CUSTOMER';
     
     const newMessage: SupportMessage = {
@@ -173,7 +178,7 @@ export default function BroadcastsPage() {
         return {
           ...t,
           status: isStaff ? 'REPLIED' : 'OPEN',
-          assignedStaffId: isStaff ? user.id : undefined, // Reset lock if customer replies
+          assignedStaffId: isStaff ? user.id : undefined,
           assignedStaffName: isStaff ? user.name : undefined,
           messages: [...t.messages, newMessage],
           lastUpdate: new Date().toISOString()
@@ -206,7 +211,7 @@ export default function BroadcastsPage() {
     setTickets(updatedTickets);
     window.dispatchEvent(new Event('storage'));
     setSelectedTicket(null);
-    toast({ title: "Escalated", description: `Issue forwarded to ${level.replace('_', ' ')} for resolution.` });
+    toast({ title: "Escalated", description: `Forwarded to ${level.replace('_', ' ')}.` });
   };
 
   const deleteBroadcast = (id: string) => {
@@ -229,21 +234,21 @@ export default function BroadcastsPage() {
         </div>
         
         {user.role === 'SUPER_ADMIN' && (
-          <Dialog>
+          <Dialog open={bcDialogOpen} onOpenChange={setBcDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90 text-white rounded-[5px] h-9 gap-2 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">
                 <Plus className="h-4 w-4" /> Create Broadcast
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md rounded-[5px]">
+            <DialogContent className="bg-slate-900 border-white/10 text-white max-w-4xl rounded-[5px]">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 uppercase tracking-tighter">
                   <Megaphone className="h-5 w-5 text-primary" /> Distribute Announcement
                 </DialogTitle>
                 <DialogDescription className="text-slate-500 text-xs">Send a verified notice to specific user groups.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6">
+                <div className="space-y-4">
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase text-slate-500">Subject</Label>
                     <Input value={newBroadcast.title} onChange={e => setNewBroadcast({...newBroadcast, title: e.target.value})} placeholder="e.g. System Maintenance" className="bg-slate-950 border-white/5 h-10" />
@@ -259,33 +264,35 @@ export default function BroadcastsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500">Distribution Channel</Label>
-                  <Select value={newBroadcast.target} onValueChange={v => setNewBroadcast({...newBroadcast, target: v})}>
-                    <SelectTrigger className="bg-slate-950 border-white/5 h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-white/10 text-white">
-                      <SelectItem value="ALL">Entire Population (All)</SelectItem>
-                      <SelectItem value="STAFF">Staff & Agents Only</SelectItem>
-                      <SelectItem value="CUSTOMERS">Customers Only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500">Message Payload</Label>
-                  <Textarea value={newBroadcast.message} onChange={e => setNewBroadcast({...newBroadcast, message: e.target.value})} className="bg-slate-950 border-white/5 min-h-[100px] text-xs" placeholder="Type your announcement content here..." />
-                </div>
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="flex items-center justify-between p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                    <div className="flex items-center gap-2">
-                      <Pin className={cn("h-3.5 w-3.5", newBroadcast.isPinned ? "text-primary" : "text-slate-600")} />
-                      <span className="text-[10px] font-bold uppercase">Pin to Top</span>
-                    </div>
-                    <Switch checked={newBroadcast.isPinned} onCheckedChange={v => setNewBroadcast({...newBroadcast, isPinned: v})} />
-                  </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-500">Auto-Disappear</Label>
-                    <Input type="date" value={newBroadcast.expiryDate} onChange={e => setNewBroadcast({...newBroadcast, expiryDate: e.target.value})} className="bg-slate-950 border-white/5 h-10 text-[10px]" />
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Distribution Channel</Label>
+                    <Select value={newBroadcast.target} onValueChange={v => setNewBroadcast({...newBroadcast, target: v})}>
+                      <SelectTrigger className="bg-slate-950 border-white/5 h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-white/10 text-white">
+                        <SelectItem value="ALL">Entire Population (All)</SelectItem>
+                        <SelectItem value="STAFF">Staff & Agents Only</SelectItem>
+                        <SelectItem value="CUSTOMERS">Customers Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Message Payload</Label>
+                    <Textarea value={newBroadcast.message} onChange={e => setNewBroadcast({...newBroadcast, message: e.target.value})} className="bg-slate-950 border-white/5 min-h-[100px] text-xs" placeholder="Type your announcement content here..." />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center justify-between p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                      <div className="flex items-center gap-2">
+                        <Pin className={cn("h-3.5 w-3.5", newBroadcast.isPinned ? "text-primary" : "text-slate-600")} />
+                        <span className="text-[10px] font-bold uppercase">Pin</span>
+                      </div>
+                      <Switch checked={newBroadcast.isPinned} onCheckedChange={v => setNewBroadcast({...newBroadcast, isPinned: v})} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-slate-500">Auto-Disappear (Date & Time)</Label>
+                      <Input type="datetime-local" value={newBroadcast.expiryDate} onChange={e => setNewBroadcast({...newBroadcast, expiryDate: e.target.value})} className="bg-slate-950 border-white/5 h-10 text-[10px] text-white" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -336,7 +343,7 @@ export default function BroadcastsPage() {
                         {b.expiresAt && (
                           <div className="flex items-center gap-1 text-[9px] text-amber-500/60 font-bold">
                             <Clock className="h-2.5 w-2.5" />
-                            Exp: {format(new Date(b.expiresAt), 'dd MMM')}
+                            Exp: {format(new Date(b.expiresAt), 'dd MMM, HH:mm')}
                           </div>
                         )}
                       </div>
@@ -346,7 +353,7 @@ export default function BroadcastsPage() {
               ) : (
                 <div className="p-12 text-center text-slate-600 space-y-3">
                   <Megaphone className="h-8 w-8 mx-auto opacity-20" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest">No active broadcasts in ledger.</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest">No active broadcasts.</p>
                 </div>
               )}
             </CardContent>
@@ -364,7 +371,7 @@ export default function BroadcastsPage() {
               </div>
               
               {user.role === 'CUSTOMER' && (
-                <Dialog>
+                <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="bg-slate-800 text-white border border-white/5 rounded-[3px] h-7 text-[9px] font-black uppercase tracking-tighter">
                       Open New Ticket
@@ -379,11 +386,11 @@ export default function BroadcastsPage() {
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-slate-500">Issue Category / Subject</Label>
-                        <Input value={newTicket.subject} onChange={e => setNewTicket({...newTicket, subject: e.target.value})} placeholder="e.g. Meter Faulty / Billing Error" className="bg-slate-900 border-white/5" />
+                        <Label className="text-[10px] font-bold uppercase text-slate-500">Subject</Label>
+                        <Input value={newTicket.subject} onChange={e => setNewTicket({...newTicket, subject: e.target.value})} placeholder="e.g. Meter Faulty" className="bg-slate-900 border-white/5" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-slate-500">Detailed Message</Label>
+                        <Label className="text-[10px] font-bold uppercase text-slate-500">Message</Label>
                         <Textarea value={newTicket.message} onChange={e => setNewTicket({...newTicket, message: e.target.value})} className="bg-slate-900 border-white/5 min-h-[120px] text-xs" />
                       </div>
                     </div>
@@ -429,9 +436,6 @@ export default function BroadcastsPage() {
                               <ShieldAlert className="h-2.5 w-2.5" /> Handled by {t.assignedStaffName?.split(' ')[0]}
                             </div>
                           )}
-                          {!t.assignedStaffId && t.status === 'OPEN' && user.role !== 'CUSTOMER' && (
-                            <div className="absolute top-4 right-4 h-1.5 w-1.5 rounded-full bg-primary animate-ping" />
-                          )}
                         </div>
                       );
                     })}
@@ -445,7 +449,6 @@ export default function BroadcastsPage() {
               <div className="flex-1 flex flex-col bg-slate-950/20 relative">
                 {selectedTicket ? (
                   <>
-                    {/* Chat Header */}
                     <div className="px-6 py-4 border-b border-white/5 bg-slate-950/40 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black text-primary border border-primary/20">
@@ -484,7 +487,6 @@ export default function BroadcastsPage() {
                       )}
                     </div>
 
-                    {/* Messages Body */}
                     <div className="flex-1 overflow-y-auto p-6 space-y-4">
                       {selectedTicket.messages.map((m, i) => {
                         const isMe = m.senderId === user.id;
@@ -504,7 +506,6 @@ export default function BroadcastsPage() {
                       })}
                     </div>
 
-                    {/* Reply Input */}
                     <div className="p-4 border-t border-white/5 bg-slate-950/40">
                       {(() => {
                         const isLocked = selectedTicket.assignedStaffId && 
@@ -515,7 +516,7 @@ export default function BroadcastsPage() {
                         if (isLocked) {
                           return (
                             <div className="text-center py-2 bg-amber-500/5 border border-amber-500/20 rounded-[5px]">
-                              <p className="text-[9px] font-black uppercase text-amber-500">Conversation Managed by {selectedTicket.assignedStaffName}</p>
+                              <p className="text-[9px] font-black uppercase text-amber-500">Handled by {selectedTicket.assignedStaffName}</p>
                             </div>
                           );
                         }
@@ -540,7 +541,7 @@ export default function BroadcastsPage() {
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-slate-800 space-y-4">
                     <MessageSquare className="h-12 w-12 opacity-10" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-30">Select a conversation to view details</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-30">Select a conversation</p>
                   </div>
                 )}
               </div>

@@ -11,7 +11,7 @@ import { GEO_DATA, getRegions, getDistrictNames, getLocations, getAllDistrictsFo
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Broadcast } from '@/app/lib/mock-data';
+import { Broadcast, SupportTicket } from '@/app/lib/mock-data';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -104,14 +104,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [user, isLoading, router]);
 
   useEffect(() => {
-    const loadBroadcasts = () => {
+    const loadNotificationCounts = () => {
+      if (!user) return;
+      
       const storedBroadcasts = localStorage.getItem('mywater_broadcasts');
-      if (storedBroadcasts && user) {
+      const storedTickets = localStorage.getItem('mywater_support_tickets');
+      const lastRead = parseInt(localStorage.getItem(`mywater_last_read_${user.id}`) || '0');
+      
+      let count = 0;
+
+      // 1. Check Broadcasts
+      if (storedBroadcasts) {
         const broadcasts: Broadcast[] = JSON.parse(storedBroadcasts);
         const now = new Date();
-        
-        // Filter valid broadcasts for current user
-        const active = broadcasts.filter(b => {
+        const activeB = broadcasts.filter(b => {
           const isTarget = b.target === 'ALL' || 
                           (user.role === 'CUSTOMER' && b.target === 'CUSTOMERS') ||
                           (user.role !== 'CUSTOMER' && b.target === 'STAFF');
@@ -119,20 +125,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return isTarget && isNotExpired;
         });
 
-        // Find pinned
-        setPinnedBroadcast(active.find(b => b.isPinned) || null);
-
-        // Compute unread count (simplified logic using last read timestamp)
-        const lastRead = localStorage.getItem(`mywater_last_read_${user.id}`) || '0';
-        const unread = active.filter(b => new Date(b.createdAt).getTime() > parseInt(lastRead)).length;
-        setUnreadCount(unread);
+        // Set pinned broadcast
+        setPinnedBroadcast(activeB.find(b => b.isPinned) || null);
+        
+        // Count unread broadcasts
+        count += activeB.filter(b => new Date(b.createdAt).getTime() > lastRead).length;
       }
+
+      // 2. Check Support Tickets
+      if (storedTickets) {
+        const tickets: SupportTicket[] = JSON.parse(storedTickets);
+        
+        if (user.role === 'CUSTOMER') {
+          // Customers see replies from staff
+          const userTickets = tickets.filter(t => t.customerId === user.id);
+          count += userTickets.filter(t => {
+            const lastMsg = t.messages[t.messages.length - 1];
+            return lastMsg.senderId !== user.id && new Date(t.lastUpdate).getTime() > lastRead;
+          }).length;
+        } else {
+          // Staff see new tickets or escalations in their area
+          const areaTickets = tickets.filter(t => {
+            if (user.role === 'SUPER_ADMIN') return true;
+            return t.area === user.area && t.district === user.district;
+          });
+          count += areaTickets.filter(t => {
+            // New ticket or new reply from customer since last read
+            const lastMsg = t.messages[t.messages.length - 1];
+            const isCustomerMsg = !allUsers.find(u => u.id === lastMsg.senderId && u.role !== 'CUSTOMER');
+            return lastMsg.senderId !== user.id && new Date(t.lastUpdate).getTime() > lastRead;
+          }).length;
+        }
+      }
+
+      setUnreadCount(count);
     };
 
-    loadBroadcasts();
-    window.addEventListener('storage', loadBroadcasts);
-    return () => window.removeEventListener('storage', loadBroadcasts);
-  }, [user?.id]); // Use id as stable dependency
+    loadNotificationCounts();
+    window.addEventListener('storage', loadNotificationCounts);
+    return () => window.removeEventListener('storage', loadNotificationCounts);
+  }, [user]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -164,7 +196,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setStaffAccessShortcut(settings.staffAccessShortcut || 'Ctrl+L');
       }
     }
-  }, [user?.id, settings]); // Use id as stable dependency
+  }, [user?.id, settings]);
 
   const handleUpdateProfile = () => {
     updateUser({ name: newName });
