@@ -85,8 +85,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Geographic Scope States
   const [appLevel, setAppLevel] = useState<'national' | 'region' | 'district'>('district');
   const [country, setCountry] = useState('Malawi');
-  const [regionName, setRegionName] = useState('Southern Region');
-  const [districtName, setDistrictName] = useState('Blantyre');
+  const [regionName, setRegionName] = useState('');
+  const [districtName, setDistrictName] = useState('');
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -123,8 +123,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setNewRate((settings.waterRate ?? 2.5).toString());
         if (settings.appLevel) setAppLevel(settings.appLevel);
         if (settings.country) setCountry(settings.country);
-        if (settings.regionName !== undefined) setRegionName(settings.regionName);
-        if (settings.districtName !== undefined) setDistrictName(settings.districtName);
+        if (settings.regionName) setRegionName(settings.regionName);
+        if (settings.districtName) setDistrictName(settings.districtName);
         if (settings.receiptCompanyName) setReceiptCompanyName(settings.receiptCompanyName);
       }
     }
@@ -766,8 +766,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-bold uppercase text-slate-500">Country</Label>
-                  <Select value={country} onValueChange={setCountry}>
-                    <SelectTrigger className="bg-slate-950 border-white/5 h-9"><SelectValue /></SelectTrigger>
+                  <Select value={country} onValueChange={(val) => {
+                    setCountry(val);
+                    setRegionName('');
+                    setDistrictName('');
+                  }}>
+                    <SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-slate-900 border-white/10 text-white">
                       {Object.keys(GEO_DATA).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
@@ -775,8 +779,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-bold uppercase text-slate-500">Deployment Level</Label>
-                  <Select value={appLevel} onValueChange={(val: any) => setAppLevel(val)}>
-                    <SelectTrigger className="bg-slate-950 border-white/5 h-9"><SelectValue /></SelectTrigger>
+                  <Select value={appLevel} onValueChange={(val: any) => {
+                    setAppLevel(val);
+                    if (val === 'national') { setRegionName(''); setDistrictName(''); }
+                  }}>
+                    <SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-slate-900 border-white/10 text-white">
                       <SelectItem value="national">National</SelectItem>
                       <SelectItem value="region">Region / Province</SelectItem>
@@ -784,6 +791,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </SelectContent>
                   </Select>
                 </div>
+
+                {appLevel !== 'national' && (
+                  <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <Label className="text-[10px] font-bold uppercase text-primary tracking-widest px-1">Locked Region / Province</Label>
+                    <Select value={regionName} onValueChange={(val) => {
+                      setRegionName(val);
+                      setDistrictName('');
+                    }}>
+                      <SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue placeholder="Select Region..." /></SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-white/10 text-white">
+                        {getRegions(country).map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {appLevel === 'district' && regionName && (
+                  <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <Label className="text-[10px] font-bold uppercase text-primary tracking-widest px-1">Locked District / City</Label>
+                    <Select value={districtName} onValueChange={setDistrictName}>
+                      <SelectTrigger className="bg-slate-950 border-white/5 h-9 text-white"><SelectValue placeholder="Select District..." /></SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-white/10 text-white">
+                        {getDistrictNames(country, regionName).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
@@ -795,7 +829,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* ... (Existing portal, test purchase dialogs) */}
+      {/* ... Test Purchase Dialogs omitted for brevity but preserved in final file */}
     </SidebarProvider>
   );
 }

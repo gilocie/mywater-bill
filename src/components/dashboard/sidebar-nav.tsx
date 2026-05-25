@@ -61,15 +61,15 @@ export function SidebarNav() {
   return (
     <Sidebar className="border-r border-white/5 bg-slate-950">
       <SidebarHeader className="p-6 flex flex-row items-center gap-3">
-        <div className="bg-primary p-2.5 rounded-[5px] shadow-lg shadow-primary/20">
+        <div className="p-2.5 rounded-[5px] shadow-lg shadow-primary/20 flex items-center justify-center shrink-0" style={{ backgroundColor: settings?.logoBgColor || '#2563eb' }}>
           {settings?.logo ? (
             <img src={settings.logo} className="h-7 w-7 object-contain" alt="Logo" />
           ) : (
             <Droplets className="text-white h-7 w-7" />
           )}
         </div>
-        <div>
-          <h1 className="font-headline font-black text-xl tracking-tighter text-white leading-none">
+        <div className="overflow-hidden">
+          <h1 className="font-headline font-black text-xl tracking-tighter text-white leading-none truncate">
             {settings?.companyName ? (
               (() => {
                 const words = settings.companyName.split(' ');

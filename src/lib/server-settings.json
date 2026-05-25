@@ -36,5 +36,9 @@
   "appLevel": "district",
   "country": "Malawi",
   "regionName": "Southern Region",
-  "districtName": "Blantyre"
+  "districtName": "Blantyre",
+  "companyDescription": "Utility Management Portal",
+  "logoBgColor": "#ffffff",
+  "landingTitle": "Manage Your Utility with ease",
+  "receiptCompanyName": "BLANTYRE WATER BOARD"
 }
