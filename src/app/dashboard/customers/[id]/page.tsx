@@ -82,7 +82,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     phoneNumber: '',
     district: '',
     area: '',
-    meterNumber: ''
+    meterNumber: '',
+    lastMeterReading: 0
   });
 
   const fmt = (val: number) =>
@@ -102,7 +103,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           phoneNumber: found.phoneNumber || '',
           district: found.district || '',
           area: found.area || '',
-          meterNumber: found.meterNumber || ''
+          meterNumber: found.meterNumber || '',
+          lastMeterReading: found.lastMeterReading || 0
         });
       }
     }
@@ -272,107 +274,107 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const liveTotal = liveBaseCharge + liveVatAmount;
 
   return (
-    <div className="space-y-4">
-      <Button variant="ghost" className="gap-2 -ml-2 text-slate-400 hover:text-primary transition-colors h-7 px-2 rounded-[5px] text-[10px]" onClick={() => router.back()}>
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to Customers
+    <div className="space-y-3">
+      <Button variant="ghost" className="gap-2 -ml-2 text-slate-400 hover:text-primary transition-colors h-6 px-2 rounded-[5px] text-[9px]" onClick={() => router.back()}>
+        <ArrowLeft className="h-3 w-3" /> Back to Customers
       </Button>
 
-      <div className="flex flex-col md:flex-row items-start gap-5">
-        <div className="flex-1 space-y-4 w-full">
+      <div className="flex flex-col md:flex-row items-start gap-4">
+        <div className="flex-1 space-y-3 w-full">
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] overflow-hidden">
-            <div className={cn("h-1 w-full", isSuspended ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" : "bg-primary")} />
-            <CardHeader className="pb-3 pt-5 px-5">
+            <div className={cn("h-0.5 w-full", isSuspended ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" : "bg-primary")} />
+            <CardHeader className="pb-2 pt-4 px-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-xl font-black text-white uppercase tracking-tight">{customer.name}</CardTitle>
-                  <CardDescription className="flex items-center gap-1.5 mt-0.5 text-slate-400 font-medium text-[10px]">
-                    <MapPin className="h-3 w-3 text-primary" /> {customer.district}, {customer.area}
+                  <CardTitle className="text-lg font-black text-white uppercase tracking-tight">{customer.name}</CardTitle>
+                  <CardDescription className="flex items-center gap-1 mt-0.5 text-slate-400 font-medium text-[9px]">
+                    <MapPin className="h-2.5 w-2.5 text-primary" /> {customer.district}, {customer.area}
                   </CardDescription>
                 </div>
-                <Badge className="h-6 bg-slate-800 text-primary border-white/5 font-mono font-bold px-2 rounded-[5px] uppercase text-[9px] tracking-widest">
+                <Badge className="h-5 bg-slate-800 text-primary border-white/5 font-mono font-bold px-1.5 rounded-[5px] uppercase text-[8px] tracking-widest">
                   METER: {customer.meterNumber}
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="px-5 pb-5">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Status</p>
-                  <div className="flex items-center gap-1.5">
-                    <div className={cn("h-1.5 w-1.5 rounded-full", isSuspended ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" : "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]")} />
-                    <span className={cn("text-[9px] font-black uppercase", isSuspended ? "text-red-500" : "text-green-500")}>
+            <CardContent className="px-4 pb-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Status</p>
+                  <div className="flex items-center gap-1">
+                    <div className={cn("h-1 w-1 rounded-full", isSuspended ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" : "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]")} />
+                    <span className={cn("text-[8px] font-black uppercase", isSuspended ? "text-red-500" : "text-green-500")}>
                       {isSuspended ? "Disconnected" : "Active"}
                     </span>
                   </div>
                 </div>
-                <div className="p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Region</p>
-                  <p className="text-[10px] font-bold text-white uppercase">{customer.region || 'Southern'}</p>
+                <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Region</p>
+                  <p className="text-[9px] font-bold text-white uppercase">{customer.region || 'Southern'}</p>
                 </div>
-                <div className="p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Wallet</p>
-                  <p className="text-[10px] font-black text-primary">MK {fmt(customer.walletBalance || 0)}</p>
+                <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Wallet</p>
+                  <p className="text-[9px] font-black text-primary">MK {fmt(customer.walletBalance || 0)}</p>
                 </div>
-                <div className="p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Assigned Area</p>
-                  <p className="text-[10px] font-bold text-white uppercase">{customer.area || 'Unknown'}</p>
+                <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Assigned Area</p>
+                  <p className="text-[9px] font-bold text-white uppercase">{customer.area || 'Unknown'}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                <div className="p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Last Metre Reading</p>
-                    <Edit className="h-2.5 w-2.5 text-primary opacity-50" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
+                <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Last Metre Reading</p>
+                    <Edit className="h-2 w-2 text-primary opacity-50" />
                   </div>
-                  <p className="text-lg font-black text-white">{customer.lastMeterReading || 0} m³</p>
+                  <p className="text-base font-black text-white">{customer.lastMeterReading || 0} m³</p>
                 </div>
-                <div className="p-3 bg-red-500/5 border border-red-500/10 rounded-[5px]">
-                  <p className="text-[8px] text-red-500/60 font-bold uppercase tracking-widest mb-1">Unsettled Balance</p>
-                  <p className="text-lg font-black text-red-500">MK {fmt(outstandingBalance)}</p>
+                <div className="p-2 bg-red-500/5 border border-red-500/10 rounded-[5px]">
+                  <p className="text-[7px] text-red-500/60 font-bold uppercase tracking-widest mb-0.5">Unsettled Balance</p>
+                  <p className="text-base font-black text-red-500">MK {fmt(outstandingBalance)}</p>
                 </div>
-                <div className="p-3 bg-slate-950/40 border border-white/5 rounded-[5px]">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Consumption</p>
-                    <Droplets className="h-2.5 w-2.5 text-primary opacity-50" />
+                <div className="p-2 bg-slate-950/40 border border-white/5 rounded-[5px]">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Consumption</p>
+                    <Droplets className="h-2 w-2 text-primary opacity-50" />
                   </div>
-                  <p className="text-lg font-black text-white">{totalConsumption} m³</p>
+                  <p className="text-base font-black text-white">{totalConsumption} m³</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
-            <CardHeader className="px-5 pt-5 pb-2">
+            <CardHeader className="px-4 pt-4 pb-1">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[10px] font-black text-white uppercase tracking-wider">Billing History</CardTitle>
-                <History className="h-3.5 w-3.5 text-slate-500" />
+                <CardTitle className="text-[9px] font-black text-white uppercase tracking-wider">Billing History</CardTitle>
+                <History className="h-3 w-3 text-slate-500" />
               </div>
             </CardHeader>
-            <CardContent className="px-5 pb-5">
+            <CardContent className="px-4 pb-4">
               <div className="rounded-[5px] border border-white/5 overflow-hidden">
                 <Table>
                   <TableHeader className="bg-slate-950/50">
                     <TableRow className="border-b border-white/5 hover:bg-transparent">
-                      <TableHead className="text-[8px] font-bold uppercase text-slate-500 tracking-widest h-8">Date</TableHead>
-                      <TableHead className="text-[8px] font-bold uppercase text-slate-500 tracking-widest h-8">Usage</TableHead>
-                      <TableHead className="text-[8px] font-bold uppercase text-slate-500 tracking-widest h-8">Amount</TableHead>
-                      <TableHead className="text-right text-[8px] font-bold uppercase text-slate-500 tracking-widest h-8">Status</TableHead>
+                      <TableHead className="text-[7px] font-bold uppercase text-slate-500 tracking-widest h-6">Date</TableHead>
+                      <TableHead className="text-[7px] font-bold uppercase text-slate-500 tracking-widest h-6">Usage</TableHead>
+                      <TableHead className="text-[7px] font-bold uppercase text-slate-500 tracking-widest h-6">Amount</TableHead>
+                      <TableHead className="text-right text-[7px] font-bold uppercase text-slate-500 tracking-widest h-6">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {bills.length > 0 ? bills.map((bill) => (
-                      <TableRow key={bill.id} className="border-b border-white/5 hover:bg-white/5 h-10">
-                        <TableCell className="text-[9px] text-white font-bold">{bill.date}</TableCell>
-                        <TableCell className="text-[9px] text-slate-400">{bill.consumption || 0} m³</TableCell>
-                        <TableCell className="text-[10px] font-black text-white">MK {fmt(bill.totalAmount)}</TableCell>
+                      <TableRow key={bill.id} className="border-b border-white/5 hover:bg-white/5 h-8">
+                        <TableCell className="text-[8px] text-white font-bold">{bill.date}</TableCell>
+                        <TableCell className="text-[8px] text-slate-400">{bill.consumption || 0} m³</TableCell>
+                        <TableCell className="text-[9px] font-black text-white">MK {fmt(bill.totalAmount)}</TableCell>
                         <TableCell className="text-right">
-                          <Badge className={cn("text-[7px] uppercase h-4 font-black tracking-tighter", bill.status === 'PAID' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500')}>
+                          <Badge className={cn("text-[6px] uppercase h-3.5 font-black tracking-tighter", bill.status === 'PAID' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500')}>
                             {bill.status}
                           </Badge>
                         </TableCell>
                       </TableRow>
-                    )) : <TableRow><TableCell colSpan={4} className="h-16 text-center text-slate-600 italic text-[9px]">No records</TableCell></TableRow>}
+                    )) : <TableRow><TableCell colSpan={4} className="h-12 text-center text-slate-600 italic text-[8px]">No records</TableCell></TableRow>}
                   </TableBody>
                 </Table>
               </div>
@@ -380,17 +382,17 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </Card>
         </div>
 
-        <div className="w-full md:w-80 space-y-4 shrink-0">
+        <div className="w-full md:w-72 space-y-3 shrink-0">
           <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
-            <CardHeader className="px-4 pt-5 pb-2 border-b border-white/5">
-              <CardTitle className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Operational Actions</CardTitle>
+            <CardHeader className="px-4 pt-4 pb-1.5 border-b border-white/5">
+              <CardTitle className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Operational Actions</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2.5 px-4 py-4">
+            <CardContent className="space-y-2 px-4 py-3">
               <div className="grid grid-cols-2 gap-2">
                 <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
                   <DialogTrigger asChild>
-                    <button className="flex items-center justify-center gap-1.5 w-full bg-primary hover:bg-primary/90 text-white h-9 text-[9px] font-black uppercase rounded-[5px] transition-all shadow-lg shadow-primary/10">
-                      <FileText className="h-3.5 w-3.5" /> Issue Invoice
+                    <button className="flex items-center justify-center gap-1.5 w-full bg-primary hover:bg-primary/90 text-white h-8 text-[8px] font-black uppercase rounded-[5px] transition-all shadow-lg shadow-primary/10">
+                      <FileText className="h-3 w-3" /> Issue Invoice
                     </button>
                   </DialogTrigger>
                   <DialogContent className="bg-[#121926] border-white/10 text-white max-w-sm rounded-[5px] p-0 overflow-hidden shadow-2xl">
@@ -468,44 +470,61 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
                 <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
                   <DialogTrigger asChild>
-                    <button className="flex items-center justify-center gap-1.5 w-full border border-white/10 bg-slate-800/40 text-white hover:bg-slate-800 h-9 text-[9px] font-black uppercase rounded-[5px] transition-all">
-                      <Edit className="h-3.5 w-3.5" /> Edit Profile
+                    <button className="flex items-center justify-center gap-1.5 w-full border border-white/10 bg-slate-800/40 text-white hover:bg-slate-800 h-8 text-[8px] font-black uppercase rounded-[5px] transition-all">
+                      <Edit className="h-3 w-3" /> Edit Profile
                     </button>
                   </DialogTrigger>
-                  <DialogContent className="bg-slate-950 border-white/10 text-white rounded-[5px] max-w-md">
-                    <DialogHeader>
-                      <DialogTitle className="uppercase tracking-tighter">Edit Customer Identity</DialogTitle>
-                      <DialogDescription className="text-[10px] text-slate-500 uppercase font-bold">Update profile information and service point details.</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid grid-cols-2 gap-4 py-4">
-                      <div className="col-span-2 space-y-1.5">
-                        <Label className="text-[9px] font-bold uppercase text-slate-500">Full Name</Label>
-                        <Input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
+                  <DialogContent className="bg-[#0b101a] border-white/10 text-white rounded-[5px] max-w-md p-0 overflow-hidden shadow-2xl">
+                    <div className="px-8 pt-8 pb-4">
+                      <DialogTitle className="text-xl font-black uppercase tracking-tight mb-1">Edit Customer Identity</DialogTitle>
+                      <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Update profile information and service point details.</p>
+                    </div>
+
+                    <div className="px-8 py-6 space-y-6">
+                      <div className="space-y-2">
+                        <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Full Name</Label>
+                        <Input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-bold" />
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-bold uppercase text-slate-500">Email</Label>
-                        <Input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Email</Label>
+                          <Input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-bold" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Phone</Label>
+                          <Input value={editForm.phoneNumber} onChange={e => setEditForm({...editForm, phoneNumber: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-bold" />
+                        </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-bold uppercase text-slate-500">Phone</Label>
-                        <Input value={editForm.phoneNumber} onChange={e => setEditForm({...editForm, phoneNumber: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">District</Label>
+                          <Input value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-bold" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Area</Label>
+                          <Input value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-bold" />
+                        </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-bold uppercase text-slate-500">District</Label>
-                        <Input value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-bold uppercase text-slate-500">Area</Label>
-                        <Input value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
-                      </div>
-                      <div className="col-span-2 space-y-1.5">
-                        <Label className="text-[9px] font-bold uppercase text-slate-500">Meter Number</Label>
-                        <Input value={editForm.meterNumber} onChange={e => setEditForm({...editForm, meterNumber: e.target.value})} className="bg-slate-900 border-white/5 h-9" />
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Meter Number</Label>
+                          <Input value={editForm.meterNumber} onChange={e => setEditForm({...editForm, meterNumber: e.target.value})} className="bg-[#1a2333] border-none h-11 text-white font-mono font-bold" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Prev Meter Reading</Label>
+                          <Input type="number" value={editForm.lastMeterReading} onChange={e => setEditForm({...editForm, lastMeterReading: parseFloat(e.target.value) || 0})} className="bg-[#1a2333] border-none h-11 text-white font-mono font-bold" />
+                        </div>
                       </div>
                     </div>
-                    <DialogFooter>
-                      <Button onClick={handleUpdateProfile} className="w-full bg-primary font-black uppercase text-[10px]">Update Profile</Button>
-                    </DialogFooter>
+
+                    <div className="px-8 pb-8">
+                      <Button onClick={handleUpdateProfile} className="w-full h-12 bg-primary hover:bg-primary/90 font-black uppercase text-[11px] tracking-[0.2em] rounded-[5px]">
+                        Update Profile
+                      </Button>
+                    </div>
                   </DialogContent>
                 </Dialog>
               </div>
@@ -513,10 +532,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
                 <DialogTrigger asChild>
                   <button 
-                    className={cn("flex items-center justify-center gap-1.5 w-full h-9 text-[9px] font-black uppercase rounded-[5px] text-white transition-all shadow-lg", 
+                    className={cn("flex items-center justify-center gap-1.5 w-full h-8 text-[8px] font-black uppercase rounded-[5px] text-white transition-all shadow-lg", 
                     isSuspended ? "bg-green-600 hover:bg-green-700 shadow-green-500/10" : "bg-red-500 hover:bg-red-600 shadow-red-500/10")}
                   >
-                    <Power className="h-3.5 w-3.5" /> {isSuspended ? "Restore Service" : "Suspend Service"}
+                    <Power className="h-3 w-3" /> {isSuspended ? "Restore Service" : "Suspend Service"}
                   </button>
                 </DialogTrigger>
                 <DialogContent className="bg-slate-950 border-white/10 text-white rounded-[5px] max-w-sm">
@@ -549,47 +568,47 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
               <button 
                 onClick={() => setUsageReportsOpen(true)}
-                className="flex items-center justify-center gap-1.5 w-full text-slate-500 hover:text-primary transition-colors text-[9px] font-bold uppercase h-6"
+                className="flex items-center justify-center gap-1.5 w-full text-slate-500 hover:text-primary transition-colors text-[8px] font-bold uppercase h-5"
               >
-                <BarChart3 className="h-3 w-3" /> Usage Reports
+                <BarChart3 className="h-2.5 w-2.5" /> Usage Reports
               </button>
             </CardContent>
           </Card>
 
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
-            <CardHeader className="px-4 pt-4 pb-2 border-b border-white/5">
-              <CardTitle className="text-[9px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                <MessageSquare className="h-3 w-3" /> Communication Log
+            <CardHeader className="px-4 pt-3 pb-1 border-b border-white/5">
+              <CardTitle className="text-[8px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+                <MessageSquare className="h-2.5 w-2.5" /> Communication Log
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 py-3 space-y-2.5">
+            <CardContent className="px-4 py-2 space-y-2">
               <Textarea 
                 placeholder="Add field notes..." 
-                className="bg-slate-950 border-white/5 text-[10px] min-h-[80px] resize-none focus:border-primary transition-all rounded-[5px] p-2" 
+                className="bg-slate-950 border-white/5 text-[9px] min-h-[70px] resize-none focus:border-primary transition-all rounded-[5px] p-2" 
                 value={note} 
                 onChange={e => setNote(e.target.value)} 
               />
               <button 
                 onClick={handleUpdateLog} 
                 disabled={!note} 
-                className="flex items-center justify-center gap-2 w-full h-8 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[9px] font-black uppercase rounded-[3px] transition-all"
+                className="flex items-center justify-center gap-1.5 w-full h-7 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[8px] font-black uppercase rounded-[3px] transition-all"
               >
-                <Send className="h-3 w-3" /> Notify Customer
+                <Send className="h-2.5 w-2.5" /> Notify Customer
               </button>
             </CardContent>
           </Card>
 
           <Card className="shadow-2xl border-red-500/10 bg-red-500/[0.02] rounded-[5px]">
-            <CardHeader className="px-4 pt-3 pb-1.5">
-              <div className="flex items-center gap-1.5 text-red-500/40">
-                <ShieldAlert className="h-3 w-3" />
-                <span className="text-[8px] font-black uppercase tracking-[0.2em]">Record Termination</span>
+            <CardHeader className="px-4 pt-2 pb-1">
+              <div className="flex items-center gap-1 text-red-500/40">
+                <ShieldAlert className="h-2.5 w-2.5" />
+                <span className="text-[7px] font-black uppercase tracking-[0.2em]">Record Termination</span>
               </div>
             </CardHeader>
-            <CardContent className="px-4 pb-3">
+            <CardContent className="px-4 pb-2">
               <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <DialogTrigger asChild>
-                  <button className="w-full border border-red-500/20 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 text-[8px] font-black uppercase h-8 rounded-[5px] transition-all">
+                  <button className="w-full border border-red-500/20 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 text-[7px] font-black uppercase h-7 rounded-[5px] transition-all">
                     Delete Customer
                   </button>
                 </DialogTrigger>
