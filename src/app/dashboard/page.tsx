@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/components/providers/auth-provider';
-import { getRegions, getDistrictNames, getLocations } from '@/app/lib/geo-data';
 import { 
   Card, 
   CardContent, 
@@ -12,40 +11,27 @@ import {
 } from '@/components/ui/card';
 import { 
   Droplets, 
-  Users, 
   ArrowUpRight, 
-  Wallet, 
   AlertCircle,
   Clock,
-  ShieldCheck,
   FileText,
   History,
   CheckCircle2,
-  ChevronRight,
   Zap,
   MapPin,
-  Loader2,
   PlusCircle,
-  Megaphone,
-  MessageSquare,
-  Send,
-  LifeBuoy,
-  Plus,
-  ShieldAlert,
-  Search,
-  UserCircle,
-  ArrowDownLeft,
-  Trash2,
-  X,
+  ShieldCheck,
+  Users,
+  Activity,
   Receipt,
-  Printer,
   Download,
-  ExternalLink
+  ExternalLink,
+  ShieldAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Bill, User as AppUser, Transaction, PaymentMethod, Broadcast, SupportTicket, SupportMessage } from '@/app/lib/mock-data';
+import { Bill, User as AppUser, Transaction, SupportTicket } from '@/app/lib/mock-data';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn, calculateWaterCharge } from '@/lib/utils';
@@ -57,16 +43,12 @@ import {
   DialogTitle, 
   DialogFooter, 
   DialogDescription,
-  DialogTrigger
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format } from 'date-fns';
 
 export default function DashboardPage() {
-  const { user, updateUser, settings } = useAuth();
+  const { user, settings } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   
@@ -102,7 +84,11 @@ export default function DashboardPage() {
       const transStr = localStorage.getItem('mywater_all_transactions');
       if (transStr && user) {
         const allTrans: Transaction[] = JSON.parse(transStr);
-        setAllTransactions(allTrans.filter(t => t.userId === user.id));
+        if (user.role === 'CUSTOMER') {
+          setAllTransactions(allTrans.filter(t => t.userId === user.id));
+        } else {
+          setAllTransactions(allTrans);
+        }
       }
     };
 
@@ -178,6 +164,17 @@ export default function DashboardPage() {
   };
 
   const handleViewReceipt = (bill: Bill) => {
+    let customerName = user?.name || 'Customer';
+    let meterNumber = user?.meterNumber || 'N/A';
+    
+    if (user.role !== 'CUSTOMER') {
+      const found = allUsers.find(u => u.id === bill.customerId);
+      if (found) {
+        customerName = found.name;
+        meterNumber = found.meterNumber || 'N/A';
+      }
+    }
+
     setReceiptData({
       txId: `INV-${bill.id.slice(-6).toUpperCase()}`,
       amount: bill.totalAmount,
@@ -185,8 +182,8 @@ export default function DashboardPage() {
       network: bill.status === 'PAID' ? 'Utility Ledger (Settled)' : 'Utility Ledger (Pending)',
       product: `Water Bill Invoice`,
       date: bill.date,
-      customerName: user?.name || 'Customer',
-      meterNumber: user?.meterNumber || 'N/A',
+      customerName,
+      meterNumber,
       lastMeterReading: bill.lastMeterReading !== undefined ? bill.lastMeterReading : 0,
       currentMeterReading: bill.currentMeterReading !== undefined ? bill.currentMeterReading : bill.meterReadingLiters,
       consumption: bill.consumption !== undefined ? bill.consumption : bill.meterReadingLiters,
@@ -195,115 +192,6 @@ export default function DashboardPage() {
       status: bill.status
     });
     setReceiptDialogOpen(true);
-  };
-
-  const handleDownloadReceipt = () => {
-    if (!receiptData) return;
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = 450;
-    canvas.height = 650;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, canvas.width, 110);
-
-    ctx.fillStyle = settings?.logoBgColor || '#3b82f6';
-    ctx.beginPath();
-    ctx.arc(45, 55, 18, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (settings?.logo) {
-      const img = new Image();
-      img.src = settings.logo;
-      ctx.drawImage(img, 32, 42, 26, 26);
-    } else {
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '900 15px sans-serif';
-      ctx.fillText('MWB', 32, 60);
-    }
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 15px sans-serif';
-    ctx.fillText(settings?.receiptCompanyName?.toUpperCase() || 'MALAWI WATER BOARD', 80, 50);
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = 'bold 9px sans-serif';
-    ctx.fillText('OFFICIAL PAYMENT RECEIPT', 80, 70);
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(0, 110, canvas.width, 60);
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 9px sans-serif';
-    ctx.fillText('RECEIPT NO.', 30, 132);
-    ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 12px monospace';
-    ctx.fillText(receiptData.txId, 30, 152);
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 9px sans-serif';
-    ctx.fillText('DATE & TIME', 270, 132);
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '11px sans-serif';
-    ctx.fillText(receiptData.date.split(',')[0], 270, 152);
-    ctx.fillStyle = '#f0fdf4';
-    ctx.fillRect(30, 190, canvas.width - 60, 95);
-    ctx.strokeStyle = '#bbf7d0';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(30, 190, canvas.width - 60, 95);
-    ctx.fillStyle = '#166534';
-    ctx.font = 'bold 9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('AMOUNT PAID', canvas.width / 2, 215);
-    ctx.fillStyle = '#15803d';
-    ctx.font = 'bold 30px sans-serif';
-    ctx.fillText(`MK ${receiptData.amount?.toLocaleString()}`, canvas.width / 2, 250);
-    ctx.fillStyle = '#166534';
-    ctx.font = 'bold 8px sans-serif';
-    ctx.fillText(receiptData.status === 'PAID' ? '✓ SETTLED' : '⚠ PENDING PAYMENT', canvas.width / 2, 272);
-    ctx.textAlign = 'left';
-    const startY = 320;
-    const rowHeight = 35;
-    const rows = [
-      { label: 'CUSTOMER NAME', value: receiptData.customerName },
-      { label: 'METER NUMBER', value: receiptData.meterNumber || 'N/A' },
-      { label: 'SERVICE', value: receiptData.product },
-      { label: 'NETWORK', value: receiptData.network },
-      { label: 'STATUS', value: receiptData.status === 'PAID' ? 'Paid' : 'Pending' }
-    ];
-    rows.forEach((row, index) => {
-      const y = startY + index * rowHeight;
-      ctx.fillStyle = '#64748b';
-      ctx.font = 'bold 9px sans-serif';
-      ctx.fillText(row.label, 30, y);
-      ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText(String(row.value), 190, y);
-      ctx.strokeStyle = '#f1f5f9';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(30, y + 10);
-      ctx.lineTo(canvas.width - 30, y + 10);
-      ctx.stroke();
-    });
-    const barcodeY = 515;
-    ctx.fillStyle = '#0f172a';
-    for (let i = 0; i < 55; i++) {
-      const w = Math.random() > 0.55 ? 3.5 : 1.5;
-      ctx.fillRect(85 + i * 5, barcodeY, w, 40);
-    }
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 9px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(`${receiptData.txId} • ${settings?.receiptCompanyName?.toUpperCase() || 'MWB'}-SYSTEM-AUDIT`, canvas.width / 2, barcodeY + 58);
-    const url = canvas.toDataURL('image/jpeg', 0.95);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `receipt-${receiptData.txId}.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    toast({ title: "Receipt Downloaded", description: `Receipt image receipt-${receiptData.txId}.jpg has been saved.` });
   };
 
   const handleDeleteTransaction = (id: string) => {
@@ -327,7 +215,115 @@ export default function DashboardPage() {
     toast({ title: "Batch Removed", description: `${selectedTxIds.length} records purged.` });
   };
 
-  // STAFF VIEW
+  // SUPER ADMIN VIEW
+  if (user.role === 'SUPER_ADMIN') {
+    const globalRevenue = allBills.filter(b => b.status === 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
+    const globalArrears = allBills.filter(b => b.status !== 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
+    const totalInvoiced = allBills.reduce((sum, b) => sum + b.totalAmount, 0);
+    const collectionRate = totalInvoiced > 0 ? (globalRevenue / totalInvoiced) * 100 : 0;
+    const totalCustomers = allUsers.filter(u => u.role === 'CUSTOMER').length;
+    const totalStaff = allUsers.filter(u => u.role !== 'CUSTOMER').length;
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-black tracking-tight text-white uppercase flex items-center gap-3">
+            <ShieldCheck className="h-8 w-8 text-primary" /> Global Oversight
+          </h2>
+          <p className="text-slate-400 font-medium tracking-tight">Consolidated utility metrics and system performance.</p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
+            <CardHeader className="pt-4 pb-1 px-4">
+              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Global Revenue</CardDescription>
+              <CardTitle className="text-xl font-black text-green-500">MK {format2Dec(globalRevenue)}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
+            <CardHeader className="pt-4 pb-1 px-4">
+              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Outstanding Arrears</CardDescription>
+              <CardTitle className="text-xl font-black text-red-500">MK {format2Dec(globalArrears)}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
+            <CardHeader className="pt-4 pb-1 px-4">
+              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Collection Efficiency</CardDescription>
+              <div className="flex items-center gap-3">
+                <CardTitle className="text-xl font-black text-primary">{collectionRate.toFixed(1)}%</CardTitle>
+                <Progress value={collectionRate} className="h-1 flex-1 bg-slate-950" />
+              </div>
+            </CardHeader>
+          </Card>
+          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
+            <CardHeader className="pt-4 pb-1 px-4">
+              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">System Registry</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-white uppercase">{totalCustomers} <span className="text-[9px] text-slate-500">Customers</span></p>
+                  <p className="text-xs font-bold text-white uppercase">{totalStaff} <span className="text-[9px] text-slate-500">Staff</span></p>
+                </div>
+                <Users className="h-5 w-5 text-primary opacity-50" />
+              </div>
+            </CardHeader>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[450px] overflow-hidden">
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
+            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-4 py-3 shrink-0">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                <Activity className="h-3.5 w-3.5" /> Recent Billing Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 flex-1 overflow-y-auto custom-scrollbar">
+              <div className="divide-y divide-white/5">
+                {allBills.slice(0, 20).map(bill => (
+                  <div key={bill.id} className="p-3 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer" onClick={() => handleViewReceipt(bill)}>
+                    <div>
+                      <p className="text-[10px] font-black text-white uppercase">INV-{bill.id.slice(-6).toUpperCase()}</p>
+                      <p className="text-[8px] text-slate-500 font-bold uppercase">{allUsers.find(u => u.id === bill.customerId)?.name || 'Unknown'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-black text-white">MK {format2Dec(bill.totalAmount)}</p>
+                      <Badge className={cn("text-[6px] h-3.5", bill.status === 'PAID' ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>
+                        {bill.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px] flex flex-col overflow-hidden">
+            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-4 py-3 shrink-0">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" /> System Logs
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 flex-1 overflow-y-auto custom-scrollbar">
+              <div className="divide-y divide-white/5">
+                {allTransactions.slice(0, 20).map(tx => (
+                  <div key={tx.id} className="p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-black text-white uppercase">{tx.type}</p>
+                      <p className="text-[8px] text-slate-500 font-bold uppercase">{tx.date} • {tx.description}</p>
+                    </div>
+                    <p className={cn("text-xs font-black", tx.type === 'DEPOSIT' ? "text-green-500" : "text-primary")}>
+                      {tx.type === 'DEPOSIT' ? '+' : '-'} MK {tx.amount.toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // DISTRICT STAFF VIEW
   if (user.role === 'DISTRICT_STAFF') {
     const districtCustomers = allUsers.filter(u => u.role === 'CUSTOMER' && u.district === user.district);
     const districtBills = allBills.filter(b => districtCustomers.some(c => c.id === b.customerId));
@@ -416,42 +412,9 @@ export default function DashboardPage() {
                           <p className="text-[9px] text-slate-500 font-bold font-mono">METER: {cust.meterNumber} • {cust.area}</p>
                         </div>
                       </div>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button className="h-8 bg-primary hover:bg-primary/90 text-[10px] font-bold uppercase rounded-[5px] gap-2">
-                            <PlusCircle className="h-3.5 w-3.5" /> Issue Invoice
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="bg-slate-900 border-white/5 text-white max-w-sm rounded-[5px]">
-                          <DialogHeader>
-                            <DialogTitle className="text-sm font-bold flex items-center gap-2">
-                              <FileText className="h-4 w-4 text-primary" /> Issue Monthly Invoice
-                            </DialogTitle>
-                            <DialogDescription className="text-[10px] text-slate-500 uppercase font-bold">
-                              Cycle: {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="py-4 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-1.5">
-                                <Label className="text-9px font-bold uppercase text-slate-500">Current Reading (m³)</Label>
-                                <Input type="number" value={meterLiters} onChange={e => setMeterLiters(e.target.value)} placeholder={`Min: ${cust.lastMeterReading}`} className="bg-slate-950 border-white/5 h-10 font-bold" />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-9px font-bold uppercase text-slate-500">Grace Period (Days)</Label>
-                                <Input type="number" value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} className="bg-slate-950 border-white/5 h-10 font-bold" />
-                              </div>
-                            </div>
-                            <div className="p-3 bg-white/5 rounded-[5px] text-[10px] space-y-1">
-                              <div className="flex justify-between font-bold text-slate-400"><span>LAST READING</span><span>{cust.lastMeterReading} m³</span></div>
-                              <div className="flex justify-between font-black text-primary border-t border-white/5 pt-1 mt-1"><span>CONSUMPTION</span><span>{Math.max(0, (parseFloat(meterLiters) || 0) - (cust.lastMeterReading || 0))} m³</span></div>
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button onClick={() => handleIssueInvoice(cust)} className="w-full h-10 font-bold uppercase text-[10px] bg-primary">Generate Invoice</Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
+                      <button onClick={() => router.push(`/dashboard/customers/${cust.id}`)} className="h-8 bg-primary hover:bg-primary/90 text-white px-4 text-[10px] font-bold uppercase rounded-[5px] flex items-center gap-2">
+                        <PlusCircle className="h-3.5 w-3.5" /> Issue Invoice
+                      </button>
                     </div>
                   )) : (
                     <div className="text-center py-12 bg-slate-950/20 rounded-[5px] border border-dashed border-white/10">
@@ -581,19 +544,37 @@ export default function DashboardPage() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="shadow-sm border-white/5 bg-primary text-white overflow-hidden rounded-[5px]">
-            <CardHeader className="px-4 pt-4 pb-1"><CardDescription className="text-white/70 font-bold text-[9px] uppercase">Wallet</CardDescription><CardTitle className="text-2xl font-black">MK {format2Dec(user.walletBalance || 0)}</CardTitle></CardHeader>
-            <CardContent className="px-4 pb-4"><Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 text-white h-7 text-[9px] font-bold uppercase" onClick={() => router.push('/dashboard/wallet')}>Deposit</Button></CardContent>
+            <CardHeader className="px-4 pt-4 pb-1">
+              <CardDescription className="text-white/70 font-bold text-[9px] uppercase">Wallet</CardDescription>
+              <CardTitle className="text-2xl font-black">MK {format2Dec(user.walletBalance || 0)}</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 text-white h-7 text-[9px] font-bold uppercase" onClick={() => router.push('/dashboard/wallet')}>Deposit</Button>
+            </CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
-            <CardHeader className="px-4 pt-4 pb-1 flex flex-row items-center justify-between"><CardDescription className="text-slate-400 font-bold text-[9px] uppercase">Last Metre Reading</CardDescription><Droplets className="h-3 w-3 text-primary" /></CardHeader>
-            <CardContent className="px-4 pb-4"><div className="text-2xl font-black text-white">{(user.lastMeterReading || 0).toLocaleString()} m³</div></CardContent>
+            <CardHeader className="px-4 pt-4 pb-1 flex flex-row items-center justify-between">
+              <CardDescription className="text-slate-400 font-bold text-[9px] uppercase">Last Metre Reading</CardDescription>
+              <Droplets className="h-3 w-3 text-primary" />
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="text-2xl font-black text-white">{(user.lastMeterReading || 0).toLocaleString()} m³</div>
+            </CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
-            <CardHeader className="px-4 pt-4 pb-1 flex flex-row items-center justify-between"><CardDescription className="text-slate-400 font-bold text-[9px] uppercase">Consumption</CardDescription><Droplets className="h-3 w-3 text-accent" /></CardHeader>
-            <CardContent className="px-4 pb-4"><div className="text-2xl font-black text-white">{activeConsumption.toLocaleString()} m³</div></CardContent>
+            <CardHeader className="px-4 pt-4 pb-1 flex flex-row items-center justify-between">
+              <CardDescription className="text-slate-400 font-bold text-[9px] uppercase">Consumption</CardDescription>
+              <Droplets className="h-3 w-3 text-accent" />
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="text-2xl font-black text-white">{activeConsumption.toLocaleString()} m³</div>
+            </CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
-            <CardHeader className="px-4 pt-4 pb-1 flex flex-row items-center justify-between"><CardDescription className="text-slate-400 font-bold text-[9px] uppercase">Total Due</CardDescription><AlertCircle className={cn("h-3 w-3", isAnyBillOverdue ? 'text-destructive' : 'text-green-500')} /></CardHeader>
+            <CardHeader className="px-4 pt-4 pb-1 flex flex-row items-center justify-between">
+              <CardDescription className="text-slate-400 font-bold text-[9px] uppercase">Total Due</CardDescription>
+              <AlertCircle className={cn("h-3 w-3", isAnyBillOverdue ? 'text-destructive' : 'text-green-500')} />
+            </CardHeader>
             <CardContent className="px-4 pb-4">
               <div className={cn("text-2xl font-black", isAnyBillOverdue ? 'text-destructive' : 'text-green-500')}>MK {format2Dec(totalDue)}</div>
               <p className={cn("text-[9px] mt-1 font-bold", isAnyBillOverdue ? 'text-red-400' : 'text-green-400')}>{countdownText}</p>
@@ -602,9 +583,7 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Dashboard Grid: Invoices & Activity History */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[450px] overflow-hidden">
-          {/* Outstanding Invoices Column */}
           <Card className="lg:col-span-1 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
             <CardHeader className="bg-slate-950/40 border-b border-white/5 px-4 py-3 shrink-0 flex flex-row items-center justify-between">
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
@@ -615,11 +594,7 @@ export default function DashboardPage() {
               {pendingBills.length > 0 ? (
                 <div className="divide-y divide-white/5">
                   {pendingBills.map(bill => (
-                    <div 
-                      key={bill.id} 
-                      onClick={() => handleViewReceipt(bill)}
-                      className="p-3 space-y-1.5 transition-all group hover:bg-white/5 cursor-pointer border-l-2 border-transparent hover:border-primary"
-                    >
+                    <div key={bill.id} onClick={() => handleViewReceipt(bill)} className="p-3 space-y-1.5 transition-all group hover:bg-white/5 cursor-pointer border-l-2 border-transparent hover:border-primary">
                       <div className="flex items-center justify-between">
                         <Badge className={cn("text-[7px] font-black uppercase px-1.5 h-3.5 rounded-[2px]", isBillOverdue(bill) ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20")}>
                           {isBillOverdue(bill) ? "Overdue" : "Pending"}
@@ -638,14 +613,12 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="p-10 text-center text-slate-800 italic uppercase text-[9px] font-bold flex flex-col items-center gap-2">
-                  <CheckCircle2 className="h-8 w-8 opacity-10" />
-                  Clear Balance
+                  <CheckCircle2 className="h-8 w-8 opacity-10" /> Clear Balance
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Activity History Column */}
           <Card className="lg:col-span-2 shadow-2xl border-white/5 bg-slate-900 rounded-[5px] flex flex-col overflow-hidden">
             <CardHeader className="bg-slate-950/40 border-b border-white/5 px-4 py-3 flex flex-row items-center justify-between shrink-0">
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-1.5">
@@ -654,37 +627,24 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[7px] font-bold text-slate-600 uppercase tracking-widest">Show</span>
-                  <select 
-                    value={perPage} 
-                    onChange={(e) => setPerPage(Number(e.target.value))}
-                    className="bg-slate-800 border border-white/10 text-[9px] text-white rounded-[2px] px-1 h-5 outline-none focus:border-primary"
-                  >
+                  <select value={perPage} onChange={(e) => setPerPage(Number(e.target.value))} className="bg-slate-800 border border-white/10 text-[9px] text-white rounded-[2px] px-1 h-5 outline-none focus:border-primary">
                     {[5, 10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
-              {/* Pinned Toolbar */}
               <div className="px-4 py-2 border-b border-white/5 bg-slate-950/20 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    className="w-2.5 h-2.5 accent-primary cursor-pointer"
-                    checked={allTransactions.length > 0 && selectedTxIds.length === allTransactions.length}
-                    onChange={(e) => {
-                      if (e.target.checked) setSelectedTxIds(allTransactions.map(t => t.id));
-                      else setSelectedTxIds([]);
-                    }}
-                  />
+                  <input type="checkbox" className="w-2.5 h-2.5 accent-primary cursor-pointer" checked={allTransactions.length > 0 && selectedTxIds.length === allTransactions.length} onChange={(e) => {
+                    if (e.target.checked) setSelectedTxIds(allTransactions.map(t => t.id));
+                    else setSelectedTxIds([]);
+                  }} />
                   <span className="text-[8px] font-black uppercase text-slate-600 tracking-widest">Select All</span>
                 </div>
                 <div className="flex items-center gap-3">
                   {selectedTxIds.length > 0 && (
-                    <button 
-                      onClick={handleBulkDeleteTransactions}
-                      className="text-[8px] font-black text-red-500 uppercase hover:text-red-400 transition-colors flex items-center gap-1"
-                    >
+                    <button onClick={handleBulkDeleteTransactions} className="text-[8px] font-black text-red-500 uppercase hover:text-red-400 transition-colors flex items-center gap-1">
                       <Trash2 className="h-2.5 w-2.5" /> Purge
                     </button>
                   )}
@@ -692,62 +652,37 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Scrollable List */}
               <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-2 space-y-1.5 bg-slate-900/40">
                 {allTransactions.length > 0 ? allTransactions.slice(0, perPage).map((tx) => {
                   const isSettlement = tx.type === 'BILL_PAYMENT' || tx.description.includes('Settlement');
                   const relatedBill = isSettlement ? allBills.find(b => tx.description.includes(b.id.slice(-6).toUpperCase())) : null;
                   
                   return (
-                    <div 
-                      key={tx.id} 
-                      className="p-3 bg-slate-950/40 border border-white/5 rounded-[4px] flex items-center justify-between group hover:border-white/10 transition-all"
-                    >
+                    <div key={tx.id} className="p-3 bg-slate-950/40 border border-white/5 rounded-[4px] flex items-center justify-between group hover:border-white/10 transition-all">
                       <div className="flex items-center gap-3">
-                        <input 
-                          type="checkbox" 
-                          className="w-2.5 h-2.5 accent-primary cursor-pointer"
-                          checked={selectedTxIds.includes(tx.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedTxIds(prev => [...prev, tx.id]);
-                            else setSelectedTxIds(prev => prev.filter(i => i !== tx.id));
-                          }}
-                        />
+                        <input type="checkbox" className="w-2.5 h-2.5 accent-primary cursor-pointer" checked={selectedTxIds.includes(tx.id)} onChange={(e) => {
+                          if (e.target.checked) setSelectedTxIds(prev => [...prev, tx.id]);
+                          else setSelectedTxIds(prev => prev.filter(i => i !== tx.id));
+                        }} />
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <p className="text-[9px] font-black text-white uppercase tracking-tight">
-                              {tx.type === 'DEPOSIT' ? 'Deposit' : 'Settlement'}
-                            </p>
-                            {isSettlement && (
-                              <Badge className="bg-primary/10 text-primary border-primary/20 text-[6px] font-black uppercase px-1 h-3 flex items-center gap-0.5">
-                                <Receipt className="h-1.5 w-1.5" /> Receipt
-                              </Badge>
-                            )}
+                            <p className="text-[9px] font-black text-white uppercase tracking-tight">{tx.type === 'DEPOSIT' ? 'Deposit' : 'Settlement'}</p>
+                            {isSettlement && <Badge className="bg-primary/10 text-primary border-primary/20 text-[6px] font-black uppercase px-1 h-3 flex items-center gap-0.5"><Receipt className="h-1.5 w-1.5" /> Receipt</Badge>}
                           </div>
                           <p className="text-[7px] text-slate-600 font-bold uppercase mt-0.5">{tx.date} • {tx.description}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className={cn(
-                          "text-[10px] font-black tracking-tight",
-                          tx.type === 'DEPOSIT' ? "text-green-500" : "text-primary"
-                        )}>
+                        <span className={cn("text-[10px] font-black tracking-tight", tx.type === 'DEPOSIT' ? "text-green-500" : "text-primary")}>
                           {tx.type === 'DEPOSIT' ? '+' : '-'} MK {tx.amount.toLocaleString()}
                         </span>
                         <div className="flex items-center">
                           {isSettlement && relatedBill && (
-                             <button 
-                               onClick={() => handleViewReceipt(relatedBill)}
-                               className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-600 hover:text-primary mr-0.5"
-                               title="View Receipt"
-                             >
+                             <button onClick={() => handleViewReceipt(relatedBill)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-600 hover:text-primary mr-0.5" title="View Receipt">
                                <ExternalLink className="h-3 w-3" />
                              </button>
                           )}
-                          <button 
-                            onClick={() => handleDeleteTransaction(tx.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-800 hover:text-red-500"
-                          >
+                          <button onClick={() => handleDeleteTransaction(tx.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-800 hover:text-red-500">
                             <Trash2 className="h-3 w-3" />
                           </button>
                         </div>
@@ -770,28 +705,20 @@ export default function DashboardPage() {
 
   return (
     <>
-      {/* Shared Receipt/Invoice Dialog */}
       <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
         <DialogContent className="bg-white text-slate-900 max-w-sm rounded-[5px] p-0 overflow-hidden max-h-[90vh] flex flex-col">
           <div className="bg-slate-900 px-6 py-5 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-[3px]" style={{ backgroundColor: settings?.logoBgColor || '#2563eb' }}>
-                {settings?.logo ? (
-                  <img src={settings.logo} className="h-5 w-5 object-contain" />
-                ) : (
-                  <Droplets className="h-5 w-5 text-white" />
-                )}
+                {settings?.logo ? <img src={settings.logo} className="h-5 w-5 object-contain" /> : <Droplets className="h-5 w-5 text-white" />}
               </div>
               <div>
-                <DialogTitle className="text-xs font-black text-white uppercase tracking-widest">
-                  {settings?.receiptCompanyName || 'Malawi Water Board'}
-                </DialogTitle>
+                <DialogTitle className="text-xs font-black text-white uppercase tracking-widest">{settings?.receiptCompanyName || 'Malawi Water Board'}</DialogTitle>
                 <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Utility Bill Invoice</p>
               </div>
             </div>
             <Receipt className="h-5 w-5 text-primary opacity-70" />
           </div>
-
           {receiptData && (
             <div className="flex-1 overflow-y-auto">
               <div className="bg-primary/10 border-b border-primary/20 px-6 py-3 flex justify-between items-center">
@@ -812,10 +739,7 @@ export default function DashboardPage() {
                   { label: 'Previous Reading', value: `${receiptData.lastMeterReading} m³` },
                   { label: 'Current Reading', value: `${receiptData.currentMeterReading} m³` },
                 ].map(row => (
-                  <div key={row.label} className="flex justify-between items-center text-[10px]">
-                    <span className="font-bold text-slate-400 uppercase tracking-wider">{row.label}</span>
-                    <span className="font-black text-slate-800 font-mono">{row.value}</span>
-                  </div>
+                  <div key={row.label} className="flex justify-between items-center text-[10px]"><span className="font-bold text-slate-400 uppercase tracking-wider">{row.label}</span><span className="font-black text-slate-800 font-mono">{row.value}</span></div>
                 ))}
                 <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-2"><span className="font-bold text-primary uppercase tracking-wider font-black">Consumption</span><span className="font-black text-primary">{receiptData.consumption} m³</span></div>
                 <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-2"><span className="font-bold text-slate-400 uppercase tracking-wider">Subtotal</span><span className="font-black text-slate-800">MK {format2Dec(receiptData.amount - receiptData.vatAmount)}</span></div>
@@ -828,8 +752,8 @@ export default function DashboardPage() {
             </div>
           )}
           <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0">
-            <Button variant="outline" className="flex-1 h-9 text-[10px] font-bold uppercase border-slate-200 text-slate-600 gap-2 rounded-[5px]" onClick={() => window.print()}><Printer className="h-3.5 w-3.5" /> Print Bill</Button>
-            <Button variant="default" className="flex-1 h-9 bg-slate-900 hover:bg-slate-800 text-[10px] font-bold uppercase text-white gap-2 rounded-[5px]" onClick={handleDownloadReceipt}><Download className="h-3.5 w-3.5" /> Download</Button>
+            <Button variant="outline" className="flex-1 h-9 text-[10px] font-bold uppercase border-slate-200 text-slate-600 gap-2 rounded-[5px]" onClick={() => window.print()}>Print Bill</Button>
+            <Button variant="default" className="flex-1 h-9 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold uppercase rounded-[5px]" onClick={() => setReceiptDialogOpen(false)}>Close</Button>
           </div>
         </DialogContent>
       </Dialog>
