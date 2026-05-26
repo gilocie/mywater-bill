@@ -446,18 +446,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <AvatarImage src={(user as any).profilePic || settings?.defaultAvatar || ''} />
                       <AvatarFallback className="bg-slate-800 text-primary font-bold text-xs">{user.name[0]}</AvatarFallback>
                     </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-slate-900 border-white/5 text-slate-300 rounded-[5px]">
-                  <DropdownMenuLabel className="text-xs font-bold uppercase tracking-widest text-slate-500">My Account</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/5" />
-                  <DropdownMenuItem onClick={() => { setNewName(user.name); setProfileDialogOpen(true); }} className="flex items-center gap-2 hover:bg-white/5 focus:bg-white/5 cursor-pointer">
-                    <UserIcon className="h-4 w-4" /> Profile Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-white/5" />
-                  <DropdownMenuItem onClick={logout} className="flex items-center gap-2 text-red-400 hover:bg-red-400/10 focus:bg-red-400/10 cursor-pointer">
-                    <LogOut className="h-4 w-4" /> Sign Out
-                  </DropdownMenuItem>
+                  </DropdownMenuTrigger>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -477,7 +466,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </p>
               </div>
               <div className="flex items-center gap-4">
-                <Link href="/dashboard" className="text-[10px] font-black uppercase underline decoration-2 underline-offset-4 hover:opacity-80 transition-opacity">Settle Balance Now</Link>
+                <Link href="/dashboard" className="shrink-0">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 px-4 bg-orange-600 hover:bg-orange-700 text-white border-white border-2 font-black text-[10px] uppercase tracking-wider rounded-[5px] transition-all shadow-lg"
+                  >
+                    Settle Balance Now
+                  </Button>
+                </Link>
                 <button onClick={handleDismissBillAlert} className="p-1 hover:bg-black/10 rounded-full transition-colors">
                   <X className="h-3.5 w-3.5" />
                 </button>
