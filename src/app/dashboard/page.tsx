@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
@@ -174,7 +173,7 @@ export default function DashboardPage() {
     setAllUsers(updatedUsers);
 
     setMeterLiters('');
-    toast({ title: "Invoice Issued", description: `MK ${format2Dec(totalAmount)} generated for ${customer.name}.` });
+    toast({ title: "Invoice Issued", description: `MK {format2Dec(totalAmount)} generated for ${customer.name}.` });
     window.dispatchEvent(new Event('storage'));
   };
 
@@ -378,8 +377,7 @@ export default function DashboardPage() {
                 <Progress value={collectionRate} className="h-1.5 flex-1 bg-slate-950" />
               </div>
             </CardHeader>
-          </Card>
-        </div>
+          </div>
 
         <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
           <CardHeader className="px-6 pt-6 pb-2">
@@ -603,9 +601,9 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[450px] overflow-hidden">
           {/* Outstanding Invoices Column */}
           <Card className="lg:col-span-1 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
-            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0 flex flex-row items-center justify-between">
-              <CardTitle className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                <FileText className="h-4 w-4" /> Outstanding Invoices
+            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-4 py-3 shrink-0 flex flex-row items-center justify-between">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5" /> Outstanding Invoices
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-y-auto custom-scrollbar">
@@ -615,28 +613,28 @@ export default function DashboardPage() {
                     <div 
                       key={bill.id} 
                       onClick={() => handleViewReceipt(bill)}
-                      className="p-6 space-y-3 transition-all group hover:bg-white/5 cursor-pointer border-l-2 border-transparent hover:border-primary"
+                      className="p-3 space-y-1.5 transition-all group hover:bg-white/5 cursor-pointer border-l-2 border-transparent hover:border-primary"
                     >
                       <div className="flex items-center justify-between">
-                        <Badge className={cn("text-[8px] font-black uppercase px-2 rounded-[3px]", isBillOverdue(bill) ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20")}>
+                        <Badge className={cn("text-[7px] font-black uppercase px-1.5 h-3.5 rounded-[2px]", isBillOverdue(bill) ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20")}>
                           {isBillOverdue(bill) ? "Overdue" : "Pending"}
                         </Badge>
-                        <span className="text-[9px] text-slate-500 font-mono font-bold uppercase">Due: {bill.dueDate || bill.date}</span>
+                        <span className="text-[8px] text-slate-500 font-mono font-bold uppercase">Due: {bill.dueDate || bill.date}</span>
                       </div>
                       <div className="flex justify-between items-end">
                         <div>
-                          <h4 className="text-sm font-black text-white uppercase tracking-tight">Invoice INV-{bill.id.slice(-6).toUpperCase()}</h4>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Consumption: {bill.consumption || 0} m³</p>
+                          <h4 className="text-[11px] font-black text-white uppercase tracking-tight">INV-{bill.id.slice(-6).toUpperCase()}</h4>
+                          <p className="text-[9px] text-slate-500 font-bold uppercase">Usage: {bill.consumption || 0} m³</p>
                         </div>
-                        <p className="text-lg font-black text-white tracking-tighter">MK {format2Dec(bill.totalAmount)}</p>
+                        <p className="text-sm font-black text-white tracking-tighter">MK {format2Dec(bill.totalAmount)}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="p-12 text-center text-slate-800 italic uppercase text-[10px] font-bold flex flex-col items-center gap-3">
-                  <CheckCircle2 className="h-10 w-10 opacity-10" />
-                  No outstanding balance
+                <div className="p-10 text-center text-slate-800 italic uppercase text-[9px] font-bold flex flex-col items-center gap-2">
+                  <CheckCircle2 className="h-8 w-8 opacity-10" />
+                  Clear Balance
                 </div>
               )}
             </CardContent>
@@ -644,54 +642,53 @@ export default function DashboardPage() {
 
           {/* Activity History Column */}
           <Card className="lg:col-span-2 shadow-2xl border-white/5 bg-slate-900 rounded-[5px] flex flex-col overflow-hidden">
-            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 flex flex-row items-center justify-between shrink-0">
-              <CardTitle className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2">
-                <History className="h-4 w-4 text-primary" /> Activity History
+            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-4 py-3 flex flex-row items-center justify-between shrink-0">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-1.5">
+                <History className="h-3.5 w-3.5 text-primary" /> Activity History
               </CardTitle>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Show</span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[7px] font-bold text-slate-600 uppercase tracking-widest">Show</span>
                   <select 
                     value={perPage} 
                     onChange={(e) => setPerPage(Number(e.target.value))}
-                    className="bg-slate-800 border border-white/10 text-[10px] text-white rounded-[3px] px-1 h-6 outline-none focus:border-primary"
+                    className="bg-slate-800 border border-white/10 text-[9px] text-white rounded-[2px] px-1 h-5 outline-none focus:border-primary"
                   >
                     {[5, 10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
-                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Per Page</span>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
               {/* Pinned Toolbar */}
-              <div className="px-6 py-3 border-b border-white/5 bg-slate-950/20 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
+              <div className="px-4 py-2 border-b border-white/5 bg-slate-950/20 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
                   <input 
                     type="checkbox" 
-                    className="w-3 h-3 accent-primary cursor-pointer"
+                    className="w-2.5 h-2.5 accent-primary cursor-pointer"
                     checked={allTransactions.length > 0 && selectedTxIds.length === allTransactions.length}
                     onChange={(e) => {
                       if (e.target.checked) setSelectedTxIds(allTransactions.map(t => t.id));
                       else setSelectedTxIds([]);
                     }}
                   />
-                  <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Select All On Page</span>
+                  <span className="text-[8px] font-black uppercase text-slate-600 tracking-widest">Select All</span>
                 </div>
                 <div className="flex items-center gap-3">
                   {selectedTxIds.length > 0 && (
                     <button 
                       onClick={handleBulkDeleteTransactions}
-                      className="text-[9px] font-black text-red-500 uppercase hover:text-red-400 transition-colors flex items-center gap-1.5"
+                      className="text-[8px] font-black text-red-500 uppercase hover:text-red-400 transition-colors flex items-center gap-1"
                     >
-                      <Trash2 className="h-3 w-3" /> Purge Selected
+                      <Trash2 className="h-2.5 w-2.5" /> Purge
                     </button>
                   )}
-                  <span className="text-[9px] font-bold text-slate-600">{allTransactions.length} records total</span>
+                  <span className="text-[8px] font-bold text-slate-700">{allTransactions.length} total</span>
                 </div>
               </div>
 
               {/* Scrollable List */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-2 space-y-2 bg-slate-900/40">
+              <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-2 space-y-1.5 bg-slate-900/40">
                 {allTransactions.length > 0 ? allTransactions.slice(0, perPage).map((tx) => {
                   const isSettlement = tx.type === 'BILL_PAYMENT' || tx.description.includes('Settlement');
                   const relatedBill = isSettlement ? allBills.find(b => tx.description.includes(b.id.slice(-6).toUpperCase())) : null;
@@ -699,12 +696,12 @@ export default function DashboardPage() {
                   return (
                     <div 
                       key={tx.id} 
-                      className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px] flex items-center justify-between group hover:border-white/10 transition-all"
+                      className="p-3 bg-slate-950/40 border border-white/5 rounded-[4px] flex items-center justify-between group hover:border-white/10 transition-all"
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
                         <input 
                           type="checkbox" 
-                          className="w-3 h-3 accent-primary cursor-pointer"
+                          className="w-2.5 h-2.5 accent-primary cursor-pointer"
                           checked={selectedTxIds.includes(tx.id)}
                           onChange={(e) => {
                             if (e.target.checked) setSelectedTxIds(prev => [...prev, tx.id]);
@@ -712,9 +709,9 @@ export default function DashboardPage() {
                           }}
                         />
                         <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-[10px] font-black text-white uppercase tracking-tight">
-                              {tx.type === 'DEPOSIT' ? 'Deposit Successful' : 'Utility Wallet Settlement'}
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-[9px] font-black text-white uppercase tracking-tight">
+                              {tx.type === 'DEPOSIT' ? 'Deposit' : 'Settlement'}
                             </p>
                             {isSettlement && (
                               <Badge className="bg-primary/10 text-primary border-primary/20 text-[6px] font-black uppercase px-1 h-3 flex items-center gap-0.5">
@@ -722,12 +719,12 @@ export default function DashboardPage() {
                               </Badge>
                             )}
                           </div>
-                          <p className="text-[8px] text-slate-500 font-bold uppercase mt-0.5">{tx.date} • {tx.description}</p>
+                          <p className="text-[7px] text-slate-600 font-bold uppercase mt-0.5">{tx.date} • {tx.description}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
                         <span className={cn(
-                          "text-[11px] font-black tracking-tight",
+                          "text-[10px] font-black tracking-tight",
                           tx.type === 'DEPOSIT' ? "text-green-500" : "text-primary"
                         )}>
                           {tx.type === 'DEPOSIT' ? '+' : '-'} MK {tx.amount.toLocaleString()}
@@ -736,26 +733,26 @@ export default function DashboardPage() {
                           {isSettlement && relatedBill && (
                              <button 
                                onClick={() => handleViewReceipt(relatedBill)}
-                               className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-500 hover:text-primary mr-1"
-                               title="View Paid Receipt"
+                               className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-600 hover:text-primary mr-0.5"
+                               title="View Receipt"
                              >
-                               <ExternalLink className="h-3.5 w-3.5" />
+                               <ExternalLink className="h-3 w-3" />
                              </button>
                           )}
                           <button 
                             onClick={() => handleDeleteTransaction(tx.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-700 hover:text-red-500"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-800 hover:text-red-500"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3 w-3" />
                           </button>
                         </div>
                       </div>
                     </div>
                   );
                 }) : (
-                  <div className="h-full flex flex-col items-center justify-center text-slate-800 space-y-4">
-                    <History className="h-12 w-12 opacity-10" />
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-30">No activity records found</p>
+                  <div className="h-full flex flex-col items-center justify-center text-slate-800 space-y-3">
+                    <History className="h-10 w-10 opacity-10" />
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-30">No records</p>
                   </div>
                 )}
               </div>
