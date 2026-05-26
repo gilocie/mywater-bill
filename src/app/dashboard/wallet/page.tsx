@@ -60,7 +60,7 @@ function getPlaceholder(method: PaymentMethod | null): string {
 }
 
 export default function WalletPage() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, settings } = useAuth();
   const { toast } = useToast();
   
   const [depositAmount, setDepositAmount] = useState('5000');
@@ -80,6 +80,17 @@ export default function WalletPage() {
   // Receipt dialog
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
+
+  const isBgDark = (hex?: string) => {
+    if (!hex) return false;
+    const cleanHex = hex.replace('#', '');
+    if (cleanHex.length !== 6) return false;
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness < 128;
+  };
 
   useEffect(() => {
     const loadData = () => {
@@ -577,38 +588,54 @@ export default function WalletPage() {
       <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
         <DialogContent className="bg-white text-slate-900 max-w-sm rounded-[5px] p-0 overflow-hidden max-h-[90vh] flex flex-col">
           {/* Header (Sticky / Fixed) */}
-          <div className="bg-slate-900 px-6 py-5 flex items-center justify-between shrink-0">
+          <div 
+            className="px-6 py-5 flex items-center justify-between shrink-0" 
+            style={{ backgroundColor: settings?.receiptHeaderBgColor || '#0f172a' }}
+          >
             <div className="flex items-center gap-3">
-              <div className="bg-primary p-2 rounded-[3px]">
-                <Droplets className="h-5 w-5 text-white" />
+              <div className="p-2 rounded-[3px]" style={{ backgroundColor: settings?.receiptLogoBgColor || settings?.logoBgColor || '#2563eb' }}>
+                {settings?.receiptLogo ? (
+                  <img src={settings.receiptLogo} className="h-5 w-5 object-contain" />
+                ) : settings?.logo ? (
+                  <img src={settings.logo} className="h-5 w-5 object-contain" />
+                ) : (
+                  <Droplets className="h-5 w-5 text-white" />
+                )}
               </div>
               <div>
-                <DialogTitle className="text-xs font-black text-white uppercase tracking-widest">Malawi Water Board</DialogTitle>
-                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Official Payment Receipt</p>
+                <DialogTitle className="text-xs font-black text-white uppercase tracking-widest">
+                  {settings?.receiptCompanyName || 'Malawi Water Board'}
+                </DialogTitle>
+                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">
+                  {settings?.receiptSubHeading || 'Official Payment Receipt'}
+                </p>
               </div>
             </div>
-            <Receipt className="h-5 w-5 text-primary opacity-70" />
+            <Receipt className="h-5 w-5 text-white/50" />
           </div>
 
           {/* Scrollable Receipt Body */}
-          <div className="flex-1 overflow-y-auto">
+          <div 
+            className="flex-1 overflow-y-auto" 
+            style={{ backgroundColor: settings?.receiptMiddleBgColor || '#ffffff' }}
+          >
             {/* Receipt Number + Date */}
             <div className="bg-primary/10 border-b border-primary/20 px-6 py-3 flex justify-between items-center">
               <div>
                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Receipt No.</p>
-                <p className="text-xs font-black text-slate-800 font-mono">{receiptData?.txId}</p>
+                <p className={cn("text-xs font-black font-mono", isBgDark(settings?.receiptMiddleBgColor) ? "text-slate-200" : "text-slate-800")}>{receiptData?.txId}</p>
               </div>
               <div className="text-right">
                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Date & Time</p>
-                <p className="text-[10px] font-bold text-slate-700">{receiptData?.date}</p>
+                <p className={cn("text-[10px] font-bold", isBgDark(settings?.receiptMiddleBgColor) ? "text-slate-300" : "text-slate-700")}>{receiptData?.date}</p>
               </div>
             </div>
 
             {/* Amount — Centre piece */}
-            <div className="px-6 py-6 text-center border-b border-dashed border-slate-200">
+            <div className="px-6 py-6 text-center border-b border-dashed border-slate-200 dark:border-white/10">
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Amount Paid</p>
-              <p className="text-5xl font-black text-slate-900">
-                <span className="text-primary text-2xl">MK</span>
+              <p className={cn("text-5xl font-black", isBgDark(settings?.receiptMiddleBgColor) ? "text-white" : "text-slate-900")}>
+                <span className="text-primary text-2xl">MK</span>{' '}
                 {receiptData?.amount?.toLocaleString()}
               </p>
               <div className="mt-2 inline-flex items-center gap-1.5 bg-green-100 text-green-700 px-3 py-1 rounded-full">
@@ -628,24 +655,30 @@ export default function WalletPage() {
               ].map(row => (
                 <div key={row.label} className="flex justify-between items-center text-[10px]">
                   <span className="font-bold text-slate-400 uppercase tracking-wider">{row.label}</span>
-                  <span className="font-black text-slate-800">{row.value}</span>
+                  <span className={cn("font-black", isBgDark(settings?.receiptMiddleBgColor) ? "text-slate-200" : "text-slate-800")}>{row.value}</span>
                 </div>
               ))}
             </div>
 
             {/* Barcode-style footer */}
-            <div className="px-6 pb-4 border-t border-dashed border-slate-200 pt-4">
+            <div className="px-6 pb-4 border-t border-dashed border-slate-200 dark:border-white/10 pt-4">
               <div className="flex justify-center mb-3">
                 <div className="flex gap-px">
                   {Array.from({ length: 40 }).map((_, i) => (
-                    <div key={i} className="bg-slate-800" style={{ 
-                      width: `${Math.random() > 0.5 ? 3 : 2}px`, 
-                      height: `${24 + Math.random() * 16}px` 
-                    }} />
+                    <div 
+                      key={i} 
+                      className={isBgDark(settings?.receiptMiddleBgColor) ? "bg-white" : "bg-slate-800"} 
+                      style={{ 
+                        width: `${(i % 3 === 0) ? 3 : 2}px`, 
+                        height: `${24 + (i % 5) * 4}px` 
+                      }} 
+                    />
                   ))}
                 </div>
               </div>
-              <p className="text-[8px] text-center text-slate-400 font-mono tracking-widest">{receiptData?.txId} • MWB-SYSTEM</p>
+              <p className="text-[8px] text-center text-slate-400 font-mono tracking-widest">
+                {receiptData?.txId} • {settings?.receiptFooter?.toUpperCase() || 'MWB-SYSTEM-AUDIT'}
+              </p>
             </div>
           </div>
 

@@ -76,6 +76,12 @@ const DEFAULT_SETTINGS: SystemSettings = {
   regionName: 'Southern Region',
   districtName: 'Blantyre',
   receiptCompanyName: 'MALAWI WATER BOARD',
+  receiptHeaderBgColor: '#0f172a',
+  receiptSubHeading: 'OFFICIAL PAYMENT RECEIPT',
+  receiptMiddleBgColor: '#ffffff',
+  receiptFooter: 'MWB-SYSTEM-AUDIT',
+  receiptLogo: '',
+  receiptLogoBgColor: '#ffffff',
   staffAccessToggle: true,
   staffAccessShortcut: 'Ctrl+L'
 };
@@ -92,8 +98,86 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!localStorage.getItem('mywater_all_users')) {
-      localStorage.setItem('mywater_all_users', JSON.stringify([]));
+    const hasUsers = localStorage.getItem('mywater_all_users');
+    if (!hasUsers || JSON.parse(hasUsers).length === 0) {
+      const defaultUsers = [
+        {
+          id: 'u-admin',
+          name: 'Gift Ilocie',
+          email: 'admin@mwb.mw',
+          role: 'SUPER_ADMIN',
+          walletBalance: 0,
+          pin: 'admin123'
+        },
+        {
+          id: 'u-staff',
+          name: 'Staff Member',
+          email: 'staff@mwb.mw',
+          role: 'DISTRICT_STAFF',
+          walletBalance: 0,
+          district: 'Blantyre',
+          area: 'Chirimba',
+          pin: 'staff123'
+        },
+        {
+          id: 'u-cust1',
+          name: 'Chirimba Consumer',
+          email: 'chirimba@mwb.mw',
+          role: 'CUSTOMER',
+          meterNumber: 'MWB-001',
+          district: 'Blantyre',
+          area: 'Chirimba',
+          walletBalance: 12000
+        },
+        {
+          id: 'u-cust2',
+          name: 'Lilongwe Consumer One',
+          email: 'lilongwe1@mwb.mw',
+          role: 'CUSTOMER',
+          meterNumber: 'MWB-002',
+          district: 'Lilongwe',
+          area: 'Area 47',
+          walletBalance: 5000
+        },
+        {
+          id: 'u-cust3',
+          name: 'Lilongwe Consumer Two',
+          email: 'lilongwe2@mwb.mw',
+          role: 'CUSTOMER',
+          meterNumber: 'MWB-003',
+          district: 'Lilongwe',
+          area: 'Area 18',
+          walletBalance: 7500
+        }
+      ];
+      localStorage.setItem('mywater_all_users', JSON.stringify(defaultUsers));
+
+      const defaultBills = [
+        { id: 'b-1', customerId: 'u-cust1', meterReadingLiters: 2250, ratePerLiter: 2.22, totalAmount: 5000, date: '2026-05-10', status: 'PAID', consumption: 2250 },
+        { id: 'b-2', customerId: 'u-cust2', meterReadingLiters: 2500, ratePerLiter: 3.0, totalAmount: 7500, date: '2026-05-12', status: 'PAID', consumption: 2500 },
+        { id: 'b-3', customerId: 'u-cust3', meterReadingLiters: 3000, ratePerLiter: 2.7, totalAmount: 8125, date: '2026-05-14', status: 'PAID', consumption: 3000 },
+        { id: 'b-4', customerId: 'u-cust2', meterReadingLiters: 3200, ratePerLiter: 2.8, totalAmount: 9000, date: '2026-04-10', status: 'PAID', consumption: 3200 },
+        { id: 'b-5', customerId: 'u-cust3', meterReadingLiters: 2100, ratePerLiter: 2.85, totalAmount: 6000, date: '2026-04-12', status: 'PAID', consumption: 2100 },
+        { id: 'b-6', customerId: 'u-cust2', meterReadingLiters: 1250, ratePerLiter: 3.2, totalAmount: 4000, date: '2026-05-20', status: 'PENDING', consumption: 1250, dueDate: '2026-06-15' },
+        { id: 'b-7', customerId: 'u-cust3', meterReadingLiters: 1500, ratePerLiter: 2.33, totalAmount: 3500, date: '2026-05-22', status: 'PENDING', consumption: 1500, dueDate: '2026-06-18' },
+        { id: 'b-8', customerId: 'u-cust1', meterReadingLiters: 0, ratePerLiter: 0, totalAmount: 1200, date: '2026-05-24', status: 'PENDING', consumption: 0, dueDate: '2026-06-20' }
+      ];
+      localStorage.setItem('mywater_all_bills', JSON.stringify(defaultBills));
+
+      const defaultTransactions = [
+        { id: 't-1', userId: 'u-cust1', amount: 5000, type: 'BILL_PAYMENT', date: '10 May 2026', description: 'Bill Payment Settlement (INV-B-1)', status: 'COMPLETED' },
+        { id: 't-2', userId: 'u-cust2', amount: 7500, type: 'BILL_PAYMENT', date: '12 May 2026', description: 'Bill Payment Settlement (INV-B-2)', status: 'COMPLETED' },
+        { id: 't-3', userId: 'u-cust3', amount: 8125, type: 'BILL_PAYMENT', date: '14 May 2026', description: 'Bill Payment Settlement (INV-B-3)', status: 'COMPLETED' },
+        { id: 't-4', userId: 'u-cust2', amount: 9000, type: 'BILL_PAYMENT', date: '10 Apr 2026', description: 'Bill Payment Settlement (INV-B-4)', status: 'COMPLETED' },
+        { id: 't-5', userId: 'u-cust3', amount: 6000, type: 'BILL_PAYMENT', date: '12 Apr 2026', description: 'Bill Payment Settlement (INV-B-5)', status: 'COMPLETED' }
+      ];
+      localStorage.setItem('mywater_all_transactions', JSON.stringify(defaultTransactions));
+
+      const defaultMethods = [
+        { id: 'pm-1', name: 'Airtel Money', type: 'MOBILE_MONEY', provider: 'AIRTEL_MWI', active: true, isBrandPay: true },
+        { id: 'pm-2', name: 'TNM Mpamba', type: 'MOBILE_MONEY', provider: 'TNM_MWI', active: true, isBrandPay: true }
+      ];
+      localStorage.setItem('mywater_payment_methods', JSON.stringify(defaultMethods));
     }
 
     const savedUser = localStorage.getItem('mywater_user');
@@ -191,7 +275,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (u) =>
         (u.email?.toLowerCase().trim() === identifier.toLowerCase().trim() || 
          u.meterNumber?.toLowerCase().trim() === identifier.toLowerCase().trim()) &&
-        (u.role === 'CUSTOMER' ? true : (u.pin === password || password === 'password'))
+        (u.role === 'CUSTOMER' ? true : u.pin === password)
     );
 
     if (foundUser) {

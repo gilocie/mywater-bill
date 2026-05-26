@@ -38,6 +38,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import Link from 'next/link';
 
+const isBgDark = (hex?: string) => {
+  if (!hex) return false;
+  const cleanHex = hex.replace('#', '');
+  if (cleanHex.length !== 6) return false;
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness < 128;
+};
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout, updateUser, settings, updateSettings } = useAuth();
   const router = useRouter();
@@ -90,6 +101,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Receipt Design
   const [receiptCompanyName, setReceiptCompanyName] = useState('MALAWI WATER BOARD');
+  const [receiptHeaderBgColor, setReceiptHeaderBgColor] = useState('#0f172a');
+  const [receiptSubHeading, setReceiptSubHeading] = useState('OFFICIAL PAYMENT RECEIPT');
+  const [receiptMiddleBgColor, setReceiptMiddleBgColor] = useState('#ffffff');
+  const [receiptFooter, setReceiptFooter] = useState('MWB-SYSTEM-AUDIT');
+  const [receiptLogo, setReceiptLogo] = useState('');
+  const [receiptLogoBgColor, setReceiptLogoBgColor] = useState('#ffffff');
 
   // Geographic Scope States
   const [appLevel, setAppLevel] = useState<'national' | 'region' | 'district'>('district');
@@ -201,8 +218,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const tickets: SupportTicket[] = JSON.parse(storedTickets);
       const relevantTickets = tickets.filter(t => {
         if (user.role === 'CUSTOMER') return t.customerId === user.id;
-        if (user.role === 'SUPER_ADMIN') return true;
-        if (t.escalatedTo === 'SUPER_ADMIN') return user.role === 'SUPER_ADMIN'; 
+        if (user.role === 'SUPER_ADMIN') {
+          return (t.status === 'ESCALATED' && (t.escalatedTo === 'SUPER_ADMIN' || t.escalatedToUserId === user.id)) || 
+                 t.assignedStaffId === user.id || 
+                 t.escalatedToUserId === user.id;
+        }
+        if (t.escalatedTo === 'SUPER_ADMIN') return false; 
         return t.area === user.area && t.district === user.district;
       });
 
@@ -272,6 +293,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (settings.regionName) setRegionName(settings.regionName);
         if (settings.districtName) setDistrictName(settings.districtName);
         if (settings.receiptCompanyName) setReceiptCompanyName(settings.receiptCompanyName);
+        if (settings.receiptHeaderBgColor) setReceiptHeaderBgColor(settings.receiptHeaderBgColor);
+        if (settings.receiptSubHeading) setReceiptSubHeading(settings.receiptSubHeading);
+        if (settings.receiptMiddleBgColor) setReceiptMiddleBgColor(settings.receiptMiddleBgColor);
+        if (settings.receiptFooter) setReceiptFooter(settings.receiptFooter);
+        if (settings.receiptLogo !== undefined) setReceiptLogo(settings.receiptLogo);
+        if (settings.receiptLogoBgColor !== undefined) setReceiptLogoBgColor(settings.receiptLogoBgColor);
         setStaffAccessToggle(settings.staffAccessToggle ?? true);
         setStaffAccessShortcut(settings.staffAccessShortcut || 'Ctrl+L');
       }
@@ -297,7 +324,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         landingBgImage, landingTitle,
         vatRate: isNaN(vat) ? 16.5 : vat,
         waterRateRanges, appLevel, country, regionName, districtName,
-        receiptCompanyName, staffAccessToggle, staffAccessShortcut,
+        receiptCompanyName, receiptHeaderBgColor, receiptSubHeading,
+        receiptMiddleBgColor, receiptFooter, receiptLogo, receiptLogoBgColor,
+        staffAccessToggle, staffAccessShortcut,
       });
       
       setSettingsDialogOpen(false);
@@ -307,13 +336,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'logo' | 'landing' | 'avatar') => {
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'logo' | 'landing' | 'avatar' | 'receipt-logo') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         if (target === 'logo') setLogo(reader.result as string);
         else if (target === 'avatar') setDefaultAvatar(reader.result as string);
+        else if (target === 'receipt-logo') setReceiptLogo(reader.result as string);
         else setLandingBgImage(reader.result as string);
         toast({ title: "Image Uploaded", description: "Preview loaded." });
       };
@@ -417,8 +447,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <p className="text-xs font-bold tracking-tight">{billAlert.message}</p>
               </div>
               <div className="flex items-center gap-4">
-                <Link href="/dashboard" className="shrink-0">
-                  <Button variant="outline" size="sm" className="h-8 px-4 bg-orange-600 hover:bg-orange-700 text-white border-white border-2 font-black text-[10px] uppercase tracking-wider rounded-[5px] transition-all shadow-lg">Settle Balance Now</Button>
+                <Link 
+                  href="/dashboard" 
+                  className="shrink-0"
+                  onClick={(e) => {
+                    if (pathname === '/dashboard') {
+                      e.preventDefault();
+                      window.dispatchEvent(new Event('trigger-payment-modal'));
+                    } else {
+                      localStorage.setItem('mwb_trigger_payment_on_load', 'true');
+                    }
+                  }}
+                >
+                  <Button variant="outline" size="sm" className="h-8 px-4 bg-orange-600 hover:bg-orange-700 text-white border-white border-2 font-black text-[10px] uppercase tracking-wider rounded-[5px] transition-all shadow-lg cursor-pointer">Settle Balance Now</Button>
                 </Link>
                 <button onClick={handleDismissBillAlert} className="p-1 hover:bg-black/10 rounded-full transition-colors"><X className="h-3.5 w-3.5" /></button>
               </div>
@@ -491,7 +532,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <TabsTrigger value="security" className="text-[10px] uppercase font-bold tracking-tight py-2">Security</TabsTrigger>
             </TabsList>
             <TabsContent value="pricing" className="space-y-4 outline-none">
-              <div className="space-y-4">
+              <div className="space-y-4 animate-in fade-in duration-300">
                 <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">VAT Rate (%)</Label><Input type="number" step="0.1" value={vatRate} onChange={e => setVatRate(e.target.value)} className="bg-slate-950 border-white/5" /></div>
                 <div className="border-t border-white/5 pt-4 space-y-3">
                   <Label className="text-[10px] font-bold uppercase text-slate-500">Water Price Ranges (per m³)</Label>
@@ -521,7 +562,443 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               </div>
             </TabsContent>
-            {/* Branding, Receipt, Gateway, etc. tabs follow same pattern */}
+
+            <TabsContent value="branding" className="space-y-4 outline-none">
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Company Name</Label>
+                    <Input value={companyName} onChange={e => setCompanyName(e.target.value)} className="bg-slate-950 border-white/5" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Portal Subtitle</Label>
+                    <Input value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} className="bg-slate-950 border-white/5" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500">Hero Landing Title</Label>
+                  <Input value={landingTitle} onChange={e => setLandingTitle(e.target.value)} className="bg-slate-950 border-white/5" />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Primary Color</Label>
+                    <div className="flex gap-2">
+                      <Input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="w-10 h-10 p-1 bg-slate-950 border-white/5 cursor-pointer rounded-[5px]" />
+                      <Input value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="flex-1 bg-slate-950 border-white/5 font-mono text-xs" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Secondary Color</Label>
+                    <div className="flex gap-2">
+                      <Input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-10 h-10 p-1 bg-slate-950 border-white/5 cursor-pointer rounded-[5px]" />
+                      <Input value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="flex-1 bg-slate-950 border-white/5 font-mono text-xs" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Background Color</Label>
+                    <div className="flex gap-2">
+                      <Input type="color" value={backgroundColor} onChange={e => setBackgroundColor(e.target.value)} className="w-10 h-10 p-1 bg-slate-950 border-white/5 cursor-pointer rounded-[5px]" />
+                      <Input value={backgroundColor} onChange={e => setBackgroundColor(e.target.value)} className="flex-1 bg-slate-950 border-white/5 font-mono text-xs" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Brand Logo Image</Label>
+                    <div className="flex items-center gap-3 p-3 bg-slate-950/60 border border-white/5 rounded-[5px]">
+                      {logo ? (
+                        <img src={logo} alt="Logo Preview" className="h-10 w-10 object-contain rounded border border-white/10" style={{ backgroundColor: logoBgColor }} />
+                      ) : (
+                        <div className="h-10 w-10 bg-slate-900 flex items-center justify-center rounded text-slate-600" style={{ backgroundColor: logoBgColor }}><Camera className="h-5 w-5 text-white/50" /></div>
+                      )}
+                      <div className="flex-1 flex items-center gap-2">
+                        <Label className="h-8 bg-slate-800 hover:bg-slate-700 text-white px-3 text-[10px] font-bold uppercase rounded-[5px] flex items-center justify-center cursor-pointer max-w-[120px] transition-colors border border-white/5 shrink-0">
+                          Upload Logo
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'logo')} />
+                        </Label>
+                        <div className="flex items-center gap-1.5 ml-2">
+                          <Input type="color" value={logoBgColor} onChange={e => setLogoBgColor(e.target.value)} className="w-8 h-8 p-0.5 bg-slate-950 border-white/5 cursor-pointer rounded-[5px]" />
+                          <span className="text-[9px] text-slate-500 font-mono">{logoBgColor}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Portal Hero Background</Label>
+                    <div className="flex items-center gap-3 p-3 bg-slate-950/60 border border-white/5 rounded-[5px]">
+                      {landingBgImage ? (
+                        <img src={landingBgImage} alt="Hero Preview" className="h-10 w-16 object-cover rounded bg-white/5 border border-white/10" />
+                      ) : (
+                        <div className="h-10 w-16 bg-slate-900 flex items-center justify-center rounded text-slate-600"><Camera className="h-5 w-5" /></div>
+                      )}
+                      <div className="flex-1">
+                        <Label className="h-8 bg-slate-800 hover:bg-slate-700 text-white px-3 text-[10px] font-bold uppercase rounded-[5px] flex items-center justify-center cursor-pointer max-w-[120px] transition-colors border border-white/5">
+                          Upload BG
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'landing')} />
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="receipt" className="space-y-4 outline-none">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-300">
+                {/* Left Side: Inputs */}
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Authority Company Name</Label>
+                    <Input value={receiptCompanyName} onChange={e => setReceiptCompanyName(e.target.value)} className="bg-slate-950 border-white/5" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Document Sub-Heading</Label>
+                    <Input value={receiptSubHeading} onChange={e => setReceiptSubHeading(e.target.value)} className="bg-slate-950 border-white/5" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Document Footer Text</Label>
+                    <Input value={receiptFooter} onChange={e => setReceiptFooter(e.target.value)} className="bg-slate-950 border-white/5" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-slate-500">Header Background</Label>
+                      <div className="flex gap-2">
+                        <Input type="color" value={receiptHeaderBgColor} onChange={e => setReceiptHeaderBgColor(e.target.value)} className="w-10 h-10 p-1 bg-slate-950 border-white/5 cursor-pointer rounded-[5px]" />
+                        <Input value={receiptHeaderBgColor} onChange={e => setReceiptHeaderBgColor(e.target.value)} className="flex-1 bg-slate-950 border-white/5 font-mono text-xs" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-slate-500">Middle Background</Label>
+                      <div className="flex gap-2">
+                        <Input type="color" value={receiptMiddleBgColor} onChange={e => setReceiptMiddleBgColor(e.target.value)} className="w-10 h-10 p-1 bg-slate-950 border-white/5 cursor-pointer rounded-[5px]" />
+                        <Input value={receiptMiddleBgColor} onChange={e => setReceiptMiddleBgColor(e.target.value)} className="flex-1 bg-slate-950 border-white/5 font-mono text-xs" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Receipt Header Logo</Label>
+                    <div className="flex items-center gap-3 p-3 bg-slate-950/60 border border-white/5 rounded-[5px]">
+                      {receiptLogo ? (
+                        <img src={receiptLogo} alt="Receipt Logo Preview" className="h-10 w-10 object-contain rounded border border-white/10" style={{ backgroundColor: receiptLogoBgColor }} />
+                      ) : logo ? (
+                        <img src={logo} alt="Main Logo Preview" className="h-10 w-10 object-contain rounded border border-white/10" style={{ backgroundColor: receiptLogoBgColor }} />
+                      ) : (
+                        <div className="h-10 w-10 bg-slate-900 flex items-center justify-center rounded text-slate-600" style={{ backgroundColor: receiptLogoBgColor }}><Camera className="h-5 w-5 text-white/50" /></div>
+                      )}
+                      <div className="flex-1 flex items-center gap-2">
+                        <Label className="h-8 bg-slate-800 hover:bg-slate-700 text-white px-3 text-[10px] font-bold uppercase rounded-[5px] flex items-center justify-center cursor-pointer max-w-[120px] transition-colors border border-white/5 shrink-0">
+                          Upload Logo
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'receipt-logo')} />
+                        </Label>
+                        <div className="flex items-center gap-1.5 ml-2">
+                          <Input type="color" value={receiptLogoBgColor} onChange={e => setReceiptLogoBgColor(e.target.value)} className="w-8 h-8 p-0.5 bg-slate-950 border-white/5 cursor-pointer rounded-[5px]" />
+                          <span className="text-[9px] text-slate-500 font-mono">{receiptLogoBgColor}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Side: Document Template Preview */}
+                <div className="space-y-2 flex flex-col h-full">
+                  <Label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Live Template Design Preview</Label>
+                  <div 
+                    className="border border-white/5 rounded-[5px] overflow-hidden shadow-2xl max-w-sm mx-auto w-full flex-1 min-h-[440px] flex flex-col justify-between" 
+                    style={{ backgroundColor: receiptMiddleBgColor }}
+                  >
+                    {/* Preview Header Block */}
+                    <div 
+                      className="px-6 py-4 flex items-center justify-between shrink-0" 
+                      style={{ backgroundColor: receiptHeaderBgColor }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-[3px]" style={{ backgroundColor: receiptLogoBgColor }}>
+                          {receiptLogo ? (
+                            <img src={receiptLogo} className="h-5 w-5 object-contain" />
+                          ) : logo ? (
+                            <img src={logo} className="h-5 w-5 object-contain" />
+                          ) : (
+                            <Droplets className="h-5 w-5 text-white" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-white uppercase tracking-widest leading-tight">{receiptCompanyName || 'MALAWI WATER BOARD'}</p>
+                          <p className="text-[7px] text-white/70 font-bold uppercase tracking-wider leading-none mt-0.5">{receiptSubHeading || 'OFFICIAL PAYMENT RECEIPT'}</p>
+                        </div>
+                      </div>
+                      <Receipt className="h-4 w-4 text-white/50" />
+                    </div>
+
+                    {/* Preview Body Block */}
+                    <div className={cn("p-6 flex-grow flex flex-col justify-between", isBgDark(receiptMiddleBgColor) ? "text-slate-200" : "text-slate-800")}>
+                      <div className="space-y-4">
+                        <div className="text-center py-2 border-b border-dashed border-black/10 dark:border-white/10">
+                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Amount Paid</p>
+                          <p className={cn("text-3xl font-black", isBgDark(receiptMiddleBgColor) ? "text-white" : "text-slate-900")}>MK 3,000.00</p>
+                          <div className="mt-1.5 inline-flex items-center gap-1 bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full text-[8px] font-black uppercase">
+                            ✓ Payment Successful
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5 text-[9px] font-mono">
+                          <div className="flex justify-between"><span>CUSTOMER NAME:</span><span className="font-bold">Tamanda Tbula</span></div>
+                          <div className="flex justify-between"><span>METER NUMBER:</span><span className="font-bold">MTR-1487</span></div>
+                          <div className="flex justify-between"><span>SERVICE:</span><span className="font-bold">Bill Settlement</span></div>
+                          <div className="flex justify-between border-t border-black/5 dark:border-white/5 pt-1.5"><span>SUBTOTAL:</span><span className="font-bold">MK 2,575.11</span></div>
+                          <div className="flex justify-between"><span>VAT (16.5%):</span><span className="font-bold">MK 424.89</span></div>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-dashed border-black/10 dark:border-white/10 pt-3 text-center space-y-2 mt-4">
+                        <div className="flex justify-center">
+                          <div className="flex gap-px opacity-70">
+                            {Array.from({ length: 30 }).map((_, i) => (
+                              <div 
+                                key={i} 
+                                className={isBgDark(receiptMiddleBgColor) ? "bg-white" : "bg-slate-950"} 
+                                style={{ width: `${(i % 3 === 0) ? 2 : 1}px`, height: '16px' }} 
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-[7px] font-mono tracking-widest text-slate-400 uppercase">
+                          TXN-MPJKT8Z3 • {receiptFooter || 'MWB-SYSTEM-AUDIT'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="gateway" className="space-y-4 outline-none">
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500">PawaPay Secret API Key</Label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input 
+                        type={showApiKey ? "text" : "password"} 
+                        value={pawapayKey} 
+                        onChange={e => setPawapayKey(e.target.value)} 
+                        className="bg-slate-950 border-white/5 font-mono text-xs pr-10" 
+                        placeholder={settings?.pawapayKey ? "••••••••••••••••" : "Enter PawaPay API Secret Key"}
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                      >
+                        {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">API Mode</Label>
+                    <Select value={pawapayMode} onValueChange={setPawapayMode}>
+                      <SelectTrigger className="bg-slate-950 border-white/5 text-xs text-white">
+                        <SelectValue placeholder="Select API Mode" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-white/5 text-slate-300">
+                        <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>
+                        <SelectItem value="production">Production (Live transactions)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Merchant Portal Dashboard URL</Label>
+                    <Input value={portalUrl} onChange={e => setPortalUrl(e.target.value)} className="bg-slate-950 border-white/5 text-xs font-mono" />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-950/60 border border-white/5 rounded-[5px] flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Connection Handshake Diagnostics</Label>
+                    <p className="text-[9px] text-slate-500 font-bold uppercase">Verify the integrity of the PawaPay API endpoint configuration.</p>
+                  </div>
+                  <Button 
+                    type="button" 
+                    onClick={() => {
+                      setTestStatus('processing');
+                      setTimeout(() => {
+                        if (pawapayKey && pawapayKey.length > 5) {
+                          setTestStatus('success');
+                          toast({ title: "Gateway Handshake Success", description: "Established clean connection with PawaPay sandbox gateway." });
+                        } else {
+                          setTestStatus('failure');
+                          toast({ title: "Diagnostics Failed", description: "PawaPay credential validation failed. Check your Secret Key.", variant: "destructive" });
+                        }
+                      }, 1200);
+                    }}
+                    disabled={testStatus === 'processing'}
+                    className={cn(
+                      "text-[9px] font-black uppercase tracking-wider rounded-[5px] px-4 h-9 flex items-center gap-2 border transition-all cursor-pointer",
+                      testStatus === 'idle' ? "bg-slate-800 hover:bg-slate-700 text-white border-white/5" :
+                      testStatus === 'processing' ? "bg-slate-900 text-slate-400 border-white/5 cursor-not-allowed" :
+                      testStatus === 'success' ? "bg-green-500/10 border-green-500/20 text-green-400" :
+                      "bg-red-500/10 border-red-500/20 text-red-400"
+                    )}
+                  >
+                    {testStatus === 'idle' && (
+                      <>
+                        <PlayCircle className="h-4 w-4 text-primary" />
+                        <span>Ping API Endpoint</span>
+                      </>
+                    )}
+                    {testStatus === 'processing' && (
+                      <>
+                        <div className="h-3 w-3 border-2 border-slate-500 border-t-white rounded-full animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    )}
+                    {testStatus === 'success' && (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>Sandbox Healthy</span>
+                      </>
+                    )}
+                    {testStatus === 'failure' && (
+                      <>
+                        <XCircle className="h-4 w-4" />
+                        <span>Check Keys</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="applevel" className="space-y-4 outline-none">
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500">Administrative Operational Level</Label>
+                  <Select value={appLevel} onValueChange={(val: any) => setAppLevel(val)}>
+                    <SelectTrigger className="bg-slate-950 border-white/5 text-xs text-white">
+                      <SelectValue placeholder="Select Scope Level" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-white/5 text-slate-300">
+                      <SelectItem value="national">National Scope (All districts & areas)</SelectItem>
+                      <SelectItem value="region">Regional Scope (All districts inside region)</SelectItem>
+                      <SelectItem value="district">District Scope (Single designated town/city)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">Controls the system-wide isolation filters for metrics, customers, and staff.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-white/5 pt-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500">Country</Label>
+                    <Select value={country} onValueChange={(val) => {
+                      setCountry(val);
+                      const regions = GEO_DATA[val] ? Object.keys(GEO_DATA[val]) : [];
+                      if (regions.length > 0) {
+                        setRegionName(regions[0]);
+                        const districts = GEO_DATA[val][regions[0]] || [];
+                        if (districts.length > 0) setDistrictName(districts[0].name);
+                      }
+                    }}>
+                      <SelectTrigger className="bg-slate-950 border-white/5 text-xs text-white">
+                        <SelectValue placeholder="Select Country" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-white/5 text-slate-300">
+                        {Object.keys(GEO_DATA).map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {appLevel === 'region' && (
+                    <div className="space-y-1.5 animate-in fade-in duration-300">
+                      <Label className="text-[10px] font-bold uppercase text-slate-500">Designated Region</Label>
+                      <Select 
+                        value={regionName} 
+                        onValueChange={(val) => {
+                          setRegionName(val);
+                          const districts = (GEO_DATA[country] && GEO_DATA[country][val]) ? GEO_DATA[country][val] : [];
+                          if (districts.length > 0) setDistrictName(districts[0].name);
+                        }}
+                      >
+                        <SelectTrigger className="bg-slate-950 border-white/5 text-xs text-white">
+                          <SelectValue placeholder="Select Region" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-white/5 text-slate-300">
+                          {GEO_DATA[country] ? Object.keys(GEO_DATA[country]).map(r => (
+                            <SelectItem key={r} value={r}>{r}</SelectItem>
+                          )) : null}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {appLevel === 'district' && (
+                    <div className="space-y-1.5 animate-in fade-in duration-300">
+                      <Label className="text-[10px] font-bold uppercase text-slate-500">Designated District</Label>
+                      <Select 
+                        value={districtName} 
+                        onValueChange={(val) => {
+                          setDistrictName(val);
+                          const parentRegion = getRegionForDistrict(country, val);
+                          if (parentRegion) {
+                            setRegionName(parentRegion);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="bg-slate-950 border-white/5 text-xs text-white">
+                          <SelectValue placeholder="Select District" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-white/5 text-slate-300">
+                          {getAllDistrictsForCountry(country).map(d => (
+                            <SelectItem key={d} value={d}>{d}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="security" className="space-y-4 outline-none">
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <div className="flex items-center justify-between p-4 bg-slate-950/60 border border-white/5 rounded-[5px]">
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Staff Portal Pinless Bypass</Label>
+                    <p className="text-[9px] text-slate-500 font-bold uppercase">Toggle bypass authentication for quick staff terminals.</p>
+                  </div>
+                  <Switch checked={staffAccessToggle} onCheckedChange={setStaffAccessToggle} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500">Administrative Overlay Shortcut Hotkey</Label>
+                  <Select value={staffAccessShortcut} onValueChange={setStaffAccessShortcut}>
+                    <SelectTrigger className="bg-slate-950 border-white/5 text-xs text-white">
+                      <SelectValue placeholder="Select Shortcut" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-white/5 text-slate-300">
+                      <SelectItem value="Ctrl+L">Ctrl + L (Default Terminal Lock)</SelectItem>
+                      <SelectItem value="Ctrl+K">Ctrl + K (Console Toggle)</SelectItem>
+                      <SelectItem value="Ctrl+Shift+S">Ctrl + Shift + S (Settings Portal)</SelectItem>
+                      <SelectItem value="Alt+S">Alt + S (Silent Access)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">Triggers administrative settings overrides from any view inside the utility dashboard.</p>
+                </div>
+              </div>
+            </TabsContent>
           </TabsRoot>
           <DialogFooter className="mt-6 border-t border-white/5 pt-4"><Button onClick={handleUpdateSettings} className="w-full">Save Configuration</Button></DialogFooter>
         </DialogContent>

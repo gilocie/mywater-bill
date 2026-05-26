@@ -113,10 +113,9 @@ export default function BroadcastsPage() {
 
       // 3. Super Admins / Accounts ONLY see if escalated to them or their department
       if (user.role === 'SUPER_ADMIN') {
-        // Super Admins can see escalated or general if needed, but per request:
-        // Admin shouldn't see standard chats unless escalated.
-        return t.status === 'ESCALATED' && 
-               (t.escalatedTo === 'SUPER_ADMIN' || t.escalatedToUserId === user.id);
+        return (t.status === 'ESCALATED' && (t.escalatedTo === 'SUPER_ADMIN' || t.escalatedToUserId === user.id)) || 
+               t.assignedStaffId === user.id || 
+               t.escalatedToUserId === user.id;
       }
       
       // If we had a specific ACCOUNTS role, we'd check t.escalatedTo === 'ACCOUNTS' here.

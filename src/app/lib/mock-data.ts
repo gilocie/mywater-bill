@@ -95,6 +95,7 @@ export interface SupportTicket {
   assignedStaffId?: string;
   assignedStaffName?: string;
   escalatedTo?: 'ACCOUNTS' | 'SUPER_ADMIN';
+  escalatedToUserId?: string;
   messages: SupportMessage[];
   lastUpdate: string;
 }
@@ -134,6 +135,12 @@ export interface SystemSettings {
   districtName?: string;
   // Receipt Design
   receiptCompanyName?: string;
+  receiptHeaderBgColor?: string;
+  receiptSubHeading?: string;
+  receiptMiddleBgColor?: string;
+  receiptFooter?: string;
+  receiptLogo?: string;
+  receiptLogoBgColor?: string;
   // Security
   staffAccessToggle?: boolean;
   staffAccessShortcut?: string;

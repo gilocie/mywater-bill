@@ -32,18 +32,22 @@ export async function POST(request: Request) {
       'companyDescription', 'logo', 'logoBgColor', 'defaultAvatar',
       'primaryColor', 'secondaryColor', 'backgroundColor', 'landingBgImage',
       'landingTitle', 'vatRate', 'waterRateRanges', 'appLevel', 'country',
-      'regionName', 'districtName', 'receiptCompanyName', 'staffAccessToggle',
-      'staffAccessShortcut'
+      'regionName', 'districtName', 'receiptCompanyName', 'receiptHeaderBgColor',
+      'receiptSubHeading', 'receiptMiddleBgColor', 'receiptFooter', 'receiptLogo',
+      'receiptLogoBgColor',
+      'staffAccessToggle', 'staffAccessShortcut'
     ];
 
     fields.forEach(field => {
       if (body[field] !== undefined) {
+        if (field === 'pawapayKey' && body[field] === '••••••••••••••••') {
+          return;
+        }
         updates[field] = body[field];
       }
     });
 
     const updatedSettings = saveSystemSettings(updates);
-
     return NextResponse.json(updatedSettings, { headers: corsHeaders });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Failed to update settings' }, { status: 500, headers: corsHeaders });

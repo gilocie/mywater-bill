@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
   backgroundColor: '#020617',
   landingBgImage: 'https://picsum.photos/seed/water-landing/1920/1080',
   vatRate: 16.5,
+  receiptLogoBgColor: '#ffffff',
   waterRateRanges: [
     { from: 0, to: null, price: 2.5 }
   ]

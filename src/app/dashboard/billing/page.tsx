@@ -57,6 +57,7 @@ export default function BillingPage() {
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [pricingModalOpen, setPricingModalOpen] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
 
   // Pagination & selection
   const [perPage, setPerPage] = useState<number>(10);
@@ -66,6 +67,17 @@ export default function BillingPage() {
   // Currency helper – 2 decimal places
   const fmt = (val: number) =>
     Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const isBgDark = (hex?: string) => {
+    if (!hex) return false;
+    const cleanHex = hex.replace('#', '');
+    if (cleanHex.length !== 6) return false;
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness < 128;
+  };
 
   useEffect(() => {
     const loadBills = () => {
@@ -77,6 +89,10 @@ export default function BillingPage() {
         } else {
           setBills(all);
         }
+      }
+      const storedTx = localStorage.getItem('mywater_all_transactions');
+      if (storedTx) {
+        setTransactions(JSON.parse(storedTx));
       }
     };
     loadBills();
@@ -165,6 +181,7 @@ export default function BillingPage() {
     const rows = [
       { label: 'CUSTOMER NAME', value: receiptData.customerName },
       { label: 'METER NUMBER', value: receiptData.meterNumber || 'N/A' },
+      { label: 'PAYMENT METHOD', value: receiptData.paymentMethod || 'Utility Wallet' },
       { label: 'SERVICE', value: receiptData.product },
       { label: 'NETWORK', value: receiptData.network },
       { label: 'STATUS', value: receiptData.network?.includes('Settled') ? 'Paid' : 'Pending' }
@@ -213,6 +230,15 @@ export default function BillingPage() {
       const found = users.find(u => u.id === bill.customerId);
       if (found) { customerName = found.name; meterNumber = found.meterNumber || 'N/A'; }
     }
+
+    const matchingTx = transactions.find(t => t.type === 'BILL_PAYMENT' && t.description.includes(bill.id.slice(-6).toUpperCase()));
+    let parsedMethod = bill.status === 'PAID' ? 'Utility Wallet' : 'Pending';
+    if (matchingTx) {
+      if (matchingTx.description.toLowerCase().includes('airtel')) parsedMethod = 'Airtel Money';
+      else if (matchingTx.description.toLowerCase().includes('mpamba') || matchingTx.description.toLowerCase().includes('tnm')) parsedMethod = 'TNM Mpamba';
+      else if (matchingTx.description.toLowerCase().includes('bank')) parsedMethod = 'Standard Bank';
+    }
+
     setReceiptData({
       txId: `INV-${bill.id.slice(-6).toUpperCase()}`,
       amount: bill.totalAmount,
@@ -227,7 +253,8 @@ export default function BillingPage() {
       consumption: bill.consumption !== undefined ? bill.consumption : bill.meterReadingLiters,
       vatAmount: bill.vatAmount || 0,
       vatRate: bill.vatRate !== undefined ? bill.vatRate : settings?.vatRate ?? 16.5,
-      status: bill.status
+      status: bill.status,
+      paymentMethod: parsedMethod
     });
     setReceiptDialogOpen(true);
   };
@@ -437,10 +464,15 @@ export default function BillingPage() {
       {/* Receipt Dialog */}
       <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
         <DialogContent className="bg-white text-slate-900 max-w-sm rounded-[5px] p-0 overflow-hidden max-h-[90vh] flex flex-col">
-          <div className="bg-slate-900 px-6 py-5 flex items-center justify-between shrink-0">
+          <div 
+            className="px-6 py-5 flex items-center justify-between shrink-0" 
+            style={{ backgroundColor: settings?.receiptHeaderBgColor || '#0f172a' }}
+          >
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-[3px]" style={{ backgroundColor: settings?.logoBgColor || '#2563eb' }}>
-                {settings?.logo ? (
+              <div className="p-2 rounded-[3px]" style={{ backgroundColor: settings?.receiptLogoBgColor || settings?.logoBgColor || '#2563eb' }}>
+                {settings?.receiptLogo ? (
+                  <img src={settings.receiptLogo} className="h-5 w-5 object-contain" />
+                ) : settings?.logo ? (
                   <img src={settings.logo} className="h-5 w-5 object-contain" />
                 ) : (
                   <Droplets className="h-5 w-5 text-white" />
@@ -450,21 +482,26 @@ export default function BillingPage() {
                 <DialogTitle className="text-xs font-black text-white uppercase tracking-widest">
                   {settings?.receiptCompanyName || 'Malawi Water Board'}
                 </DialogTitle>
-                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Utility Bill Invoice</p>
+                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">
+                  {settings?.receiptSubHeading || 'Utility Bill Invoice'}
+                </p>
               </div>
             </div>
-            <Receipt className="h-5 w-5 text-primary opacity-70" />
+            <Receipt className="h-5 w-5 text-white/50" />
           </div>
 
           {receiptData && (
-            <div className="flex-1 overflow-y-auto">
+            <div 
+              className="flex-1 overflow-y-auto" 
+              style={{ backgroundColor: settings?.receiptMiddleBgColor || '#ffffff' }}
+            >
               <div className="bg-primary/10 border-b border-primary/20 px-6 py-3 flex justify-between items-center">
-                <div><p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Invoice ID</p><p className="text-xs font-black text-slate-800 font-mono">{receiptData.txId}</p></div>
-                <div className="text-right"><p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Billing Date</p><p className="text-[10px] font-bold text-slate-700">{receiptData.date}</p></div>
+                <div><p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Invoice ID</p><p className={cn("text-xs font-black font-mono", isBgDark(settings?.receiptMiddleBgColor) ? "text-slate-200" : "text-slate-800")}>{receiptData.txId}</p></div>
+                <div className="text-right"><p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Billing Date</p><p className={cn("text-[10px] font-bold", isBgDark(settings?.receiptMiddleBgColor) ? "text-slate-300" : "text-slate-700")}>{receiptData.date}</p></div>
               </div>
-              <div className="px-6 py-6 text-center border-b border-dashed border-slate-200">
+              <div className="px-6 py-6 text-center border-b border-dashed border-slate-200 dark:border-white/10">
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Amount Due</p>
-                <p className="text-4xl font-black text-slate-900"><span className="text-primary text-xl">MK</span>{' '}{fmt(receiptData.amount)}</p>
+                <p className={cn("text-4xl font-black", isBgDark(settings?.receiptMiddleBgColor) ? "text-white" : "text-slate-900")}><span className="text-primary text-xl">MK</span>{' '}{fmt(receiptData.amount)}</p>
                 <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${receiptData.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                   {receiptData.status === 'PAID' ? <><CheckCircle2 className="h-3 w-3" /><span className="text-[9px] font-black uppercase tracking-wider">Paid / Settled</span></> : <><span className="h-1.5 w-1.5 rounded-full bg-amber-600 animate-pulse" /><span className="text-[9px] font-black uppercase tracking-wider">Pending Payment</span></>}
                 </div>
@@ -473,21 +510,36 @@ export default function BillingPage() {
                 {[
                   { label: 'Customer Name', value: receiptData.customerName },
                   { label: 'Meter Number', value: receiptData.meterNumber },
-                  { label: 'Previous Reading', value: `${receiptData.lastMeterReading} m³` },
-                  { label: 'Current Reading', value: `${receiptData.currentMeterReading} m³` },
+                  { label: 'Payment Method', value: receiptData.paymentMethod || 'Utility Wallet' },
+                  ...(!receiptData.product?.toLowerCase().includes('deposit') ? [
+                    { label: 'Previous Reading', value: `${receiptData.lastMeterReading} m³` },
+                    { label: 'Current Reading', value: `${receiptData.currentMeterReading} m³` }
+                  ] : [])
                 ].map(row => (
                   <div key={row.label} className="flex justify-between items-center text-[10px]">
                     <span className="font-bold text-slate-400 uppercase tracking-wider">{row.label}</span>
-                    <span className="font-black text-slate-800 font-mono">{row.value}</span>
+                    <span className={cn("font-black font-mono", isBgDark(settings?.receiptMiddleBgColor) ? "text-slate-200" : "text-slate-800")}>{row.value}</span>
                   </div>
                 ))}
-                <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-2"><span className="font-bold text-primary uppercase tracking-wider font-black">Consumption</span><span className="font-black text-primary">{receiptData.consumption} m³</span></div>
-                <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-2"><span className="font-bold text-slate-400 uppercase tracking-wider">Subtotal</span><span className="font-black text-slate-800">MK {fmt(receiptData.amount - receiptData.vatAmount)}</span></div>
-                <div className="flex justify-between items-center text-[10px]"><span className="font-bold text-slate-400 uppercase tracking-wider">VAT ({receiptData.vatRate}%)</span><span className="font-black text-slate-800">MK {fmt(receiptData.vatAmount)}</span></div>
+                {!receiptData.product?.toLowerCase().includes('deposit') && (
+                  <div className="flex justify-between items-center text-[10px] border-t border-black/5 dark:border-white/5 pt-2"><span className="font-bold text-primary uppercase tracking-wider font-black">Consumption</span><span className="font-black text-primary">{receiptData.consumption} m³</span></div>
+                )}
+                <div className="flex justify-between items-center text-[10px] border-t border-black/5 dark:border-white/5 pt-2"><span className="font-bold text-slate-400 uppercase tracking-wider">Subtotal</span><span className={cn("font-black", isBgDark(settings?.receiptMiddleBgColor) ? "text-slate-200" : "text-slate-800")}>MK {fmt(receiptData.amount - receiptData.vatAmount)}</span></div>
+                <div className="flex justify-between items-center text-[10px]"><span className="font-bold text-slate-400 uppercase tracking-wider">VAT ({receiptData.vatRate}%)</span><span className={cn("font-black", isBgDark(settings?.receiptMiddleBgColor) ? "text-slate-200" : "text-slate-800")}>MK {fmt(receiptData.vatAmount)}</span></div>
               </div>
-              <div className="px-6 pb-4 border-t border-dashed border-slate-200 pt-4">
-                <div className="flex justify-center mb-3"><div className="flex gap-px">{Array.from({ length: 40 }).map((_, i) => (<div key={i} className="bg-slate-800" style={{ width: `${(i % 3 === 0) ? 3 : 2}px`, height: `${24 + (i % 5) * 4}px` }} />))}</div></div>
-                <p className="text-[8px] text-center text-slate-400 font-mono tracking-widest">{receiptData.txId} • {settings?.receiptCompanyName?.toUpperCase() || 'MWB-SYSTEM'}</p>
+              <div className="px-6 pb-4 border-t border-dashed border-slate-200 dark:border-white/10 pt-4">
+                <div className="flex justify-center mb-3">
+                  <div className="flex gap-px">
+                    {Array.from({ length: 40 }).map((_, i) => (
+                      <div 
+                        key={i} 
+                        className={isBgDark(settings?.receiptMiddleBgColor) ? "bg-white" : "bg-slate-800"} 
+                        style={{ width: `${(i % 3 === 0) ? 3 : 2}px`, height: `${24 + (i % 5) * 4}px` }} 
+                      />
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[8px] text-center text-slate-400 font-mono tracking-widest">{receiptData.txId} • {settings?.receiptFooter?.toUpperCase() || 'MWB-SYSTEM-AUDIT'}</p>
               </div>
             </div>
           )}

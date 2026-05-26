@@ -408,6 +408,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const recalcVatAmount = recalcBaseCharge * ((settings?.vatRate ?? 16.5) / 100);
   const recalcTotal = recalcBaseCharge + recalcVatAmount;
 
+  // Live Issue Invoice calculations
+  const lastReading = customer?.lastMeterReading || 0;
+  const invoiceCurrentReading = parseFloat(meterLiters) || 0;
+  const invoiceConsumption = invoiceCurrentReading > lastReading ? invoiceCurrentReading - lastReading : 0;
+  const invoiceBaseCharge = calculateWaterCharge(invoiceConsumption, settings?.waterRateRanges || []);
+  const invoiceVatAmount = invoiceBaseCharge * ((settings?.vatRate ?? 16.5) / 100);
+  const invoiceTotal = invoiceBaseCharge + invoiceVatAmount;
+
   return (
     <div className="space-y-3">
       <Button variant="ghost" className="gap-2 -ml-2 text-slate-400 hover:text-primary transition-colors h-6 px-2 rounded-[5px] text-[9px]" onClick={() => router.push('/dashboard/customers')}>
@@ -640,7 +648,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
             <div className="space-y-1.5 pt-1">
               <div className="flex justify-between items-center text-[8px] font-bold text-slate-500">
-                <span className="uppercase">Last Reading</span>
+                <span className="uppercase">Original Last Reading</span>
                 <span className="font-mono text-slate-300">{recalcBaseReading} m³</span>
               </div>
               <div className="flex justify-between items-center text-[9px] font-black border-t border-white/5 pt-1 text-primary">
@@ -743,8 +751,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Record meter consumption and generate invoice.</p>
              </div>
           </div>
-          
-          <div className="px-6 py-6 space-y-6">
+              <div className="px-6 py-4 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Current Meter Reading</Label>
@@ -752,8 +759,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   type="number" 
                   value={meterLiters} 
                   onChange={e => setMeterLiters(e.target.value)} 
-                  placeholder={`Min: ${customer.lastMeterReading || 0}`} 
-                  className="w-full rounded-md bg-[#121926] border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
+                  placeholder={`Min: ${lastReading}`} 
+                  autoFocus
+                  className="w-full rounded-md bg-[#121926] border border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
                 />
               </div>
               <div className="space-y-1.5">
@@ -762,26 +770,49 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   type="number" 
                   value={gracePeriod} 
                   onChange={e => setGracePeriod(e.target.value)} 
-                  className="w-full rounded-md bg-[#121926] border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
+                  className="w-full rounded-md bg-[#121926] border border-white/5 h-10 px-3 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm" 
                 />
               </div>
             </div>
 
-            <div className="space-y-3 pt-2">
-              <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+            {/* Live billing breakdown */}
+            <div className="bg-[#121926] border border-white/5 rounded-[5px] p-4 space-y-2">
+              <div className="flex justify-between items-center text-[9px] font-bold text-slate-500">
                 <span className="uppercase">Last Reading</span>
-                <span className="font-mono text-slate-300">{customer.lastMeterReading || 0} m³</span>
+                <span className="font-mono text-slate-300">{lastReading} m³</span>
               </div>
-              <div className="flex justify-between items-center text-[11px] font-black border-t border-white/5 pt-2 text-primary">
+              <div className="flex justify-between items-center text-[9px] font-bold text-slate-500">
+                <span className="uppercase">Current Reading</span>
+                <span className="font-mono text-slate-300">{invoiceCurrentReading || '—'} m³</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-black text-primary border-t border-white/5 pt-2">
                 <span className="uppercase">Consumption</span>
-                <span className="font-mono">{(parseFloat(meterLiters) || 0) - (customer.lastMeterReading || 0) > 0 ? (parseFloat(meterLiters) || 0) - (customer.lastMeterReading || 0) : 0} m³</span>
+                <span className="font-mono">{invoiceConsumption} m³</span>
+              </div>
+              <div className="border-t border-white/5 pt-2 space-y-1.5">
+                <div className="flex justify-between items-center text-[9px] font-bold text-slate-500">
+                  <span className="uppercase">Base Charge</span>
+                  <span className="text-white font-mono">MK {fmt(invoiceBaseCharge)}</span>
+                </div>
+                <div className="flex justify-between items-center text-[9px] font-bold text-slate-500">
+                  <span className="uppercase">VAT ({settings?.vatRate ?? 16.5}%)</span>
+                  <span className="text-white font-mono">MK {fmt(invoiceVatAmount)}</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px] font-black border-t border-white/5 pt-1.5 text-green-400">
+                  <span className="uppercase tracking-widest">Calculated Total</span>
+                  <span className="font-mono">MK {fmt(invoiceTotal)}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="px-6 pb-6 pt-2">
-            <Button onClick={handleIssueInvoice} className="w-full h-11 bg-primary hover:bg-primary/90 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-primary/20 rounded-[5px]">
-              GENERATE & SEND
+          <div className="px-6 pb-6">
+            <Button 
+              onClick={handleIssueInvoice} 
+              disabled={invoiceConsumption <= 0}
+              className="w-full h-11 bg-primary hover:bg-primary/90 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-primary/20 rounded-[5px] disabled:opacity-40"
+            >
+              GENERATE &amp; SEND
             </Button>
           </div>
         </DialogContent>
