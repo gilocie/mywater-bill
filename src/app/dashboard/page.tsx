@@ -26,7 +26,11 @@ import {
   Receipt,
   Download,
   ExternalLink,
-  ShieldAlert
+  ShieldAlert,
+  ArrowUp,
+  BarChart3,
+  TrendingUp,
+  PieChart as PieChartIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -46,6 +50,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, Label as ReLabel } from 'recharts';
 
 export default function DashboardPage() {
   const { user, settings } = useAuth();
@@ -56,6 +61,9 @@ export default function DashboardPage() {
   const [allBills, setAllBills] = useState<Bill[]>([]);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   
+  // Super Admin Specific States
+  const [analyticsMode, setAnalyticsMode] = useState<'consumption' | 'revenue'>('consumption');
+
   // Receipt State
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
@@ -115,54 +123,6 @@ export default function DashboardPage() {
     return today > dueDate;
   };
 
-  const handleIssueInvoice = (customer: AppUser) => {
-    const currentReading = parseFloat(meterLiters);
-    const lastReading = customer.lastMeterReading || 0;
-
-    if (isNaN(currentReading) || currentReading < lastReading) {
-      toast({ title: "Invalid Reading", description: "Current reading must be higher than last reading.", variant: "destructive" });
-      return;
-    }
-
-    const consumption = currentReading - lastReading;
-    const baseCharge = calculateWaterCharge(consumption, settings?.waterRateRanges || []);
-    const vatAmount = baseCharge * ((settings?.vatRate ?? 16.5) / 100);
-    const totalAmount = baseCharge + vatAmount;
-
-    const grace = parseInt(gracePeriod) || 14;
-    const dueDateObj = new Date();
-    dueDateObj.setDate(dueDateObj.getDate() + grace);
-    
-    const newBill: Bill = {
-      id: `bill-${Date.now()}`,
-      customerId: customer.id,
-      meterReadingLiters: consumption,
-      ratePerLiter: settings?.waterRate || 2.5,
-      totalAmount: totalAmount,
-      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      status: 'PENDING',
-      dueDate: dueDateObj.toISOString().split('T')[0],
-      gracePeriodDays: grace,
-      lastMeterReading: lastReading,
-      currentMeterReading: currentReading,
-      consumption: consumption,
-      vatAmount: vatAmount,
-      vatRate: settings?.vatRate ?? 16.5
-    };
-
-    const updatedBills = [newBill, ...allBills];
-    localStorage.setItem('mywater_all_bills', JSON.stringify(updatedBills));
-    setAllBills(updatedBills);
-
-    const updatedUsers = allUsers.map(u => u.id === customer.id ? { ...u, lastMeterReading: currentReading, currentMeterReading: currentReading } : u);
-    localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
-    setAllUsers(updatedUsers);
-
-    setMeterLiters('');
-    toast({ title: "Invoice Issued", description: `MK ${format2Dec(totalAmount)} generated for ${customer.name}.` });
-    window.dispatchEvent(new Event('storage'));
-  };
-
   const handleViewReceipt = (bill: Bill) => {
     let customerName = user?.name || 'Customer';
     let meterNumber = user?.meterNumber || 'N/A';
@@ -218,107 +178,187 @@ export default function DashboardPage() {
   // SUPER ADMIN VIEW
   if (user.role === 'SUPER_ADMIN') {
     const globalRevenue = allBills.filter(b => b.status === 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
-    const globalArrears = allBills.filter(b => b.status !== 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
-    const totalInvoiced = allBills.reduce((sum, b) => sum + b.totalAmount, 0);
-    const collectionRate = totalInvoiced > 0 ? (globalRevenue / totalInvoiced) * 100 : 0;
+    const totalConsumption = allBills.reduce((sum, b) => sum + (b.consumption || 0), 0);
     const totalCustomers = allUsers.filter(u => u.role === 'CUSTOMER').length;
-    const totalStaff = allUsers.filter(u => u.role !== 'CUSTOMER').length;
+    
+    // Chart Data Generation
+    const analyticsData = [
+      { name: 'Dec', val: 1200 },
+      { name: 'Jan', val: 3800 },
+      { name: 'Feb', val: 2400 },
+      { name: 'Mar', val: 3100 },
+      { name: 'Apr', val: 2800 },
+      { name: 'May', val: 5200 },
+    ];
+
+    const ledgerDistData = [
+      { name: 'Paid', value: allBills.filter(b => b.status === 'PAID').length, color: '#22c55e' },
+      { name: 'Pending', value: allBills.filter(b => b.status === 'PENDING').length, color: '#eab308' },
+      { name: 'Overdue', value: allBills.filter(b => b.status === 'OVERDUE' || isBillOverdue(b)).length, color: '#ef4444' },
+    ].filter(d => d.value > 0);
+
+    const zoneMetrics = [
+      { name: 'Chirimba', val: 2250, total: 3000 },
+      { name: 'Ndirande', val: 0, total: 3000 },
+      { name: 'Kanjedza', val: 0, total: 3000 },
+      { name: 'Chilomoni', val: 0, total: 3000 },
+      { name: 'Limbe', val: 0, total: 3000 },
+    ];
 
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-3xl font-black tracking-tight text-white uppercase flex items-center gap-3">
-            <ShieldCheck className="h-8 w-8 text-primary" /> Global Oversight
-          </h2>
-          <p className="text-slate-400 font-medium tracking-tight">Consolidated utility metrics and system performance.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck className="h-6 w-6 text-primary" />
+              <h2 className="text-3xl font-black tracking-tight text-white uppercase">Operational Hub</h2>
+            </div>
+            <p className="text-slate-400 font-medium tracking-tight">Utility management.</p>
+          </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
-            <CardHeader className="pt-4 pb-1 px-4">
-              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Global Revenue</CardDescription>
-              <CardTitle className="text-xl font-black text-green-500">MK {format2Dec(globalRevenue)}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
-            <CardHeader className="pt-4 pb-1 px-4">
-              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Outstanding Arrears</CardDescription>
-              <CardTitle className="text-xl font-black text-red-500">MK {format2Dec(globalArrears)}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
-            <CardHeader className="pt-4 pb-1 px-4">
-              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Collection Efficiency</CardDescription>
-              <div className="flex items-center gap-3">
-                <CardTitle className="text-xl font-black text-primary">{collectionRate.toFixed(1)}%</CardTitle>
-                <Progress value={collectionRate} className="h-1 flex-1 bg-slate-950" />
-              </div>
-            </CardHeader>
-          </Card>
-          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
-            <CardHeader className="pt-4 pb-1 px-4">
-              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">System Registry</CardDescription>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-white uppercase">{totalCustomers} <span className="text-[9px] text-slate-500">Customers</span></p>
-                  <p className="text-xs font-bold text-white uppercase">{totalStaff} <span className="text-[9px] text-slate-500">Staff</span></p>
+        {/* Top Stats Grid */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
+            <CardHeader className="pt-4 pb-1 px-5">
+              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Total Revenue</CardDescription>
+              <div className="mt-1">
+                <CardTitle className="text-3xl font-black text-white">MK {format2Dec(globalRevenue)}</CardTitle>
+                <div className="flex items-center gap-1 text-green-500 text-[9px] font-black uppercase mt-1">
+                  <ArrowUp className="h-2.5 w-2.5" /> Real-time
                 </div>
-                <Users className="h-5 w-5 text-primary opacity-50" />
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
+            <CardHeader className="pt-4 pb-1 px-5 flex flex-row items-start justify-between">
+              <div>
+                <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Total Customers</CardDescription>
+                <CardTitle className="text-3xl font-black text-white mt-1">{totalCustomers}</CardTitle>
+              </div>
+              <Users className="h-5 w-5 text-primary/40" />
+            </CardHeader>
+          </Card>
+
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
+            <CardHeader className="pt-4 pb-2 px-5">
+              <div className="flex items-center justify-between">
+                <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Consumption</CardDescription>
+                <Droplets className="h-4 w-4 text-primary/60" />
+              </div>
+              <CardTitle className="text-3xl font-black text-white mt-1">{(totalConsumption / 1000).toFixed(1)}K L</CardTitle>
+              <div className="mt-3">
+                <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden">
+                  <div className="h-full bg-primary" style={{ width: '65%' }} />
+                </div>
               </div>
             </CardHeader>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[450px] overflow-hidden">
-          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
-            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-4 py-3 shrink-0">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
-                <Activity className="h-3.5 w-3.5" /> Recent Billing Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 flex-1 overflow-y-auto custom-scrollbar">
-              <div className="divide-y divide-white/5">
-                {allBills.slice(0, 20).map(bill => (
-                  <div key={bill.id} className="p-3 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer" onClick={() => handleViewReceipt(bill)}>
-                    <div>
-                      <p className="text-[10px] font-black text-white uppercase">INV-{bill.id.slice(-6).toUpperCase()}</p>
-                      <p className="text-[8px] text-slate-500 font-bold uppercase">{allUsers.find(u => u.id === bill.customerId)?.name || 'Unknown'}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-black text-white">MK {format2Dec(bill.totalAmount)}</p>
-                      <Badge className={cn("text-[6px] h-3.5", bill.status === 'PAID' ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>
-                        {bill.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+        {/* Middle Grid: Analytics & Zone Metrics */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[420px]">
+          <Card className="lg:col-span-2 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col">
+            <CardHeader className="px-6 py-4 flex flex-row items-center justify-between border-b border-white/5 shrink-0">
+              <div>
+                <CardTitle className="text-xs font-black uppercase tracking-widest text-white">Utility Flow Analytics</CardTitle>
+                <CardDescription className="text-[9px] font-bold text-slate-500 mt-0.5">Analyzing consumption load vs revenue collections.</CardDescription>
               </div>
+              <div className="flex bg-slate-950 p-1 rounded-[5px] border border-white/5">
+                <button 
+                  onClick={() => setAnalyticsMode('consumption')}
+                  className={cn("px-3 py-1 text-[8px] font-black uppercase rounded-[3px] transition-all", analyticsMode === 'consumption' ? "bg-primary text-white" : "text-slate-500 hover:text-white")}
+                >Consumption</button>
+                <button 
+                  onClick={() => setAnalyticsMode('revenue')}
+                  className={cn("px-3 py-1 text-[8px] font-black uppercase rounded-[3px] transition-all", analyticsMode === 'revenue' ? "bg-primary text-white" : "text-slate-500 hover:text-white")}
+                >Revenue</button>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 p-6">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={analyticsData}>
+                  <defs>
+                    <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                  <XAxis dataKey="name" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis hide />
+                  <Tooltip contentStyle={{ backgroundColor: '#020617', border: '1px solid #ffffff10', borderRadius: '5px', fontSize: '10px' }} />
+                  <Area type="monotone" dataKey="val" stroke="#2563eb" strokeWidth={3} fillOpacity={1} fill="url(#colorVal)" />
+                </AreaChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px] flex flex-col overflow-hidden">
-            <CardHeader className="bg-slate-950/40 border-b border-white/5 px-4 py-3 shrink-0">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-primary" /> System Logs
-              </CardTitle>
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col">
+            <CardHeader className="px-6 py-4 border-b border-white/5 shrink-0">
+              <CardTitle className="text-xs font-black uppercase tracking-widest text-white">Zone Metrics</CardTitle>
+              <CardDescription className="text-[9px] font-bold text-slate-500 mt-0.5">Consumption by area — District scope.</CardDescription>
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-y-auto custom-scrollbar">
               <div className="divide-y divide-white/5">
-                {allTransactions.slice(0, 20).map(tx => (
-                  <div key={tx.id} className="p-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] font-black text-white uppercase">{tx.type}</p>
-                      <p className="text-[8px] text-slate-500 font-bold uppercase">{tx.date} • {tx.description}</p>
+                {zoneMetrics.map((zone, idx) => (
+                  <div key={idx} className="px-6 py-3.5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black text-white uppercase">{zone.name}</span>
+                      <span className="text-[10px] font-black text-primary">{zone.val > 0 ? zone.val.toLocaleString() + ' m³' : '-- m³'}</span>
                     </div>
-                    <p className={cn("text-xs font-black", tx.type === 'DEPOSIT' ? "text-green-500" : "text-primary")}>
-                      {tx.type === 'DEPOSIT' ? '+' : '-'} MK {tx.amount.toLocaleString()}
-                    </p>
+                    <div className="h-1 w-full bg-slate-950 rounded-full overflow-hidden">
+                      <div className={cn("h-full", idx === 0 ? "bg-primary" : "bg-slate-800")} style={{ width: `${(zone.val / zone.total) * 100}%` }} />
+                    </div>
                   </div>
                 ))}
               </div>
             </CardContent>
+            <div className="p-3 border-t border-white/5 flex items-center justify-between bg-slate-950/20 shrink-0">
+               <div className="text-[7px] font-black uppercase text-slate-600 tracking-widest">Scope: <span className="text-primary">District - By Area</span></div>
+               <button className="text-[8px] font-black uppercase text-primary flex items-center gap-1 hover:underline">See More <TrendingUp className="h-2 w-2" /></button>
+            </div>
           </Card>
         </div>
+
+        {/* Bottom Ledger Section */}
+        <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col">
+          <CardHeader className="px-6 py-3 border-b border-white/5 shrink-0">
+             <CardTitle className="text-[9px] font-black uppercase tracking-widest text-slate-500">Ledger Distribution</CardTitle>
+          </CardHeader>
+          <CardContent className="px-6 py-4 flex items-center gap-8">
+            <div className="w-20 h-20 shrink-0">
+               <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={ledgerDistData}
+                      innerRadius={25}
+                      outerRadius={38}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {ledgerDistData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+               </ResponsiveContainer>
+            </div>
+            <div className="flex-1 flex flex-col gap-1">
+               <div className="text-sm font-black text-white">{allBills.length} Invoices</div>
+               <div className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Active audited billing cycles</div>
+            </div>
+            <div className="flex gap-4">
+               {ledgerDistData.map((item, idx) => (
+                 <div key={idx} className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-[9px] font-black text-white uppercase">{item.value} {item.name}</span>
+                 </div>
+               ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -353,23 +393,23 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pt-4 pb-1 px-4">
               <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">District Collection</CardDescription>
-              <CardTitle className="text-xl font-black text-green-500">MK {format2Dec(districtRevenue)}</CardTitle>
+              <CardTitle className="text-2xl font-black text-green-500">MK {format2Dec(districtRevenue)}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pt-4 pb-1 px-4">
               <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Arrears (Unpaid)</CardDescription>
-              <CardTitle className="text-xl font-black text-red-500">MK {format2Dec(outstandingArrears)}</CardTitle>
+              <CardTitle className="text-2xl font-black text-red-500">MK {format2Dec(outstandingArrears)}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
+          <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pt-4 pb-2 px-4">
               <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Collection Rate</CardDescription>
               <div className="flex items-center gap-3">
-                <CardTitle className="text-xl font-black text-primary">{collectionRate.toFixed(1)}%</CardTitle>
+                <CardTitle className="text-2xl font-black text-primary">{collectionRate.toFixed(1)}%</CardTitle>
                 <Progress value={collectionRate} className="h-1 flex-1 bg-slate-950" />
               </div>
             </CardHeader>
@@ -548,7 +588,7 @@ export default function DashboardPage() {
               <CardDescription className="text-white/70 font-bold text-[9px] uppercase">Wallet</CardDescription>
               <CardTitle className="text-2xl font-black">MK {format2Dec(user.walletBalance || 0)}</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
+            <CardContent className="px-4 pb-2">
               <Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 text-white h-7 text-[9px] font-bold uppercase" onClick={() => router.push('/dashboard/wallet')}>Deposit</Button>
             </CardContent>
           </Card>
@@ -575,7 +615,7 @@ export default function DashboardPage() {
               <CardDescription className="text-slate-400 font-bold text-[9px] uppercase">Total Due</CardDescription>
               <AlertCircle className={cn("h-3 w-3", isAnyBillOverdue ? 'text-destructive' : 'text-green-500')} />
             </CardHeader>
-            <CardContent className="px-4 pb-4">
+            <CardContent className="px-4 pb-2">
               <div className={cn("text-2xl font-black", isAnyBillOverdue ? 'text-destructive' : 'text-green-500')}>MK {format2Dec(totalDue)}</div>
               <p className={cn("text-[9px] mt-1 font-bold", isAnyBillOverdue ? 'text-red-400' : 'text-green-400')}>{countdownText}</p>
               <Button disabled={totalDue <= 0} className={cn("mt-3 w-full h-8 text-[9px] font-bold uppercase", isAnyBillOverdue ? "bg-destructive text-white" : "bg-green-600 text-white")} onClick={() => router.push('/dashboard/billing')}>Pay Now</Button>
@@ -727,7 +767,7 @@ export default function DashboardPage() {
               </div>
               <div className="px-6 py-6 text-center border-b border-dashed border-slate-200">
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Amount Due</p>
-                <p className="text-4xl font-black text-slate-900"><span className="text-primary text-xl">MK</span>{' '}{format2Dec(receiptData.amount)}</p>
+                <p className="text-4xl font-black text-slate-900"><span className="text-primary text-2xl">MK</span>{' '}{format2Dec(receiptData.amount)}</p>
                 <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${receiptData.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                   {receiptData.status === 'PAID' ? <><span className="text-[9px] font-black uppercase tracking-wider">Paid / Settled</span></> : <><span className="h-1.5 w-1.5 rounded-full bg-amber-600 animate-pulse" /><span className="text-[9px] font-black uppercase tracking-wider">Pending Payment</span></>}
                 </div>
