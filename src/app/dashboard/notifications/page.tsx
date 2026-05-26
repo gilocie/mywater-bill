@@ -230,7 +230,8 @@ export default function BroadcastsPage() {
 
   return (
     <div className="h-full flex flex-col space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0 h-[calc(100vh-140px)]">
+      {/* Container grid locked to 500px height */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[500px]">
         {/* Left Column: Broadcasts */}
         <Card className="lg:col-span-1 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
           <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0 flex flex-row items-center justify-between">
@@ -315,7 +316,7 @@ export default function BroadcastsPage() {
               </Dialog>
             )}
           </CardHeader>
-          <CardContent className="p-0 flex-1 overflow-y-auto">
+          <CardContent className="p-0 flex-1 overflow-y-auto custom-scrollbar">
             {activeBroadcasts.length > 0 ? (
               <div className="divide-y divide-white/5">
                 {activeBroadcasts.map(b => (
@@ -385,7 +386,7 @@ export default function BroadcastsPage() {
           <CardContent className="p-0 flex-1 flex overflow-hidden">
             {/* Sidebar: Threads (Contact List) */}
             <div className="w-1/3 border-r border-white/5 flex flex-col bg-slate-950/20 overflow-hidden">
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {filteredTickets.length > 0 ? (
                   <div className="divide-y divide-white/5">
                     {filteredTickets.map(t => (
@@ -435,8 +436,8 @@ export default function BroadcastsPage() {
                     )}
                   </div>
 
-                  {/* Scrollable Messages */}
-                  <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {/* Scrollable Messages Area */}
+                  <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
                     {selectedTicket.messages.map((m, i) => {
                       const isMe = m.senderId === user.id;
                       return (
