@@ -48,10 +48,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [portalDialogOpen, setPortalDialogOpen] = useState(false);
-  const [testPurchaseDialogOpen, setTestPurchaseDialogOpen] = useState(false);
   
   const [testStatus, setTestStatus] = useState<'idle' | 'processing' | 'success' | 'failure'>('idle');
-  const [lastTestResult, setLastTestResult] = useState<any>(null);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
 
@@ -63,6 +61,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Bill Alert States
   const [billAlert, setBillAlert] = useState<{ message: string; isHarsh: boolean; days?: number } | null>(null);
   const [isAlertSuppressed, setIsAlertSuppressed] = useState(false);
+
+  // Define missing state variables for the settings dialog
+  const [newRangeFrom, setNewRangeFrom] = useState('');
+  const [newRangeTo, setNewRangeTo] = useState('');
+  const [newRangePrice, setNewRangePrice] = useState('');
 
   const [newRate, setNewRate] = useState('2.5');
   const [pawapayKey, setPawapayKey] = useState('');
@@ -84,11 +87,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [landingTitle, setLandingTitle] = useState('Manage Your Utility with ease');
   const [vatRate, setVatRate] = useState('16.5');
   const [waterRateRanges, setWaterRateRanges] = useState<any[]>([]);
-
-  // States for adding new pricing brackets
-  const [newRangeFrom, setNewRangeFrom] = useState('');
-  const [newRangeTo, setNewRangeTo] = useState('');
-  const [newRangePrice, setNewRangePrice] = useState('');
 
   // Receipt Design
   const [receiptCompanyName, setReceiptCompanyName] = useState('MALAWI WATER BOARD');
@@ -354,13 +352,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   };
 
-  const handleRemoveImage = (target: 'logo' | 'landing' | 'avatar') => {
-    if (target === 'logo') setLogo('');
-    else if (target === 'landing') setLandingBgImage('');
-    else if (target === 'avatar') setDefaultAvatar('');
-    toast({ title: "Image Removed" });
-  };
-
   const handleNotificationClick = (item: any) => {
     router.push(item.link);
   };
@@ -430,14 +421,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </DropdownMenu>
               
               {user.role === 'SUPER_ADMIN' && (
-                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px]" onClick={() => setSettingsDialogOpen(true)}>
+                <button 
+                  onClick={() => setSettingsDialogOpen(true)}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px] transition-colors"
+                >
                   <Settings className="h-5 w-5" />
-                </Button>
+                </button>
               )}
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-auto flex items-center gap-3 px-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px]">
+                  <button className="relative h-10 w-auto flex items-center gap-3 px-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-[5px] transition-colors">
                     <div className="text-right hidden sm:block">
                       <p className="text-xs font-bold text-white leading-none mb-1">{user.name}</p>
                       <p className="text-[9px] text-slate-500 uppercase tracking-tighter">{user.role.replace('_', ' ')}</p>
@@ -446,7 +440,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <AvatarImage src={(user as any).profilePic || settings?.defaultAvatar || ''} />
                       <AvatarFallback className="bg-slate-800 text-primary font-bold text-xs">{user.name[0]}</AvatarFallback>
                     </Avatar>
-                  </Button>
+                  </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-slate-900 border-white/5 text-slate-300">
                   <DropdownMenuItem onClick={() => setProfileDialogOpen(true)} className="cursor-pointer">
@@ -470,7 +464,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="flex items-center gap-3">
                 <AlertTriangle className={cn("h-4 w-4", billAlert.isHarsh && "animate-pulse")} />
                 <p className="text-xs font-bold tracking-tight">
-                  <span className="font-black mr-2">{billAlert.isHarsh ? "CRITICAL ALERT:" : "PAYMENT REMINDER:"}</span>
                   {billAlert.message}
                 </p>
               </div>
@@ -680,4 +673,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </SidebarProvider>
   );
 }
-
