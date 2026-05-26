@@ -227,7 +227,7 @@ export default function BroadcastsPage() {
   if (!user) return null;
 
   return (
-    <div className="-mt-6 md:-mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 h-[450px] overflow-hidden">
+    <div className="-mt-[14px] md:-mt-[22px] grid grid-cols-1 lg:grid-cols-3 gap-6 h-[450px] overflow-hidden">
       {/* Announcements Column */}
       <Card className="lg:col-span-1 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
         <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0 flex flex-row items-center justify-between">
@@ -365,11 +365,11 @@ export default function BroadcastsPage() {
                 <div className="space-y-4 py-4">
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase text-slate-500">Subject</Label>
-                    <Input value={newTicket.subject} onChange={e => setNewTicket({...newTicket, subject: e.target.value})} className="bg-slate-900 border-white/5" />
+                    <Input value={newTicket.subject} onChange={e => setNewTicket({...newTicket, subject: e.target.value})} className="bg-slate-950 border-white/5" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase text-slate-500">Initial Message</Label>
-                    <Textarea value={newTicket.message} onChange={e => setNewTicket({...newTicket, message: e.target.value})} className="bg-slate-900 border-white/5 min-h-[120px]" />
+                    <Textarea value={newTicket.message} onChange={e => setNewTicket({...newTicket, message: e.target.value})} className="bg-slate-950 border-white/5 min-h-[120px]" />
                   </div>
                 </div>
                 <DialogFooter>
