@@ -254,7 +254,7 @@ export default function DashboardPage() {
     ctx.fillStyle = '#166534';
     ctx.font = 'bold 9px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('AMOUNT', canvas.width / 2, 215);
+    ctx.fillText('AMOUNT PAID', canvas.width / 2, 215);
     ctx.fillStyle = '#15803d';
     ctx.font = 'bold 30px sans-serif';
     ctx.fillText(`MK ${receiptData.amount?.toLocaleString()}`, canvas.width / 2, 250);
@@ -358,23 +358,23 @@ export default function DashboardPage() {
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
-            <CardHeader className="pb-2">
-              <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-500">District Collection</CardDescription>
-              <CardTitle className="text-2xl font-black text-green-500">MK {format2Dec(districtRevenue)}</CardTitle>
+            <CardHeader className="pt-4 pb-1 px-4">
+              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">District Collection</CardDescription>
+              <CardTitle className="text-xl font-black text-green-500">MK {format2Dec(districtRevenue)}</CardTitle>
             </CardHeader>
           </Card>
           <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
-            <CardHeader className="pb-2">
-              <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Arrears (Unpaid)</CardDescription>
-              <CardTitle className="text-2xl font-black text-red-500">MK {format2Dec(outstandingArrears)}</CardTitle>
+            <CardHeader className="pt-4 pb-1 px-4">
+              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Arrears (Unpaid)</CardDescription>
+              <CardTitle className="text-xl font-black text-red-500">MK {format2Dec(outstandingArrears)}</CardTitle>
             </CardHeader>
           </Card>
           <Card className="shadow-2xl border-white/5 bg-slate-900 rounded-[5px]">
-            <CardHeader className="pb-2">
-              <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Collection Rate</CardDescription>
+            <CardHeader className="pt-4 pb-2 px-4">
+              <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Collection Rate</CardDescription>
               <div className="flex items-center gap-3">
-                <CardTitle className="text-2xl font-black text-primary">{collectionRate.toFixed(1)}%</CardTitle>
-                <Progress value={collectionRate} className="h-1.5 flex-1 bg-slate-950" />
+                <CardTitle className="text-xl font-black text-primary">{collectionRate.toFixed(1)}%</CardTitle>
+                <Progress value={collectionRate} className="h-1 flex-1 bg-slate-950" />
               </div>
             </CardHeader>
           </Card>
@@ -581,20 +581,24 @@ export default function DashboardPage() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="shadow-sm border-white/5 bg-primary text-white overflow-hidden rounded-[5px]">
-            <CardHeader className="pb-2"><CardDescription className="text-white/70 font-bold text-[10px] uppercase">Wallet</CardDescription><CardTitle className="text-3xl font-black">MK {format2Dec(user.walletBalance || 0)}</CardTitle></CardHeader>
-            <CardContent><Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 text-white h-7 text-[10px] font-bold uppercase" onClick={() => router.push('/dashboard/wallet')}>Deposit</Button></CardContent>
+            <CardHeader className="px-4 pt-4 pb-1"><CardDescription className="text-white/70 font-bold text-[9px] uppercase">Wallet</CardDescription><CardTitle className="text-2xl font-black">MK {format2Dec(user.walletBalance || 0)}</CardTitle></CardHeader>
+            <CardContent className="px-4 pb-4"><Button size="sm" variant="secondary" className="bg-white/10 hover:bg-white/20 text-white h-7 text-[9px] font-bold uppercase" onClick={() => router.push('/dashboard/wallet')}>Deposit</Button></CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between"><CardDescription className="text-slate-400 font-bold text-[10px] uppercase">Last Metre Reading</CardDescription><Droplets className="h-4 w-4 text-primary" /></CardHeader>
-            <CardContent><div className="text-3xl font-black text-white">{(user.lastMeterReading || 0).toLocaleString()} m³</div></CardContent>
+            <CardHeader className="px-4 pt-4 pb-1 flex flex-row items-center justify-between"><CardDescription className="text-slate-400 font-bold text-[9px] uppercase">Last Metre Reading</CardDescription><Droplets className="h-3 w-3 text-primary" /></CardHeader>
+            <CardContent className="px-4 pb-4"><div className="text-2xl font-black text-white">{(user.lastMeterReading || 0).toLocaleString()} m³</div></CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between"><CardDescription className="text-slate-400 font-bold text-[10px] uppercase">Consumption</CardDescription><Droplets className="h-4 w-4 text-accent" /></CardHeader>
-            <CardContent><div className="text-3xl font-black text-white">{activeConsumption.toLocaleString()} m³</div></CardContent>
+            <CardHeader className="px-4 pt-4 pb-1 flex flex-row items-center justify-between"><CardDescription className="text-slate-400 font-bold text-[9px] uppercase">Consumption</CardDescription><Droplets className="h-3 w-3 text-accent" /></CardHeader>
+            <CardContent className="px-4 pb-4"><div className="text-2xl font-black text-white">{activeConsumption.toLocaleString()} m³</div></CardContent>
           </Card>
           <Card className="shadow-sm border-white/5 bg-slate-900/50 rounded-[5px]">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between"><CardDescription className="text-slate-400 font-bold text-[10px] uppercase">Total Due</CardDescription><AlertCircle className={cn("h-4 w-4", isAnyBillOverdue ? 'text-destructive' : 'text-green-500')} /></CardHeader>
-            <CardContent><div className={cn("text-3xl font-black", isAnyBillOverdue ? 'text-destructive' : 'text-green-500')}>MK {format2Dec(totalDue)}</div><p className={cn("text-[10px] mt-1.5 font-bold", isAnyBillOverdue ? 'text-red-400' : 'text-green-400')}>{countdownText}</p><Button disabled={totalDue <= 0} className={cn("mt-4 w-full h-8 text-[10px] font-bold uppercase", isAnyBillOverdue ? "bg-destructive text-white" : "bg-green-600 text-white")} onClick={() => router.push('/dashboard/billing')}>Pay Now</Button></CardContent>
+            <CardHeader className="px-4 pt-4 pb-1 flex flex-row items-center justify-between"><CardDescription className="text-slate-400 font-bold text-[9px] uppercase">Total Due</CardDescription><AlertCircle className={cn("h-3 w-3", isAnyBillOverdue ? 'text-destructive' : 'text-green-500')} /></CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className={cn("text-2xl font-black", isAnyBillOverdue ? 'text-destructive' : 'text-green-500')}>MK {format2Dec(totalDue)}</div>
+              <p className={cn("text-[9px] mt-1 font-bold", isAnyBillOverdue ? 'text-red-400' : 'text-green-400')}>{countdownText}</p>
+              <Button disabled={totalDue <= 0} className={cn("mt-3 w-full h-8 text-[9px] font-bold uppercase", isAnyBillOverdue ? "bg-destructive text-white" : "bg-green-600 text-white")} onClick={() => router.push('/dashboard/billing')}>Pay Now</Button>
+            </CardContent>
           </Card>
         </div>
 
