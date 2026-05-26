@@ -4,17 +4,17 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
-import { Broadcast, SupportTicket, SupportMessage } from '@/app/lib/mock-data';
+import { Broadcast, SupportTicket, SupportMessage, User as AppUser } from '@/app/lib/mock-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Megaphone, MessageSquare, Send, Clock, Pin, Trash2, LifeBuoy, Plus, X } from 'lucide-react';
+import { Megaphone, MessageSquare, Send, Clock, Pin, Trash2, LifeBuoy, Plus, X, ShieldAlert, Search, UserCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -27,9 +27,11 @@ export default function BroadcastsPage() {
   
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [allStaff, setAllStaff] = useState<AppUser[]>([]);
   
   const [bcDialogOpen, setBcDialogOpen] = useState(false);
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+  const [escalateDialogOpen, setEscalateDialogOpen] = useState(false);
 
   const [newBroadcast, setNewBroadcast] = useState({
     title: '',
@@ -43,6 +45,11 @@ export default function BroadcastsPage() {
   const [newTicket, setNewTicket] = useState({ subject: '', message: '' });
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [replyText, setReplyText] = useState('');
+  
+  // Escalation State
+  const [escalationDept, setEscalationDept] = useState<'ACCOUNTS' | 'SUPER_ADMIN'>('SUPER_ADMIN');
+  const [escalationTargetId, setEscalationTargetId] = useState<string>('');
+  const [staffSearchQuery, setStaffSearchQuery] = useState('');
 
   const loadData = () => {
     const storedB = localStorage.getItem('mywater_broadcasts') || '[]';
@@ -51,6 +58,10 @@ export default function BroadcastsPage() {
     const storedT = localStorage.getItem('mywater_support_tickets') || '[]';
     const allTickets: SupportTicket[] = JSON.parse(storedT);
     setTickets(allTickets);
+
+    const storedUsers = localStorage.getItem('mywater_all_users') || '[]';
+    const users: AppUser[] = JSON.parse(storedUsers);
+    setAllStaff(users.filter(u => u.role !== 'CUSTOMER'));
 
     const ticketId = searchParams.get('ticketId');
     if (ticketId) {
@@ -91,14 +102,35 @@ export default function BroadcastsPage() {
 
   const filteredTickets = useMemo(() => {
     if (!user) return [];
-    const tics = tickets.filter(t => {
+    return tickets.filter(t => {
+      // 1. Customers see their own tickets
       if (user.role === 'CUSTOMER') return t.customerId === user.id;
-      if (user.role === 'SUPER_ADMIN') return true;
-      if (t.escalatedTo === 'SUPER_ADMIN') return user.role === 'SUPER_ADMIN'; 
-      return t.area === user.area && t.district === user.district;
-    });
-    return tics.sort((a, b) => new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime());
+
+      // 2. District Staff see tickets in their area (Local follow-up)
+      if (user.role === 'DISTRICT_STAFF') {
+        return t.area === user.area && t.district === user.district;
+      }
+
+      // 3. Super Admins / Accounts ONLY see if escalated to them or their department
+      // This enforces the privacy requested: Admin can't see standard staff-customer chats.
+      if (user.role === 'SUPER_ADMIN') {
+        return t.status === 'ESCALATED' && 
+               (t.escalatedTo === 'SUPER_ADMIN' || t.escalatedToUserId === user.id);
+      }
+      
+      // If we had a specific ACCOUNTS role, we'd check t.escalatedTo === 'ACCOUNTS' here.
+      
+      return false;
+    }).sort((a, b) => new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime());
   }, [tickets, user]);
+
+  const filteredEscalationTargets = useMemo(() => {
+    return allStaff.filter(s => {
+      const matchesSearch = s.name.toLowerCase().includes(staffSearchQuery.toLowerCase());
+      const matchesDept = escalationDept === 'SUPER_ADMIN' ? s.role === 'SUPER_ADMIN' : true; // Assuming all staff can handle accounts or specific ones
+      return matchesSearch && matchesDept && s.id !== user?.id;
+    });
+  }, [allStaff, staffSearchQuery, escalationDept, user]);
 
   const handleSendBroadcast = () => {
     if (!newBroadcast.title || !newBroadcast.message) return;
@@ -175,6 +207,41 @@ export default function BroadcastsPage() {
     setSelectedTicket(updatedTickets.find(t => t.id === ticket.id) || null);
   };
 
+  const handleEscalate = () => {
+    if (!selectedTicket || !user) return;
+    
+    const targetUser = allStaff.find(s => s.id === escalationTargetId);
+    
+    const systemMsg: SupportMessage = {
+      senderId: 'SYSTEM',
+      senderName: 'SYSTEM',
+      text: `Ticket escalated to ${escalationDept.replace('_', ' ')}${targetUser ? ` (${targetUser.name})` : ''} by ${user.name} for specialized handling.`,
+      timestamp: new Date().toISOString()
+    };
+
+    const updatedTickets = tickets.map(t => {
+      if (t.id === selectedTicket.id) {
+        return { 
+          ...t, 
+          status: 'ESCALATED' as const, 
+          escalatedTo: escalationDept,
+          escalatedToUserId: escalationTargetId || undefined,
+          escalatedToUserName: targetUser?.name,
+          messages: [...t.messages, systemMsg],
+          lastUpdate: new Date().toISOString() 
+        };
+      }
+      return t;
+    });
+
+    localStorage.setItem('mywater_support_tickets', JSON.stringify(updatedTickets));
+    setTickets(updatedTickets);
+    window.dispatchEvent(new Event('storage'));
+    setSelectedTicket(updatedTickets.find(t => t.id === selectedTicket.id) || null);
+    setEscalateDialogOpen(false);
+    toast({ title: "Thread Escalated", description: `Assigned to ${escalationDept}.` });
+  };
+
   const handleDeleteBroadcast = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const updated = broadcasts.filter(b => b.id !== id);
@@ -212,22 +279,10 @@ export default function BroadcastsPage() {
     toast({ title: "Message deleted" });
   };
 
-  const handleEscalate = (ticket: SupportTicket, level: 'ACCOUNTS' | 'SUPER_ADMIN') => {
-    const updatedTickets = tickets.map(t => {
-      if (t.id === ticket.id) return { ...t, status: 'ESCALATED', escalatedTo: level, lastUpdate: new Date().toISOString() };
-      return t;
-    });
-    localStorage.setItem('mywater_support_tickets', JSON.stringify(updatedTickets));
-    setTickets(updatedTickets);
-    window.dispatchEvent(new Event('storage'));
-    setSelectedTicket(updatedTickets.find(t => t.id === ticket.id) || null);
-    toast({ title: "Thread Escalated" });
-  };
-
   if (!user) return null;
 
   return (
-    <div className="-mt-[14px] md:-mt-[22px] grid grid-cols-1 lg:grid-cols-3 gap-6 h-[450px] overflow-hidden">
+    <div className="mt-[10px] grid grid-cols-1 lg:grid-cols-3 gap-6 h-[450px] overflow-hidden">
       {/* Announcements Column */}
       <Card className="lg:col-span-1 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
         <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0 flex flex-row items-center justify-between">
@@ -390,7 +445,9 @@ export default function BroadcastsPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-[8px] font-black text-slate-600 font-mono uppercase">#{t.id.slice(-6)}</span>
                         <div className="flex items-center gap-2">
-                          <Badge className={cn("text-[7px] font-black px-1.5 h-4", t.status === 'OPEN' ? "bg-green-500/10 text-green-500" : "bg-blue-500/10 text-blue-500")}>{t.status}</Badge>
+                          <Badge className={cn("text-[7px] font-black px-1.5 h-4", t.status === 'OPEN' ? "bg-green-500/10 text-green-500" : t.status === 'ESCALATED' ? "bg-red-500/10 text-red-500" : "bg-blue-500/10 text-blue-500")}>
+                            {t.status === 'ESCALATED' ? `Escalated: ${t.escalatedTo}` : t.status}
+                          </Badge>
                           <button onClick={(e) => handleDeleteTicket(t.id, e)} className="p-1 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Trash2 className="h-3 w-3" />
                           </button>
@@ -427,7 +484,66 @@ export default function BroadcastsPage() {
                   </div>
                   {user.role !== 'CUSTOMER' && (
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleEscalate(selectedTicket, 'SUPER_ADMIN')} className="h-7 text-[8px] font-black uppercase text-slate-500 hover:text-white">Escalate</Button>
+                      <Dialog open={escalateDialogOpen} onOpenChange={setEscalateDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-7 text-[8px] font-black uppercase text-slate-500 hover:text-white">Escalate</Button>
+                        </DialogTrigger>
+                        <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px]">
+                          <DialogHeader>
+                            <DialogTitle className="uppercase tracking-tighter flex items-center gap-2">
+                              <ShieldAlert className="h-5 w-5 text-red-500" /> Ticket Escalation
+                            </DialogTitle>
+                            <DialogDescription className="text-[10px] text-slate-500 uppercase font-bold">Choose a department and optionally assign a specific person.</DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] font-bold uppercase text-slate-500 px-1">Target Department</Label>
+                              <Select value={escalationDept} onValueChange={(v: any) => setEscalationDept(v)}>
+                                <SelectTrigger className="bg-slate-900 border-white/5 h-9 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-slate-900 border-white/10 text-white">
+                                  <SelectItem value="SUPER_ADMIN">Super Admin Office</SelectItem>
+                                  <SelectItem value="ACCOUNTS">Accounts Department</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] font-bold uppercase text-slate-500 px-1">Search Staff Member</Label>
+                              <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500" />
+                                <Input 
+                                  placeholder="Search by name..." 
+                                  className="pl-8 bg-slate-900 border-white/5 h-9 text-xs"
+                                  value={staffSearchQuery}
+                                  onChange={e => setStaffSearchQuery(e.target.value)}
+                                />
+                              </div>
+                              <div className="mt-2 max-h-32 overflow-y-auto border border-white/5 rounded-[5px] bg-slate-900/50">
+                                {filteredEscalationTargets.map(s => (
+                                  <div 
+                                    key={s.id} 
+                                    onClick={() => setEscalationTargetId(s.id)}
+                                    className={cn(
+                                      "p-2 flex items-center gap-2 cursor-pointer hover:bg-white/5 transition-colors border-b border-white/5 last:border-0",
+                                      escalationTargetId === s.id && "bg-primary/20"
+                                    )}
+                                  >
+                                    <UserCircle className="h-4 w-4 text-slate-500" />
+                                    <div className="flex-1">
+                                      <p className="text-[10px] font-bold text-white uppercase">{s.name}</p>
+                                      <p className="text-[8px] text-slate-500 uppercase">{s.role.replace('_', ' ')}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button onClick={handleEscalate} className="w-full bg-red-600 hover:bg-red-700 h-10 font-black uppercase text-[10px]">Confirm Escalation</Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                   )}
                 </div>
@@ -436,15 +552,30 @@ export default function BroadcastsPage() {
                 <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
                   {selectedTicket.messages.map((m, i) => {
                     const isMe = m.senderId === user.id;
+                    const isSystem = m.senderId === 'SYSTEM';
+                    
+                    if (isSystem) {
+                      return (
+                        <div key={i} className="flex justify-center py-2">
+                          <div className="bg-slate-800/50 border border-white/5 rounded-full px-4 py-1 flex items-center gap-2">
+                            <ShieldAlert className="h-3 w-3 text-red-500" />
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">{m.text}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div key={i} className={cn("flex group", isMe ? "justify-end" : "justify-start")}>
                         <div className={cn("relative max-w-[85%] rounded-[5px] p-3 space-y-1 shadow-sm", isMe ? "bg-primary text-white" : "bg-slate-900 border border-white/5 text-slate-300")}>
-                          <button 
-                            onClick={() => handleDeleteMessage(selectedTicket.id, i)}
-                            className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                          >
-                            <X className="h-2 w-2" />
-                          </button>
+                          {!isSystem && (
+                            <button 
+                              onClick={() => handleDeleteMessage(selectedTicket.id, i)}
+                              className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            >
+                              <X className="h-2 w-2" />
+                            </button>
+                          )}
                           {!isMe && <p className="text-[9px] font-black uppercase opacity-60 mb-0.5">{m.senderName}</p>}
                           <p className="text-xs leading-relaxed font-medium break-words">{m.text}</p>
                           <p className={cn("text-[8px] font-bold text-right mt-1", isMe ? "text-white/60" : "text-slate-600")}>{format(new Date(m.timestamp), 'HH:mm')}</p>
