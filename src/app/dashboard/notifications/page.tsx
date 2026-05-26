@@ -227,7 +227,7 @@ export default function BroadcastsPage() {
   if (!user) return null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[450px] overflow-hidden">
+    <div className="-mt-6 md:-mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 h-[450px] overflow-hidden">
       {/* Announcements Column */}
       <Card className="lg:col-span-1 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
         <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0 flex flex-row items-center justify-between">
