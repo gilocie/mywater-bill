@@ -85,6 +85,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [vatRate, setVatRate] = useState('16.5');
   const [waterRateRanges, setWaterRateRanges] = useState<any[]>([]);
 
+  // States for adding new pricing brackets
+  const [newRangeFrom, setNewRangeFrom] = useState('');
+  const [newRangeTo, setNewRangeTo] = useState('');
+  const [newRangePrice, setNewRangePrice] = useState('');
+
   // Receipt Design
   const [receiptCompanyName, setReceiptCompanyName] = useState('MALAWI WATER BOARD');
 
