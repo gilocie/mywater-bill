@@ -34,7 +34,10 @@ import {
   Plus,
   ShieldAlert,
   Search,
-  UserCircle
+  UserCircle,
+  ArrowDownLeft,
+  Trash2,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -63,7 +66,6 @@ export default function DashboardPage() {
   const { user, updateUser, settings } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const chatScrollRef = useRef<HTMLDivElement>(null);
   
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [allBills, setAllBills] = useState<Bill[]>([]);
@@ -73,13 +75,10 @@ export default function DashboardPage() {
   const [meterLiters, setMeterLiters] = useState('');
   const [gracePeriod, setGracePeriod] = useState('14');
 
-  // Customer Communication States
+  // Customer Activity States
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
-  const [replyText, setReplyText] = useState('');
-  const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
-  const [newTicket, setNewTicket] = useState({ subject: '', message: '' });
+  const [perPage, setPerPage] = useState(10);
+  const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
 
   // Currency Formatter - 2 decimal places forced
   const format2Dec = (val: number) => {
@@ -95,25 +94,19 @@ export default function DashboardPage() {
       if (billsStr) setAllBills(JSON.parse(billsStr));
 
       const transStr = localStorage.getItem('mywater_all_transactions');
-      if (transStr) setAllTransactions(JSON.parse(transStr));
+      if (transStr && user) {
+        const allTrans: Transaction[] = JSON.parse(transStr);
+        setAllTransactions(allTrans.filter(t => t.userId === user.id));
+      }
 
       const storedB = localStorage.getItem('mywater_broadcasts') || '[]';
       setBroadcasts(JSON.parse(storedB));
-
-      const storedT = localStorage.getItem('mywater_support_tickets') || '[]';
-      setTickets(JSON.parse(storedT));
     };
 
     loadData();
     window.addEventListener('storage', loadData);
     return () => window.removeEventListener('storage', loadData);
-  }, []);
-
-  useEffect(() => {
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-    }
-  }, [selectedTicket?.messages]);
+  }, [user]);
 
   if (!user) return null;
 
@@ -181,53 +174,25 @@ export default function DashboardPage() {
     window.dispatchEvent(new Event('storage'));
   };
 
-  // Customer Communication Handlers
-  const handleCreateTicket = () => {
-    if (!newTicket.subject || !newTicket.message) return;
-    const ticket: SupportTicket = {
-      id: `tic-${Date.now()}`,
-      customerId: user.id,
-      customerName: user.name,
-      subject: newTicket.subject,
-      area: user.area || 'Unknown',
-      district: user.district || 'Unknown',
-      status: 'OPEN',
-      messages: [{ senderId: user.id, senderName: user.name, text: newTicket.message, timestamp: new Date().toISOString() }],
-      lastUpdate: new Date().toISOString()
-    };
-    const updated = [ticket, ...tickets];
-    localStorage.setItem('mywater_support_tickets', JSON.stringify(updated));
-    setTickets(updated);
-    setTicketDialogOpen(false);
+  const handleDeleteTransaction = (id: string) => {
+    const updated = allTransactions.filter(t => t.id !== id);
+    setAllTransactions(updated);
+    const stored = JSON.parse(localStorage.getItem('mywater_all_transactions') || '[]');
+    const newStored = stored.filter((t: any) => t.id !== id);
+    localStorage.setItem('mywater_all_transactions', JSON.stringify(newStored));
     window.dispatchEvent(new Event('storage'));
-    setNewTicket({ subject: '', message: '' });
-    toast({ title: "Ticket Opened" });
+    toast({ title: "Record Removed", description: "Transaction removed from history." });
   };
 
-  const handleReply = (ticket: SupportTicket) => {
-    if (!replyText || !user) return;
-    const newMessage: SupportMessage = {
-      senderId: user.id,
-      senderName: user.name,
-      text: replyText,
-      timestamp: new Date().toISOString()
-    };
-    const updatedTickets = tickets.map(t => {
-      if (t.id === ticket.id) {
-        return {
-          ...t,
-          status: 'OPEN' as const,
-          messages: [...t.messages, newMessage],
-          lastUpdate: new Date().toISOString()
-        };
-      }
-      return t;
-    });
-    localStorage.setItem('mywater_support_tickets', JSON.stringify(updatedTickets));
-    setTickets(updatedTickets);
+  const handleBulkDeleteTransactions = () => {
+    const updated = allTransactions.filter(t => !selectedTxIds.includes(t.id));
+    setAllTransactions(updated);
+    const stored = JSON.parse(localStorage.getItem('mywater_all_transactions') || '[]');
+    const newStored = stored.filter((t: any) => !selectedTxIds.includes(t.id));
+    localStorage.setItem('mywater_all_transactions', JSON.stringify(newStored));
+    setSelectedTxIds([]);
     window.dispatchEvent(new Event('storage'));
-    setReplyText('');
-    setSelectedTicket(updatedTickets.find(t => t.id === ticket.id) || null);
+    toast({ title: "Batch Removed", description: `${selectedTxIds.length} records purged.` });
   };
 
   const activeBroadcasts = broadcasts.filter(b => {
@@ -235,9 +200,6 @@ export default function DashboardPage() {
     const isNotExpired = !b.expiresAt || new Date(b.expiresAt) > new Date();
     return isTarget && isNotExpired;
   }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  const filteredTickets = tickets.filter(t => t.customerId === user.id)
-    .sort((a, b) => new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime());
 
   // STAFF VIEW
   if (user.role === 'DISTRICT_STAFF') {
@@ -482,10 +444,13 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-white">Welcome, {user.name.split(' ')[0]}</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-white uppercase">Welcome, {user.name.split(' ')[0]}</h2>
             <p className="text-slate-400 font-medium">Meter: <span className="font-mono text-primary font-bold">{user.meterNumber}</span></p>
           </div>
-          <div className="flex items-center gap-2 bg-green-500/10 px-4 py-2 rounded-[5px] border border-green-500/20"><Zap className="h-4 w-4 text-green-500 fill-current" /><span className="text-xs font-bold uppercase text-green-500">Service Active</span></div>
+          <div className="flex items-center gap-2 bg-green-500/10 px-4 py-2 rounded-[5px] border border-green-500/20">
+            <Zap className="h-4 w-4 text-green-500 fill-current" />
+            <span className="text-xs font-bold uppercase text-green-500">Service Active</span>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -507,7 +472,7 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Communication Center - Replacing Activity Section */}
+        {/* Dashboard Grid: Announcements & Activity History */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[450px] overflow-hidden">
           {/* Announcements Column */}
           <Card className="lg:col-span-1 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
@@ -536,116 +501,94 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Support Portal Column */}
+          {/* Activity History Column */}
           <Card className="lg:col-span-2 shadow-2xl border-white/5 bg-slate-900 rounded-[5px] flex flex-col overflow-hidden">
             <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 flex flex-row items-center justify-between shrink-0">
               <CardTitle className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-primary" /> Support Portal
+                <History className="h-4 w-4 text-primary" /> Activity History
               </CardTitle>
-              <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10 rounded-[3px] h-7 text-[9px] font-black uppercase gap-1">
-                    <Plus className="h-3.5 w-3.5" /> New Ticket
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px]">
-                  <DialogHeader>
-                    <DialogTitle className="uppercase tracking-tighter flex items-center gap-2">
-                      <LifeBuoy className="h-5 w-5 text-primary" /> Request Assistance
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-slate-500">Subject</Label>
-                      <Input value={newTicket.subject} onChange={e => setNewTicket({...newTicket, subject: e.target.value})} className="bg-slate-950 border-white/5" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-slate-500">Initial Message</Label>
-                      <Textarea value={newTicket.message} onChange={e => setNewTicket({...newTicket, message: e.target.value})} className="bg-slate-950 border-white/5 min-h-[120px]" />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button onClick={handleCreateTicket} className="w-full bg-primary h-11 font-black uppercase text-[11px]">Submit Request</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Show</span>
+                  <select 
+                    value={perPage} 
+                    onChange={(e) => setPerPage(Number(e.target.value))}
+                    className="bg-slate-800 border border-white/10 text-[10px] text-white rounded-[3px] px-1 h-6 outline-none focus:border-primary"
+                  >
+                    {[5, 10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Per Page</span>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="p-0 flex-1 flex overflow-hidden">
-              <div className="w-1/3 border-r border-white/5 flex flex-col bg-slate-950/20 overflow-hidden shrink-0">
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                  {filteredTickets.length > 0 ? (
-                    <div className="divide-y divide-white/5">
-                      {filteredTickets.map(t => (
-                        <div key={t.id} onClick={() => setSelectedTicket(t)} className={cn("p-4 space-y-2 cursor-pointer transition-all group", selectedTicket?.id === t.id ? "bg-primary/10" : "hover:bg-white/5")}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[8px] font-black text-slate-600 font-mono uppercase">#{t.id.slice(-6)}</span>
-                            <Badge className={cn("text-[7px] font-black px-1.5 h-4", t.status === 'OPEN' ? "bg-green-500/10 text-green-500" : t.status === 'REPLIED' ? "bg-blue-500/10 text-blue-500" : "bg-slate-500/10 text-slate-500")}>
-                              {t.status}
-                            </Badge>
-                          </div>
-                          <h5 className="text-[11px] font-black text-white uppercase truncate">{t.subject}</h5>
-                          <div className="flex items-center justify-between">
-                            <p className="text-[9px] text-slate-500 truncate">Support Agent</p>
-                            <span className="text-[8px] text-slate-600 font-bold">{format(new Date(t.lastUpdate), 'dd MMM')}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-12 text-center text-slate-800 uppercase text-[10px] font-bold">No active tickets</div>
+            <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
+              {/* Pinned Toolbar */}
+              <div className="px-6 py-3 border-b border-white/5 bg-slate-950/20 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <input 
+                    type="checkbox" 
+                    className="w-3 h-3 accent-primary cursor-pointer"
+                    checked={allTransactions.length > 0 && selectedTxIds.length === allTransactions.length}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedTxIds(allTransactions.map(t => t.id));
+                      else setSelectedTxIds([]);
+                    }}
+                  />
+                  <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Select All On Page</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {selectedTxIds.length > 0 && (
+                    <button 
+                      onClick={handleBulkDeleteTransactions}
+                      className="text-[9px] font-black text-red-500 uppercase hover:text-red-400 transition-colors flex items-center gap-1.5"
+                    >
+                      <Trash2 className="h-3 w-3" /> Purge Selected
+                    </button>
                   )}
+                  <span className="text-[9px] font-bold text-slate-600">{allTransactions.length} records total</span>
                 </div>
               </div>
 
-              <div className="flex-1 flex flex-col bg-slate-950/40 overflow-hidden relative">
-                {selectedTicket ? (
-                  <>
-                    <div className="px-6 py-4 border-b border-white/5 bg-slate-950/60 flex items-center justify-between shrink-0">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black text-primary border border-primary/20">
-                          {selectedTicket.subject[0]}
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-black text-white uppercase tracking-tight">{selectedTicket.subject}</h4>
-                          <p className="text-[9px] text-slate-500 font-bold uppercase">{selectedTicket.status} Thread</p>
-                        </div>
+              {/* Scrollable List */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-2 space-y-2 bg-slate-900/40">
+                {allTransactions.length > 0 ? allTransactions.slice(0, perPage).map((tx) => (
+                  <div key={tx.id} className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px] flex items-center justify-between group hover:border-white/10 transition-all">
+                    <div className="flex items-center gap-4">
+                      <input 
+                        type="checkbox" 
+                        className="w-3 h-3 accent-primary cursor-pointer"
+                        checked={selectedTxIds.includes(tx.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedTxIds(prev => [...prev, tx.id]);
+                          else setSelectedTxIds(prev => prev.filter(i => i !== tx.id));
+                        }}
+                      />
+                      <div>
+                        <p className="text-[10px] font-black text-white uppercase tracking-tight">
+                          {tx.type === 'DEPOSIT' ? 'Deposit Successful' : 'Utility Wallet Settlement'}
+                        </p>
+                        <p className="text-[8px] text-slate-500 font-bold uppercase mt-0.5">{tx.date}</p>
                       </div>
                     </div>
-
-                    <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-                      {selectedTicket.messages.map((m, i) => {
-                        const isMe = m.senderId === user.id;
-                        return (
-                          <div key={i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
-                            <div className={cn("relative max-w-[85%] rounded-[5px] p-3 space-y-1 shadow-sm", isMe ? "bg-primary text-white" : "bg-slate-900 border border-white/5 text-slate-300")}>
-                              {!isMe && <p className="text-[9px] font-black uppercase opacity-60 mb-0.5">{m.senderName}</p>}
-                              <p className="text-xs leading-relaxed font-medium break-words">{m.text}</p>
-                              <p className={cn("text-[8px] font-bold text-right mt-1", isMe ? "text-white/60" : "text-slate-600")}>{format(new Date(m.timestamp), 'HH:mm')}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="flex items-center gap-4">
+                      <span className={cn(
+                        "text-[11px] font-black tracking-tight",
+                        tx.type === 'DEPOSIT' ? "text-green-500" : "text-primary"
+                      )}>
+                        {tx.type === 'DEPOSIT' ? '+' : '-'} MK {tx.amount.toLocaleString()}
+                      </span>
+                      <button 
+                        onClick={() => handleDeleteTransaction(tx.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-700 hover:text-red-500"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-
-                    <div className="p-4 border-t border-white/5 bg-slate-950/60 shrink-0">
-                      <div className="flex gap-2">
-                        <Input 
-                          value={replyText} 
-                          onChange={e => setReplyText(e.target.value)} 
-                          onKeyDown={e => e.key === 'Enter' && handleReply(selectedTicket)}
-                          placeholder="Type your response..." 
-                          className="bg-slate-950 border-white/5 h-10 text-xs text-white" 
-                        />
-                        <Button onClick={() => handleReply(selectedTicket)} disabled={!replyText} className="h-10 w-10 p-0 bg-primary">
-                          <Send className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                ) : (
+                  </div>
+                )) : (
                   <div className="h-full flex flex-col items-center justify-center text-slate-800 space-y-4">
-                    <MessageSquare className="h-12 w-12 opacity-10" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-30">Select a conversation thread</p>
+                    <History className="h-12 w-12 opacity-10" />
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-30">No activity records found</p>
                   </div>
                 )}
               </div>
