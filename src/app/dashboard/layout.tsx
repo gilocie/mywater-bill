@@ -6,14 +6,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell, Search, Settings, User as UserIcon, Camera, LogOut, ShieldCheck, PlayCircle, CheckCircle2, XCircle, Droplets, Receipt, Plus, Trash2, Globe, Megaphone, X, MessageCircle, Eye, EyeOff } from 'lucide-react';
+import { Bell, Search, Settings, User as UserIcon, Camera, LogOut, ShieldCheck, PlayCircle, CheckCircle2, XCircle, Droplets, Receipt, Plus, Trash2, Globe, Megaphone, X, MessageCircle, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { getRegions, getDistrictNames, getAllDistrictsForCountry, getRegionForDistrict } from '@/app/lib/geo-data';
 import { GEO_DATA } from '@/app/lib/geo-data';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Broadcast, SupportTicket, User } from '@/app/lib/mock-data';
+import { Broadcast, SupportTicket, User, Bill } from '@/app/lib/mock-data';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,15 +60,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [unreadItems, setUnreadItems] = useState<any[]>([]);
   const [pinnedBroadcast, setPinnedBroadcast] = useState<Broadcast | null>(null);
   
+  // Bill Alert States
+  const [billAlert, setBillAlert] = useState<{ message: string; isHarsh: boolean; days?: number } | null>(null);
+  const [isAlertSuppressed, setIsAlertSuppressed] = useState(false);
+
   const [newRate, setNewRate] = useState('2.5');
   const [pawapayKey, setPawapayKey] = useState('');
   const [pawapayMode, setPawapayMode] = useState('sandbox');
   const [portalUrl, setPortalUrl] = useState('https://dashboard.pawapay.io');
   const [tempPortalUrl, setTempPortalUrl] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-
-  const [testProduct, setTestProduct] = useState('Gateway Connectivity Test');
-  const [testPrice, setTestPrice] = useState('500');
 
   // Branding States
   const [companyName, setCompanyName] = useState('My Water Bill');
@@ -87,11 +88,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Receipt Design
   const [receiptCompanyName, setReceiptCompanyName] = useState('MALAWI WATER BOARD');
 
-  // Range Creator States
-  const [newRangeFrom, setNewRangeFrom] = useState('');
-  const [newRangeTo, setNewRangeTo] = useState('');
-  const [newRangePrice, setNewRangePrice] = useState('');
-
   // Geographic Scope States
   const [appLevel, setAppLevel] = useState<'national' | 'region' | 'district'>('district');
   const [country, setCountry] = useState('Malawi');
@@ -101,6 +97,68 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Security States
   const [staffAccessToggle, setStaffAccessToggle] = useState(true);
   const [staffAccessShortcut, setStaffAccessShortcut] = useState('Ctrl+L');
+
+  const checkBillingStatus = useCallback(() => {
+    if (!user || user.role !== 'CUSTOMER') return;
+
+    // Check suppression
+    const dismissedAt = localStorage.getItem(`mwb_bill_alert_dismissed_${user.id}`);
+    if (dismissedAt) {
+      const fiveMinutes = 5 * 60 * 1000;
+      if (Date.now() - parseInt(dismissedAt) < fiveMinutes) {
+        setIsAlertSuppressed(true);
+        return;
+      } else {
+        setIsAlertSuppressed(false);
+      }
+    }
+
+    const billsStr = localStorage.getItem('mywater_all_bills') || '[]';
+    const allBills: Bill[] = JSON.parse(billsStr);
+    const pendingBills = allBills.filter(b => b.customerId === user.id && b.status !== 'PAID');
+
+    if (pendingBills.length === 0) {
+      setBillAlert(null);
+      return;
+    }
+
+    // Find the most urgent bill
+    let minDays = Infinity;
+    pendingBills.forEach(bill => {
+      let dueDate: Date;
+      if (bill.dueDate) {
+        dueDate = new Date(bill.dueDate);
+      } else {
+        dueDate = new Date(bill.date);
+        dueDate.setDate(dueDate.getDate() + (bill.gracePeriodDays || 14));
+      }
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      dueDate.setHours(0, 0, 0, 0);
+      
+      const diffTime = dueDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays < minDays) minDays = diffDays;
+    });
+
+    const isHarsh = minDays <= 5;
+    const message = isHarsh 
+      ? `FINAL DISCONNECTION WARNING: Your water supply is scheduled for termination in ${minDays} days due to unsettled balances. PAY IMMEDIATELY to avoid disconnection.`
+      : `URGENT NOTICE: You have an unsettled balance. Please clear your account to ensure continued water supply and avoid service interruption.`;
+
+    setBillAlert({ message, isHarsh, days: minDays });
+  }, [user]);
+
+  const handleDismissBillAlert = () => {
+    if (!user) return;
+    localStorage.setItem(`mwb_bill_alert_dismissed_${user.id}`, Date.now().toString());
+    setIsAlertSuppressed(true);
+    toast({
+      title: "Alert Dismissed",
+      description: "Reminder will reappear in 5 minutes if balance remains unpaid.",
+    });
+  };
 
   const loadNotificationCounts = useCallback(() => {
     if (!user) return;
@@ -178,9 +236,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     loadNotificationCounts();
-    window.addEventListener('storage', loadNotificationCounts);
-    return () => window.removeEventListener('storage', loadNotificationCounts);
-  }, [loadNotificationCounts]);
+    checkBillingStatus();
+    window.addEventListener('storage', () => {
+      loadNotificationCounts();
+      checkBillingStatus();
+    });
+    
+    // Interval to re-check suppression status every minute
+    const interval = setInterval(checkBillingStatus, 60000);
+    
+    return () => {
+      window.removeEventListener('storage', loadNotificationCounts);
+      clearInterval(interval);
+    };
+  }, [loadNotificationCounts, checkBillingStatus]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -287,20 +356,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     toast({ title: "Image Removed" });
   };
 
-  const handleAddRange = () => {
-    const fromVal = parseFloat(newRangeFrom);
-    const toVal = newRangeTo ? parseFloat(newRangeTo) : null;
-    const priceVal = parseFloat(newRangePrice);
-    if (isNaN(fromVal) || isNaN(priceVal)) return;
-    const newRange = { from: fromVal, to: toVal, price: priceVal };
-    setWaterRateRanges([...waterRateRanges, newRange].sort((a, b) => a.from - b.from));
-    setNewRangeFrom(''); setNewRangeTo(''); setNewRangePrice('');
-  };
-
-  const handleRemoveRange = (idx: number) => {
-    setWaterRateRanges(waterRateRanges.filter((_, i) => i !== idx));
-  };
-
   const handleNotificationClick = (item: any) => {
     router.push(item.link);
   };
@@ -403,6 +458,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
+          {/* Billing Disconnection Alert */}
+          {billAlert && !isAlertSuppressed && (
+            <div className={cn(
+              "px-6 py-2.5 flex items-center justify-between animate-in slide-in-from-top-4 duration-500 border-t",
+              billAlert.isHarsh ? "bg-red-600/90 text-white border-red-500" : "bg-amber-600/90 text-white border-amber-500"
+            )}>
+              <div className="flex items-center gap-3">
+                <AlertTriangle className={cn("h-4 w-4", billAlert.isHarsh && "animate-pulse")} />
+                <p className="text-xs font-bold tracking-tight">
+                  <span className="font-black mr-2">{billAlert.isHarsh ? "CRITICAL ALERT:" : "PAYMENT REMINDER:"}</span>
+                  {billAlert.message}
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <Link href="/dashboard" className="text-[10px] font-black uppercase underline decoration-2 underline-offset-4 hover:opacity-80 transition-opacity">Settle Balance Now</Link>
+                <button onClick={handleDismissBillAlert} className="p-1 hover:bg-black/10 rounded-full transition-colors">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {pinnedBroadcast && (
             <div className="bg-primary/10 border-t border-primary/20 px-6 py-2.5 flex items-center justify-between animate-in slide-in-from-top-4 duration-500">
               <div className="flex items-center gap-3">
@@ -463,7 +540,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {waterRateRanges.map((range, idx) => (
                       <div key={idx} className="flex justify-between items-center p-2.5 bg-slate-950/60 border border-white/5 rounded-[5px] text-xs">
                         <div className="font-mono text-slate-300">From: <span className="font-bold text-white">{range.from}</span> To: <span className="font-bold text-white">{range.to === null ? 'Unlimited' : range.to}</span></div>
-                        <div className="flex items-center gap-3"><span className="font-black text-green-400">MK {range.price.toFixed(2)}</span><button onClick={() => handleRemoveRange(idx)} className="text-red-400 hover:text-red-300"><Trash2 className="h-3.5 w-3.5" /></button></div>
+                        <div className="flex items-center gap-3"><span className="font-black text-green-400">MK {range.price.toFixed(2)}</span><button onClick={() => setWaterRateRanges(waterRateRanges.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-300"><Trash2 className="h-3.5 w-3.5" /></button></div>
                       </div>
                     ))}
                   </div>
@@ -473,7 +550,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <div className="space-y-1"><Label className="text-[8px] font-bold uppercase text-slate-500">To (m³)</Label><Input type="number" value={newRangeTo} onChange={e => setNewRangeTo(e.target.value)} className="bg-slate-950 border-white/5 h-8 text-xs font-mono" /></div>
                       <div className="space-y-1"><Label className="text-[8px] font-bold uppercase text-slate-500">Price (MK)</Label><Input type="number" step="0.01" value={newRangePrice} onChange={e => setNewRangePrice(e.target.value)} className="bg-slate-950 border-white/5 h-8 text-xs font-mono text-green-400" /></div>
                     </div>
-                    <Button onClick={handleAddRange} size="sm" className="w-full h-8 text-[9px] font-bold uppercase bg-primary hover:bg-primary/90 text-white rounded-[5px]"><Plus className="h-3 w-3 mr-1" /> Add Bracket</Button>
+                    <Button onClick={() => {
+                      const fromVal = parseFloat(newRangeFrom);
+                      const toVal = newRangeTo ? parseFloat(newRangeTo) : null;
+                      const priceVal = parseFloat(newRangePrice);
+                      if (isNaN(fromVal) || isNaN(priceVal)) return;
+                      setWaterRateRanges([...waterRateRanges, { from: fromVal, to: toVal, price: priceVal }].sort((a, b) => a.from - b.from));
+                      setNewRangeFrom(''); setNewRangeTo(''); setNewRangePrice('');
+                    }} size="sm" className="w-full h-8 text-[9px] font-bold uppercase bg-primary hover:bg-primary/90 text-white rounded-[5px]"><Plus className="h-3 w-3 mr-1" /> Add Bracket</Button>
                   </div>
                 </div>
               </div>
@@ -492,7 +576,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="flex items-center gap-2">
                       <div className="h-10 w-10 border border-white/5 rounded-[5px] flex items-center justify-center overflow-hidden relative group" style={{ backgroundColor: logoBgColor }}>
                         {logo ? <img src={logo} className="h-8 w-8 object-contain" /> : <Droplets className="h-5 w-5 text-white/50" />}
-                        {logo && <button onClick={() => handleRemoveImage('logo')} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-white" /></button>}
+                        {logo && <button onClick={() => setLogo('')} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-white" /></button>}
                       </div>
                       <Label className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/10 hover:border-primary/50 cursor-pointer p-2 rounded-[5px] bg-slate-950/40 text-[9px] font-bold uppercase text-slate-400">
                         <Plus className="h-4 w-4 mb-0.5" /><span>Upload logo</span><input type="file" accept="image/*" className="hidden" onChange={e => handleLogoUpload(e, 'logo')} />
@@ -503,32 +587,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Label className="text-[10px] font-bold uppercase text-slate-500">Logo Container BG</Label>
                     <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 border border-white/5 rounded-[5px]">
                       <input type="color" value={logoBgColor} onChange={e => setLogoBgColor(e.target.value)} className="w-6 h-6 rounded-sm border-none bg-transparent cursor-pointer" /><span className="text-[9px] font-mono uppercase font-bold text-slate-400">{logoBgColor}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-500">Landing Background</Label>
-                    <div className="flex items-center gap-2">
-                      <div className="h-10 w-10 bg-slate-950 border border-white/5 rounded-[5px] flex items-center justify-center overflow-hidden relative group">
-                        {landingBgImage ? <img src={landingBgImage} className="h-full w-full object-cover" /> : <Globe className="h-5 w-5 text-slate-500" />}
-                        {landingBgImage && <button onClick={() => handleRemoveImage('landing')} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-white" /></button>}
-                      </div>
-                      <Label className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/10 hover:border-primary/50 cursor-pointer p-2 rounded-[5px] bg-slate-950/40 text-[9px] font-bold uppercase text-slate-400">
-                        <Plus className="h-4 w-4 mb-0.5" /><span>Upload BG</span><input type="file" accept="image/*" className="hidden" onChange={e => handleLogoUpload(e, 'landing')} />
-                      </Label>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-500">Default Avatar</Label>
-                    <div className="flex items-center gap-2">
-                      <div className="h-10 w-10 bg-slate-950 border border-white/5 rounded-[5px] flex items-center justify-center overflow-hidden relative group">
-                        {defaultAvatar ? <img src={defaultAvatar} className="h-full w-full object-cover" /> : <UserIcon className="h-5 w-5 text-slate-500" />}
-                        {defaultAvatar && <button onClick={() => handleRemoveImage('avatar')} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-white" /></button>}
-                      </div>
-                      <Label className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/10 hover:border-primary/50 cursor-pointer p-2 rounded-[5px] bg-slate-950/40 text-[9px] font-bold uppercase text-slate-400">
-                        <Plus className="h-4 w-4 mb-0.5" /><span>Upload Avatar</span><input type="file" accept="image/*" className="hidden" onChange={e => handleLogoUpload(e, 'avatar')} />
-                      </Label>
                     </div>
                   </div>
                 </div>
@@ -552,7 +610,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <TabsContent value="gateway" className="space-y-4 outline-none">
               <div className="space-y-4">
-                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">API Key</Label><Button variant="ghost" size="sm" onClick={() => setTestPurchaseDialogOpen(true)} className="h-6 px-2 text-[8px] font-black uppercase text-accent hover:text-white bg-accent/10 rounded-[3px] gap-1"><PlayCircle className="h-2.5 w-2.5" /> Start Test</Button></div>
+                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-500">API Key</Label></div>
                 <div className="relative"><Input type={showApiKey ? "text" : "password"} value={pawapayKey} onChange={(e) => setPawapayKey(e.target.value)} className="bg-slate-950 border-white/5 h-9 text-sm font-mono pr-10" /><button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-colors">{showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
                 <div className="space-y-1.5"><Label className="text-[9px] font-bold uppercase text-slate-500">Operation Mode</Label><Select value={pawapayMode} onValueChange={setPawapayMode}><SelectTrigger className="bg-slate-950 border-white/5 h-9 rounded-[5px]"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-white/10 text-white"><SelectItem value="sandbox">Sandbox (Testing)</SelectItem><SelectItem value="live">Live (Production)</SelectItem></SelectContent></Select></div>
               </div>
@@ -587,7 +645,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Dialog open={true} onOpenChange={() => setTestStatus('idle')}>
           <DialogContent className="bg-slate-950 border-white/10 text-white max-w-sm rounded-[5px] py-10 text-center">
             {testStatus === 'processing' ? <div className="space-y-6"><PlayCircle className="h-10 w-10 text-primary animate-spin mx-auto" /><DialogTitle>Verifying Protocol</DialogTitle></div> : 
-             testStatus === 'success' ? <div className="space-y-6"><CheckCircle2 className="h-10 w-10 text-green-500 mx-auto" /><DialogTitle>Handshake Success</DialogTitle><Button onClick={() => setReceiptDialogOpen(true)} className="w-full">View Test Receipt</Button></div> :
+             testStatus === 'success' ? <div className="space-y-6"><CheckCircle2 className="h-10 w-10 text-green-500 mx-auto" /><DialogTitle>Handshake Success</DialogTitle></div> :
              <div className="space-y-6"><XCircle className="h-10 w-10 text-red-500 mx-auto" /><DialogTitle>Verification Rejected</DialogTitle></div>}
           </DialogContent>
         </Dialog>
