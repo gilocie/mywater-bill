@@ -43,6 +43,7 @@ export function SidebarNav() {
         { icon: Users, label: 'Customers', href: '/dashboard/customers', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF'] },
         { icon: UserCheck, label: 'Staff', href: '/dashboard/staff', roles: ['SUPER_ADMIN'] },
         { icon: Receipt, label: 'Ledger Audit', href: '/dashboard/billing', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
+        { icon: BellRing, label: 'Broadcasts', href: '/dashboard/notifications', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
       ]
     },
     {
@@ -51,7 +52,6 @@ export function SidebarNav() {
         { icon: ShieldCheck, label: 'Verifications', href: '/dashboard/verifications', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF'] },
         { icon: Wallet, label: 'My Wallet', href: '/dashboard/wallet', roles: ['CUSTOMER'] },
         { icon: CreditCard, label: 'Settlement Channels', href: '/dashboard/payments', roles: ['SUPER_ADMIN'] },
-        { icon: BellRing, label: 'Broadcasts', href: '/dashboard/notifications', roles: ['SUPER_ADMIN', 'DISTRICT_STAFF', 'CUSTOMER'] },
       ]
     }
   ];
