@@ -230,8 +230,8 @@ export default function BroadcastsPage() {
 
   return (
     <div className="h-full flex flex-col space-y-4">
-      {/* Container grid locked to 400px height */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[400px]">
+      {/* Container grid locked to 450px height */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[450px]">
         {/* Left Column: Broadcasts */}
         <Card className="lg:col-span-1 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
           <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0 flex flex-row items-center justify-between">
