@@ -37,7 +37,11 @@ import {
   UserCircle,
   ArrowDownLeft,
   Trash2,
-  X
+  X,
+  Receipt,
+  Printer,
+  Download,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -71,12 +75,15 @@ export default function DashboardPage() {
   const [allBills, setAllBills] = useState<Bill[]>([]);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   
+  // Receipt State
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<any>(null);
+
   // District Staff specific states
   const [meterLiters, setMeterLiters] = useState('');
   const [gracePeriod, setGracePeriod] = useState('14');
 
   // Customer Activity States
-  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [perPage, setPerPage] = useState(10);
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
 
@@ -98,9 +105,6 @@ export default function DashboardPage() {
         const allTrans: Transaction[] = JSON.parse(transStr);
         setAllTransactions(allTrans.filter(t => t.userId === user.id));
       }
-
-      const storedB = localStorage.getItem('mywater_broadcasts') || '[]';
-      setBroadcasts(JSON.parse(storedB));
     };
 
     loadData();
@@ -165,13 +169,142 @@ export default function DashboardPage() {
     localStorage.setItem('mywater_all_bills', JSON.stringify(updatedBills));
     setAllBills(updatedBills);
 
-    const updatedUsers = allUsers.map(u => u.id === customer.id ? { ...u, currentMeterReading: currentReading } : u);
+    const updatedUsers = allUsers.map(u => u.id === customer.id ? { ...u, lastMeterReading: currentReading, currentMeterReading: currentReading } : u);
     localStorage.setItem('mywater_all_users', JSON.stringify(updatedUsers));
     setAllUsers(updatedUsers);
 
     setMeterLiters('');
     toast({ title: "Invoice Issued", description: `MK ${format2Dec(totalAmount)} generated for ${customer.name}.` });
     window.dispatchEvent(new Event('storage'));
+  };
+
+  const handleViewReceipt = (bill: Bill) => {
+    setReceiptData({
+      txId: `INV-${bill.id.slice(-6).toUpperCase()}`,
+      amount: bill.totalAmount,
+      phone: 'N/A',
+      network: bill.status === 'PAID' ? 'Utility Ledger (Settled)' : 'Utility Ledger (Pending)',
+      product: `Water Bill Invoice`,
+      date: bill.date,
+      customerName: user?.name || 'Customer',
+      meterNumber: user?.meterNumber || 'N/A',
+      lastMeterReading: bill.lastMeterReading !== undefined ? bill.lastMeterReading : 0,
+      currentMeterReading: bill.currentMeterReading !== undefined ? bill.currentMeterReading : bill.meterReadingLiters,
+      consumption: bill.consumption !== undefined ? bill.consumption : bill.meterReadingLiters,
+      vatAmount: bill.vatAmount || 0,
+      vatRate: bill.vatRate !== undefined ? bill.vatRate : settings?.vatRate ?? 16.5,
+      status: bill.status
+    });
+    setReceiptDialogOpen(true);
+  };
+
+  const handleDownloadReceipt = () => {
+    if (!receiptData) return;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = 450;
+    canvas.height = 650;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, canvas.width, 110);
+
+    ctx.fillStyle = settings?.logoBgColor || '#3b82f6';
+    ctx.beginPath();
+    ctx.arc(45, 55, 18, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (settings?.logo) {
+      const img = new Image();
+      img.src = settings.logo;
+      ctx.drawImage(img, 32, 42, 26, 26);
+    } else {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 15px sans-serif';
+      ctx.fillText('MWB', 32, 60);
+    }
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText(settings?.receiptCompanyName?.toUpperCase() || 'MALAWI WATER BOARD', 80, 50);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.fillText('OFFICIAL PAYMENT RECEIPT', 80, 70);
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, 110, canvas.width, 60);
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.fillText('RECEIPT NO.', 30, 132);
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText(receiptData.txId, 30, 152);
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.fillText('DATE & TIME', 270, 132);
+    ctx.fillStyle = '#0f172a';
+    ctx.font = '11px sans-serif';
+    ctx.fillText(receiptData.date.split(',')[0], 270, 152);
+    ctx.fillStyle = '#f0fdf4';
+    ctx.fillRect(30, 190, canvas.width - 60, 95);
+    ctx.strokeStyle = '#bbf7d0';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(30, 190, canvas.width - 60, 95);
+    ctx.fillStyle = '#166534';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('AMOUNT', canvas.width / 2, 215);
+    ctx.fillStyle = '#15803d';
+    ctx.font = 'bold 30px sans-serif';
+    ctx.fillText(`MK ${receiptData.amount?.toLocaleString()}`, canvas.width / 2, 250);
+    ctx.fillStyle = '#166534';
+    ctx.font = 'bold 8px sans-serif';
+    ctx.fillText(receiptData.status === 'PAID' ? '✓ SETTLED' : '⚠ PENDING PAYMENT', canvas.width / 2, 272);
+    ctx.textAlign = 'left';
+    const startY = 320;
+    const rowHeight = 35;
+    const rows = [
+      { label: 'CUSTOMER NAME', value: receiptData.customerName },
+      { label: 'METER NUMBER', value: receiptData.meterNumber || 'N/A' },
+      { label: 'SERVICE', value: receiptData.product },
+      { label: 'NETWORK', value: receiptData.network },
+      { label: 'STATUS', value: receiptData.status === 'PAID' ? 'Paid' : 'Pending' }
+    ];
+    rows.forEach((row, index) => {
+      const y = startY + index * rowHeight;
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.fillText(row.label, 30, y);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(String(row.value), 190, y);
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(30, y + 10);
+      ctx.lineTo(canvas.width - 30, y + 10);
+      ctx.stroke();
+    });
+    const barcodeY = 515;
+    ctx.fillStyle = '#0f172a';
+    for (let i = 0; i < 55; i++) {
+      const w = Math.random() > 0.55 ? 3.5 : 1.5;
+      ctx.fillRect(85 + i * 5, barcodeY, w, 40);
+    }
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${receiptData.txId} • ${settings?.receiptCompanyName?.toUpperCase() || 'MWB'}-SYSTEM-AUDIT`, canvas.width / 2, barcodeY + 58);
+    const url = canvas.toDataURL('image/jpeg', 0.95);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `receipt-${receiptData.txId}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast({ title: "Receipt Downloaded", description: `Receipt image receipt-${receiptData.txId}.jpg has been saved.` });
   };
 
   const handleDeleteTransaction = (id: string) => {
@@ -194,12 +327,6 @@ export default function DashboardPage() {
     window.dispatchEvent(new Event('storage'));
     toast({ title: "Batch Removed", description: `${selectedTxIds.length} records purged.` });
   };
-
-  const activeBroadcasts = broadcasts.filter(b => {
-    const isTarget = b.target === 'ALL' || b.target === 'CUSTOMERS';
-    const isNotExpired = !b.expiresAt || new Date(b.expiresAt) > new Date();
-    return isTarget && isNotExpired;
-  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   // STAFF VIEW
   if (user.role === 'DISTRICT_STAFF') {
@@ -472,31 +599,45 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Dashboard Grid: Announcements & Activity History */}
+        {/* Dashboard Grid: Invoices & Activity History */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[450px] overflow-hidden">
-          {/* Announcements Column */}
+          {/* Outstanding Invoices Column */}
           <Card className="lg:col-span-1 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col overflow-hidden">
             <CardHeader className="bg-slate-950/40 border-b border-white/5 px-6 py-4 shrink-0 flex flex-row items-center justify-between">
               <CardTitle className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                <Megaphone className="h-4 w-4" /> Announcements
+                <FileText className="h-4 w-4" /> Outstanding Invoices
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-y-auto custom-scrollbar">
-              {activeBroadcasts.length > 0 ? (
+              {pendingBills.length > 0 ? (
                 <div className="divide-y divide-white/5">
-                  {activeBroadcasts.map(b => (
-                    <div key={b.id} className={cn("p-6 space-y-3 transition-all group", b.isPinned ? "bg-primary/5 border-l-2 border-primary" : "hover:bg-white/5")}>
+                  {pendingBills.map(bill => (
+                    <div 
+                      key={bill.id} 
+                      onClick={() => handleViewReceipt(bill)}
+                      className="p-6 space-y-3 transition-all group hover:bg-white/5 cursor-pointer border-l-2 border-transparent hover:border-primary"
+                    >
                       <div className="flex items-center justify-between">
-                        <Badge className="text-[8px] font-black uppercase px-2 rounded-[3px] bg-primary/10 text-primary border-primary/20">{b.type}</Badge>
-                        <span className="text-[9px] text-slate-500 font-mono">{format(new Date(b.createdAt), 'dd MMM, HH:mm')}</span>
+                        <Badge className={cn("text-[8px] font-black uppercase px-2 rounded-[3px]", isBillOverdue(bill) ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20")}>
+                          {isBillOverdue(bill) ? "Overdue" : "Pending"}
+                        </Badge>
+                        <span className="text-[9px] text-slate-500 font-mono font-bold uppercase">Due: {bill.dueDate || bill.date}</span>
                       </div>
-                      <h4 className="text-sm font-black text-white uppercase">{b.title}</h4>
-                      <p className="text-xs text-slate-400 leading-relaxed font-medium">{b.message}</p>
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <h4 className="text-sm font-black text-white uppercase tracking-tight">Invoice INV-{bill.id.slice(-6).toUpperCase()}</h4>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Consumption: {bill.consumption || 0} m³</p>
+                        </div>
+                        <p className="text-lg font-black text-white tracking-tighter">MK {format2Dec(bill.totalAmount)}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="p-12 text-center text-slate-800 italic uppercase text-[10px] font-bold">No active announcements</div>
+                <div className="p-12 text-center text-slate-800 italic uppercase text-[10px] font-bold flex flex-col items-center gap-3">
+                  <CheckCircle2 className="h-10 w-10 opacity-10" />
+                  No outstanding balance
+                </div>
               )}
             </CardContent>
           </Card>
@@ -551,41 +692,67 @@ export default function DashboardPage() {
 
               {/* Scrollable List */}
               <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-2 space-y-2 bg-slate-900/40">
-                {allTransactions.length > 0 ? allTransactions.slice(0, perPage).map((tx) => (
-                  <div key={tx.id} className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px] flex items-center justify-between group hover:border-white/10 transition-all">
-                    <div className="flex items-center gap-4">
-                      <input 
-                        type="checkbox" 
-                        className="w-3 h-3 accent-primary cursor-pointer"
-                        checked={selectedTxIds.includes(tx.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedTxIds(prev => [...prev, tx.id]);
-                          else setSelectedTxIds(prev => prev.filter(i => i !== tx.id));
-                        }}
-                      />
-                      <div>
-                        <p className="text-[10px] font-black text-white uppercase tracking-tight">
-                          {tx.type === 'DEPOSIT' ? 'Deposit Successful' : 'Utility Wallet Settlement'}
-                        </p>
-                        <p className="text-[8px] text-slate-500 font-bold uppercase mt-0.5">{tx.date}</p>
+                {allTransactions.length > 0 ? allTransactions.slice(0, perPage).map((tx) => {
+                  const isSettlement = tx.type === 'BILL_PAYMENT' || tx.description.includes('Settlement');
+                  const relatedBill = isSettlement ? allBills.find(b => tx.description.includes(b.id.slice(-6).toUpperCase())) : null;
+                  
+                  return (
+                    <div 
+                      key={tx.id} 
+                      className="p-4 bg-slate-950/40 border border-white/5 rounded-[5px] flex items-center justify-between group hover:border-white/10 transition-all"
+                    >
+                      <div className="flex items-center gap-4">
+                        <input 
+                          type="checkbox" 
+                          className="w-3 h-3 accent-primary cursor-pointer"
+                          checked={selectedTxIds.includes(tx.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedTxIds(prev => [...prev, tx.id]);
+                            else setSelectedTxIds(prev => prev.filter(i => i !== tx.id));
+                          }}
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-[10px] font-black text-white uppercase tracking-tight">
+                              {tx.type === 'DEPOSIT' ? 'Deposit Successful' : 'Utility Wallet Settlement'}
+                            </p>
+                            {isSettlement && (
+                              <Badge className="bg-primary/10 text-primary border-primary/20 text-[6px] font-black uppercase px-1 h-3 flex items-center gap-0.5">
+                                <Receipt className="h-1.5 w-1.5" /> Receipt
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-[8px] text-slate-500 font-bold uppercase mt-0.5">{tx.date} • {tx.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className={cn(
+                          "text-[11px] font-black tracking-tight",
+                          tx.type === 'DEPOSIT' ? "text-green-500" : "text-primary"
+                        )}>
+                          {tx.type === 'DEPOSIT' ? '+' : '-'} MK {tx.amount.toLocaleString()}
+                        </span>
+                        <div className="flex items-center">
+                          {isSettlement && relatedBill && (
+                             <button 
+                               onClick={() => handleViewReceipt(relatedBill)}
+                               className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-500 hover:text-primary mr-1"
+                               title="View Paid Receipt"
+                             >
+                               <ExternalLink className="h-3.5 w-3.5" />
+                             </button>
+                          )}
+                          <button 
+                            onClick={() => handleDeleteTransaction(tx.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-700 hover:text-red-500"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className={cn(
-                        "text-[11px] font-black tracking-tight",
-                        tx.type === 'DEPOSIT' ? "text-green-500" : "text-primary"
-                      )}>
-                        {tx.type === 'DEPOSIT' ? '+' : '-'} MK {tx.amount.toLocaleString()}
-                      </span>
-                      <button 
-                        onClick={() => handleDeleteTransaction(tx.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-700 hover:text-red-500"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                )) : (
+                  );
+                }) : (
                   <div className="h-full flex flex-col items-center justify-center text-slate-800 space-y-4">
                     <History className="h-12 w-12 opacity-10" />
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-30">No activity records found</p>
@@ -599,5 +766,71 @@ export default function DashboardPage() {
     );
   }
 
-  return null;
+  return (
+    <>
+      {/* Shared Receipt/Invoice Dialog */}
+      <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
+        <DialogContent className="bg-white text-slate-900 max-w-sm rounded-[5px] p-0 overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-slate-900 px-6 py-5 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-[3px]" style={{ backgroundColor: settings?.logoBgColor || '#2563eb' }}>
+                {settings?.logo ? (
+                  <img src={settings.logo} className="h-5 w-5 object-contain" />
+                ) : (
+                  <Droplets className="h-5 w-5 text-white" />
+                )}
+              </div>
+              <div>
+                <DialogTitle className="text-xs font-black text-white uppercase tracking-widest">
+                  {settings?.receiptCompanyName || 'Malawi Water Board'}
+                </DialogTitle>
+                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Utility Bill Invoice</p>
+              </div>
+            </div>
+            <Receipt className="h-5 w-5 text-primary opacity-70" />
+          </div>
+
+          {receiptData && (
+            <div className="flex-1 overflow-y-auto">
+              <div className="bg-primary/10 border-b border-primary/20 px-6 py-3 flex justify-between items-center">
+                <div><p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Invoice ID</p><p className="text-xs font-black text-slate-800 font-mono">{receiptData.txId}</p></div>
+                <div className="text-right"><p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Billing Date</p><p className="text-[10px] font-bold text-slate-700">{receiptData.date}</p></div>
+              </div>
+              <div className="px-6 py-6 text-center border-b border-dashed border-slate-200">
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Amount Due</p>
+                <p className="text-4xl font-black text-slate-900"><span className="text-primary text-xl">MK</span>{' '}{format2Dec(receiptData.amount)}</p>
+                <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${receiptData.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                  {receiptData.status === 'PAID' ? <><CheckCircle2 className="h-3 w-3" /><span className="text-[9px] font-black uppercase tracking-wider">Paid / Settled</span></> : <><span className="h-1.5 w-1.5 rounded-full bg-amber-600 animate-pulse" /><span className="text-[9px] font-black uppercase tracking-wider">Pending Payment</span></>}
+                </div>
+              </div>
+              <div className="px-6 py-5 space-y-3">
+                {[
+                  { label: 'Customer Name', value: receiptData.customerName },
+                  { label: 'Meter Number', value: receiptData.meterNumber },
+                  { label: 'Previous Reading', value: `${receiptData.lastMeterReading} m³` },
+                  { label: 'Current Reading', value: `${receiptData.currentMeterReading} m³` },
+                ].map(row => (
+                  <div key={row.label} className="flex justify-between items-center text-[10px]">
+                    <span className="font-bold text-slate-400 uppercase tracking-wider">{row.label}</span>
+                    <span className="font-black text-slate-800 font-mono">{row.value}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-2"><span className="font-bold text-primary uppercase tracking-wider font-black">Consumption</span><span className="font-black text-primary">{receiptData.consumption} m³</span></div>
+                <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-2"><span className="font-bold text-slate-400 uppercase tracking-wider">Subtotal</span><span className="font-black text-slate-800">MK {format2Dec(receiptData.amount - receiptData.vatAmount)}</span></div>
+                <div className="flex justify-between items-center text-[10px]"><span className="font-bold text-slate-400 uppercase tracking-wider">VAT ({receiptData.vatRate}%)</span><span className="font-black text-slate-800">MK {format2Dec(receiptData.vatAmount)}</span></div>
+              </div>
+              <div className="px-6 pb-4 border-t border-dashed border-slate-200 pt-4">
+                <div className="flex justify-center mb-3"><div className="flex gap-px">{Array.from({ length: 40 }).map((_, i) => (<div key={i} className="bg-slate-800" style={{ width: `${(i % 3 === 0) ? 3 : 2}px`, height: `${24 + (i % 5) * 4}px` }} />))}</div></div>
+                <p className="text-[8px] text-center text-slate-400 font-mono tracking-widest">{receiptData.txId} • {settings?.receiptCompanyName?.toUpperCase() || 'MWB-SYSTEM'}</p>
+              </div>
+            </div>
+          )}
+          <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0">
+            <Button variant="outline" className="flex-1 h-9 text-[10px] font-bold uppercase border-slate-200 text-slate-600 gap-2 rounded-[5px]" onClick={() => window.print()}><Printer className="h-3.5 w-3.5" /> Print Bill</Button>
+            <Button variant="default" className="flex-1 h-9 bg-slate-900 hover:bg-slate-800 text-[10px] font-bold uppercase text-white gap-2 rounded-[5px]" onClick={handleDownloadReceipt}><Download className="h-3.5 w-3.5" /> Download</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
