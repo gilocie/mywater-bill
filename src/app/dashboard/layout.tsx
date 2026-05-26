@@ -446,7 +446,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <AvatarImage src={(user as any).profilePic || settings?.defaultAvatar || ''} />
                       <AvatarFallback className="bg-slate-800 text-primary font-bold text-xs">{user.name[0]}</AvatarFallback>
                     </Avatar>
-                  </DropdownMenuTrigger>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-slate-900 border-white/5 text-slate-300">
+                  <DropdownMenuItem onClick={() => setProfileDialogOpen(true)} className="cursor-pointer">
+                    <UserIcon className="mr-2 h-4 w-4" /> Manage Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/5" />
+                  <DropdownMenuItem onClick={logout} className="text-red-400 cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" /> Sign Out
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -671,3 +680,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </SidebarProvider>
   );
 }
+
