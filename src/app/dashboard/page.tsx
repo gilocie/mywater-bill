@@ -173,7 +173,7 @@ export default function DashboardPage() {
     setAllUsers(updatedUsers);
 
     setMeterLiters('');
-    toast({ title: "Invoice Issued", description: `MK {format2Dec(totalAmount)} generated for ${customer.name}.` });
+    toast({ title: "Invoice Issued", description: `MK ${format2Dec(totalAmount)} generated for ${customer.name}.` });
     window.dispatchEvent(new Event('storage'));
   };
 
@@ -377,7 +377,8 @@ export default function DashboardPage() {
                 <Progress value={collectionRate} className="h-1.5 flex-1 bg-slate-950" />
               </div>
             </CardHeader>
-          </div>
+          </Card>
+        </div>
 
         <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
           <CardHeader className="px-6 pt-6 pb-2">
@@ -433,11 +434,11 @@ export default function DashboardPage() {
                           <div className="py-4 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-1.5">
-                                <Label className="text-[9px] font-bold uppercase text-slate-500">Current Reading (m³)</Label>
+                                <Label className="text-9px font-bold uppercase text-slate-500">Current Reading (m³)</Label>
                                 <Input type="number" value={meterLiters} onChange={e => setMeterLiters(e.target.value)} placeholder={`Min: ${cust.lastMeterReading}`} className="bg-slate-950 border-white/5 h-10 font-bold" />
                               </div>
                               <div className="space-y-1.5">
-                                <Label className="text-[9px] font-bold uppercase text-slate-500">Grace Period (Days)</Label>
+                                <Label className="text-9px font-bold uppercase text-slate-500">Grace Period (Days)</Label>
                                 <Input type="number" value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} className="bg-slate-950 border-white/5 h-10 font-bold" />
                               </div>
                             </div>
@@ -797,7 +798,7 @@ export default function DashboardPage() {
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Amount Due</p>
                 <p className="text-4xl font-black text-slate-900"><span className="text-primary text-xl">MK</span>{' '}{format2Dec(receiptData.amount)}</p>
                 <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${receiptData.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                  {receiptData.status === 'PAID' ? <><CheckCircle2 className="h-3 w-3" /><span className="text-[9px] font-black uppercase tracking-wider">Paid / Settled</span></> : <><span className="h-1.5 w-1.5 rounded-full bg-amber-600 animate-pulse" /><span className="text-[9px] font-black uppercase tracking-wider">Pending Payment</span></>}
+                  {receiptData.status === 'PAID' ? <><span className="text-[9px] font-black uppercase tracking-wider">Paid / Settled</span></> : <><span className="h-1.5 w-1.5 rounded-full bg-amber-600 animate-pulse" /><span className="text-[9px] font-black uppercase tracking-wider">Pending Payment</span></>}
                 </div>
               </div>
               <div className="px-6 py-5 space-y-3">
