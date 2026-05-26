@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { Bill, User as AppUser, Transaction, PaymentMethod, Broadcast, SupportTicket, SupportMessage } from '@/app/lib/mock-data';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
