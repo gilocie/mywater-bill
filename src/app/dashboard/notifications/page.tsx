@@ -382,38 +382,42 @@ export default function BroadcastsPage() {
               </Dialog>
             )}
           </CardHeader>
-          <CardContent className="p-0 flex-1 flex overflow-hidden h-full">
-            {/* Sidebar: Threads */}
-            <div className="w-1/3 border-r border-white/5 overflow-y-auto h-full bg-slate-950/20">
-              {filteredTickets.length > 0 ? (
-                <div className="divide-y divide-white/5">
-                  {filteredTickets.map(t => (
-                    <div key={t.id} onClick={() => setSelectedTicket(t)} className={cn("p-4 space-y-2 cursor-pointer transition-all group", selectedTicket?.id === t.id ? "bg-primary/10" : "hover:bg-white/5")}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[8px] font-black text-slate-600 font-mono uppercase">#{t.id.slice(-6)}</span>
-                        <div className="flex items-center gap-2">
-                          <Badge className={cn("text-[7px] font-black px-1.5 h-4", t.status === 'OPEN' ? "bg-green-500/10 text-green-500" : "bg-blue-500/10 text-blue-500")}>{t.status}</Badge>
-                          <button onClick={(e) => handleDeleteTicket(t.id, e)} className="p-1 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+          <CardContent className="p-0 flex-1 flex overflow-hidden">
+            {/* Sidebar: Threads (Contact List) */}
+            <div className="w-1/3 border-r border-white/5 flex flex-col bg-slate-950/20 overflow-hidden">
+              <div className="flex-1 overflow-y-auto">
+                {filteredTickets.length > 0 ? (
+                  <div className="divide-y divide-white/5">
+                    {filteredTickets.map(t => (
+                      <div key={t.id} onClick={() => setSelectedTicket(t)} className={cn("p-4 space-y-2 cursor-pointer transition-all group", selectedTicket?.id === t.id ? "bg-primary/10" : "hover:bg-white/5")}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[8px] font-black text-slate-600 font-mono uppercase">#{t.id.slice(-6)}</span>
+                          <div className="flex items-center gap-2">
+                            <Badge className={cn("text-[7px] font-black px-1.5 h-4", t.status === 'OPEN' ? "bg-green-500/10 text-green-500" : "bg-blue-500/10 text-blue-500")}>{t.status}</Badge>
+                            <button onClick={(e) => handleDeleteTicket(t.id, e)} className="p-1 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <h5 className="text-[11px] font-black text-white uppercase truncate">{t.subject}</h5>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[9px] text-slate-500 truncate">{t.customerName}</p>
+                          <span className="text-[8px] text-slate-600 font-bold">{format(new Date(t.lastUpdate), 'dd MMM')}</span>
                         </div>
                       </div>
-                      <h5 className="text-[11px] font-black text-white uppercase truncate">{t.subject}</h5>
-                      <div className="flex items-center justify-between">
-                        <p className="text-[9px] text-slate-500 truncate">{t.customerName}</p>
-                        <span className="text-[8px] text-slate-600 font-bold">{format(new Date(t.lastUpdate), 'dd MMM')}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-12 text-center text-slate-800 uppercase text-[10px] font-bold">No active tickets</div>
-              )}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-12 text-center text-slate-800 uppercase text-[10px] font-bold">No active tickets</div>
+                )}
+              </div>
             </div>
-            {/* Main Thread View */}
-            <div className="flex-1 flex flex-col bg-slate-950/40 relative h-full overflow-hidden">
+
+            {/* Main Thread View (Messages) */}
+            <div className="flex-1 flex flex-col bg-slate-950/40 overflow-hidden">
               {selectedTicket ? (
                 <>
+                  {/* Fixed Inner Header */}
                   <div className="px-6 py-4 border-b border-white/5 bg-slate-950/60 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black text-primary border border-primary/20">
@@ -430,6 +434,8 @@ export default function BroadcastsPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Scrollable Messages */}
                   <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
                     {selectedTicket.messages.map((m, i) => {
                       const isMe = m.senderId === user.id;
@@ -450,6 +456,8 @@ export default function BroadcastsPage() {
                       );
                     })}
                   </div>
+
+                  {/* Fixed Message Input */}
                   <div className="p-4 border-t border-white/5 bg-slate-950/60 shrink-0">
                     <div className="flex gap-2">
                       <Input 
