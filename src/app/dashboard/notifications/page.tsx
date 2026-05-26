@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Megaphone, MessageSquare, Send, Clock, Pin, Trash2, LifeBuoy, Plus, X, ShieldAlert, Search, UserCircle } from 'lucide-react';
+import { Megaphone, MessageSquare, Send, Clock, Pin, Trash2, LifeBuoy, Plus, X, ShieldAlert, Search, UserCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -112,8 +112,9 @@ export default function BroadcastsPage() {
       }
 
       // 3. Super Admins / Accounts ONLY see if escalated to them or their department
-      // This enforces the privacy requested: Admin can't see standard staff-customer chats.
       if (user.role === 'SUPER_ADMIN') {
+        // Super Admins can see escalated or general if needed, but per request:
+        // Admin shouldn't see standard chats unless escalated.
         return t.status === 'ESCALATED' && 
                (t.escalatedTo === 'SUPER_ADMIN' || t.escalatedToUserId === user.id);
       }
@@ -127,7 +128,7 @@ export default function BroadcastsPage() {
   const filteredEscalationTargets = useMemo(() => {
     return allStaff.filter(s => {
       const matchesSearch = s.name.toLowerCase().includes(staffSearchQuery.toLowerCase());
-      const matchesDept = escalationDept === 'SUPER_ADMIN' ? s.role === 'SUPER_ADMIN' : true; // Assuming all staff can handle accounts or specific ones
+      const matchesDept = escalationDept === 'SUPER_ADMIN' ? s.role === 'SUPER_ADMIN' : true; 
       return matchesSearch && matchesDept && s.id !== user?.id;
     });
   }, [allStaff, staffSearchQuery, escalationDept, user]);
@@ -189,9 +190,12 @@ export default function BroadcastsPage() {
     };
     const updatedTickets = tickets.map(t => {
       if (t.id === ticket.id) {
+        // If the responder is from the escalated department/person, change status from ESCALATED back to REPLIED
+        let newStatus: SupportTicket['status'] = isStaff ? 'REPLIED' : 'OPEN';
+        
         return {
           ...t,
-          status: isStaff ? 'REPLIED' : 'OPEN',
+          status: newStatus,
           assignedStaffId: isStaff ? user.id : undefined,
           assignedStaffName: isStaff ? user.name : undefined,
           messages: [...t.messages, newMessage],
@@ -212,10 +216,11 @@ export default function BroadcastsPage() {
     
     const targetUser = allStaff.find(s => s.id === escalationTargetId);
     
+    // Status message as requested
     const systemMsg: SupportMessage = {
       senderId: 'SYSTEM',
       senderName: 'SYSTEM',
-      text: `Ticket escalated to ${escalationDept.replace('_', ' ')}${targetUser ? ` (${targetUser.name})` : ''} by ${user.name} for specialized handling.`,
+      text: `${user.name} has escalated your case to ${escalationDept.replace('_', ' ')}${targetUser ? ` (${targetUser.name})` : ''}. Please wait for specialized assistance.`,
       timestamp: new Date().toISOString()
     };
 
@@ -278,6 +283,19 @@ export default function BroadcastsPage() {
     window.dispatchEvent(new Event('storage'));
     toast({ title: "Message deleted" });
   };
+
+  // Determine if the current user should see the "needs action" alert
+  const showEscalationAlert = useMemo(() => {
+    if (!selectedTicket || !user || selectedTicket.status !== 'ESCALATED') return false;
+    
+    const isTargetUser = selectedTicket.escalatedToUserId === user.id;
+    const isTargetDept = selectedTicket.escalatedTo === user.role;
+    
+    // If escalated to SUPER_ADMIN, any SUPER_ADMIN role user sees the alert
+    // If escalated to ACCOUNTS, we assume certain staff can handle it.
+    // For now, check if user matches the escalation target
+    return isTargetUser || isTargetDept;
+  }, [selectedTicket, user]);
 
   if (!user) return null;
 
@@ -445,7 +463,7 @@ export default function BroadcastsPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-[8px] font-black text-slate-600 font-mono uppercase">#{t.id.slice(-6)}</span>
                         <div className="flex items-center gap-2">
-                          <Badge className={cn("text-[7px] font-black px-1.5 h-4", t.status === 'OPEN' ? "bg-green-500/10 text-green-500" : t.status === 'ESCALATED' ? "bg-red-500/10 text-red-500" : "bg-blue-500/10 text-blue-500")}>
+                          <Badge className={cn("text-[7px] font-black px-1.5 h-4", t.status === 'OPEN' ? "bg-green-500/10 text-green-500" : t.status === 'ESCALATED' ? "bg-red-600/10 text-red-500" : "bg-blue-500/10 text-blue-500")}>
                             {t.status === 'ESCALATED' ? `Escalated: ${t.escalatedTo}` : t.status}
                           </Badge>
                           <button onClick={(e) => handleDeleteTicket(t.id, e)} className="p-1 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -548,6 +566,18 @@ export default function BroadcastsPage() {
                   )}
                 </div>
 
+                {/* Persistent Escalation Attention Alert */}
+                {showEscalationAlert && (
+                  <div className="bg-red-600 px-6 py-2 flex items-center justify-between animate-pulse">
+                    <div className="flex items-center gap-2 text-white">
+                      <AlertCircle className="h-4 w-4" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">
+                        Action Required: This ticket has been escalated to you. Please provide a resolution.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Scrollable Messages Area */}
                 <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
                   {selectedTicket.messages.map((m, i) => {
@@ -557,9 +587,9 @@ export default function BroadcastsPage() {
                     if (isSystem) {
                       return (
                         <div key={i} className="flex justify-center py-2">
-                          <div className="bg-slate-800/50 border border-white/5 rounded-full px-4 py-1 flex items-center gap-2">
-                            <ShieldAlert className="h-3 w-3 text-red-500" />
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">{m.text}</p>
+                          <div className="bg-slate-800/50 border border-white/5 rounded-[5px] px-4 py-2 flex items-start gap-2 max-w-[90%]">
+                            <ShieldAlert className="h-3 w-3 text-red-500 mt-0.5 shrink-0" />
+                            <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed">{m.text}</p>
                           </div>
                         </div>
                       );
