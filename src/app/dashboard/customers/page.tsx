@@ -44,6 +44,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
 export default function CustomersPage() {
@@ -87,6 +88,34 @@ export default function CustomersPage() {
     });
   }, [customers, searchTerm, activeTab]);
 
+  const suspendedCount = useMemo(() => {
+    return customers.filter(c => c.suspensionStatus === 'SUSPENDED').length;
+  }, [customers]);
+
+  const handleExport = () => {
+    const headers = ['Meter ID', 'Name', 'Email', 'Phone', 'District', 'Area', 'Status'];
+    const rows = displayCustomers.map(c => [
+      c.meterNumber,
+      c.name,
+      c.email,
+      c.phoneNumber,
+      c.district,
+      c.area,
+      c.suspensionStatus === 'SUSPENDED' ? 'Disconnected' : 'Active'
+    ]);
+    
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `customer_registry_${activeTab}_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Export Complete", description: "The registry has been downloaded as CSV." });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -96,66 +125,71 @@ export default function CustomersPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button onClick={() => setIsDialogOpen(true)} className="bg-primary hover:bg-primary/90 gap-2 rounded-[5px] h-10 font-black uppercase tracking-widest text-[10px] text-white">
+          <Button onClick={() => setIsDialogOpen(true)} className="bg-primary hover:bg-primary/90 gap-2 rounded-[5px] h-10 font-black uppercase tracking-widest text-[10px] text-white shadow-lg shadow-primary/20">
             <Plus className="h-4 w-4" /> Add Customer
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button 
-          onClick={() => setActiveTab('all')}
-          className={cn(
-            "p-6 rounded-[5px] border transition-all text-left group relative overflow-hidden",
-            activeTab === 'all' 
-              ? "bg-primary/10 border-primary shadow-[0_0_20px_rgba(37,99,235,0.1)]" 
-              : "bg-slate-900/50 border-white/5 hover:border-white/10"
-          )}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <Users className={cn("h-6 w-6", activeTab === 'all' ? "text-primary" : "text-slate-500")} />
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{customers.length} records</span>
-          </div>
-          <h3 className="text-lg font-black text-white uppercase tracking-tighter">All Registry</h3>
-          <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold tracking-widest">Global Consumer Database</p>
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('suspended')}
-          className={cn(
-            "p-6 rounded-[5px] border transition-all text-left group relative overflow-hidden",
-            activeTab === 'suspended' 
-              ? "bg-red-500/10 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.1)]" 
-              : "bg-slate-900/50 border-white/5 hover:border-red-500/20"
-          )}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <XCircle className={cn("h-6 w-6", activeTab === 'suspended' ? "text-red-500" : "text-slate-500")} />
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-              {customers.filter(c => c.suspensionStatus === 'SUSPENDED').length} active
-            </span>
-          </div>
-          <h3 className="text-lg font-black text-white uppercase tracking-tighter">Suspension Audit</h3>
-          <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold tracking-widest">Disconnected Service Points</p>
-        </button>
-      </div>
-
       <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
         <CardHeader className="pb-3 pt-6 px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="relative w-full md:w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-              <Input 
-                placeholder="Search records, meters, districts..." 
-                className="pl-9 bg-slate-950 border-white/5 text-white rounded-[5px] h-10 text-sm font-bold" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="relative w-full md:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <Input 
+                  placeholder="Search records, meters..." 
+                  className="pl-9 bg-slate-950 border-white/5 text-white rounded-[5px] h-10 text-sm font-bold" 
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setSelectedIds([]);
+                  }}
+                />
+              </div>
+
+              <Tabs 
+                value={activeTab} 
+                onValueChange={(v) => {
+                  setActiveTab(v as any);
+                  setSelectedIds([]);
+                }} 
+                className="w-auto"
+              >
+                <TabsList className="bg-slate-950/60 p-1 border border-white/5 rounded-[5px] h-10">
+                  <TabsTrigger 
+                    value="all" 
+                    className="text-[9px] uppercase font-black tracking-widest px-4 h-8 data-[state=active]:bg-primary data-[state=active]:text-white rounded-[3px] transition-all"
+                  >
+                    All Registry ({customers.length})
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="suspended" 
+                    className="text-[9px] uppercase font-black tracking-widest px-4 h-8 data-[state=active]:bg-red-600 data-[state=active]:text-white rounded-[3px] transition-all"
+                  >
+                    Suspension Audit ({suspendedCount})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
             
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-9 border-white/5 bg-slate-900 text-[10px] font-black uppercase tracking-widest gap-2 text-white">
-                <Download className="h-4 w-4" /> Export
+              {selectedIds.length > 0 && (
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  className="h-10 text-[10px] font-black uppercase tracking-widest gap-2 rounded-[5px]"
+                >
+                  <Trash2 className="h-4 w-4" /> Purge {selectedIds.length}
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExport}
+                className="h-10 border-white/5 bg-slate-900 text-[10px] font-black uppercase tracking-widest gap-2 text-white hover:bg-slate-800 rounded-[5px]"
+              >
+                <Download className="h-4 w-4" /> Export CSV
               </Button>
             </div>
           </div>
@@ -166,10 +200,13 @@ export default function CustomersPage() {
               <TableHeader className="bg-slate-950/50">
                 <TableRow className="hover:bg-transparent border-b border-white/5">
                   <TableHead className="w-10">
-                    <Checkbox checked={selectedIds.length === displayCustomers.length && displayCustomers.length > 0} onCheckedChange={(v) => {
-                      if (v) setSelectedIds(displayCustomers.map(c => c.id));
-                      else setSelectedIds([]);
-                    }} />
+                    <Checkbox 
+                      checked={selectedIds.length === displayCustomers.length && displayCustomers.length > 0} 
+                      onCheckedChange={(v) => {
+                        if (v) setSelectedIds(displayCustomers.map(c => c.id));
+                        else setSelectedIds([]);
+                      }} 
+                    />
                   </TableHead>
                   <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-widest h-11">Meter ID</TableHead>
                   <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-widest h-11">Customer Name</TableHead>
@@ -184,10 +221,13 @@ export default function CustomersPage() {
                   return (
                     <TableRow key={customer.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                       <TableCell>
-                        <Checkbox checked={selectedIds.includes(customer.id)} onCheckedChange={(v) => {
-                          if (v) setSelectedIds(prev => [...prev, customer.id]);
-                          else setSelectedIds(prev => prev.filter(i => i !== customer.id));
-                        }} />
+                        <Checkbox 
+                          checked={selectedIds.includes(customer.id)} 
+                          onCheckedChange={(v) => {
+                            if (v) setSelectedIds(prev => [...prev, customer.id]);
+                            else setSelectedIds(prev => prev.filter(i => i !== customer.id));
+                          }} 
+                        />
                       </TableCell>
                       <TableCell className="font-mono text-[11px] font-black text-primary uppercase">{customer.meterNumber}</TableCell>
                       <TableCell><div className="font-black text-white text-sm uppercase">{customer.name}</div></TableCell>
