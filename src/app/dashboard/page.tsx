@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -11,7 +12,6 @@ import {
 } from '@/components/ui/card';
 import { 
   Droplets, 
-  ArrowUpRight, 
   AlertCircle,
   Clock,
   FileText,
@@ -22,20 +22,16 @@ import {
   PlusCircle,
   ShieldCheck,
   Users,
-  Activity,
   Receipt,
-  Download,
   ExternalLink,
-  ShieldAlert,
   ArrowUp,
-  BarChart3,
   TrendingUp,
-  PieChart as PieChartIcon
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Bill, User as AppUser, Transaction, SupportTicket } from '@/app/lib/mock-data';
+import { Bill, User as AppUser, Transaction } from '@/app/lib/mock-data';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn, calculateWaterCharge } from '@/lib/utils';
@@ -48,9 +44,15 @@ import {
   DialogFooter, 
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, Label as ReLabel } from 'recharts';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 
 export default function DashboardPage() {
   const { user, settings } = useAuth();
@@ -63,14 +65,11 @@ export default function DashboardPage() {
   
   // Super Admin Specific States
   const [analyticsMode, setAnalyticsMode] = useState<'consumption' | 'revenue'>('consumption');
+  const [zoneMetricsOpen, setZoneMetricsOpen] = useState(false);
 
   // Receipt State
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
-
-  // District Staff specific states
-  const [meterLiters, setMeterLiters] = useState('');
-  const [gracePeriod, setGracePeriod] = useState('14');
 
   // Customer Activity States
   const [perPage, setPerPage] = useState(10);
@@ -105,8 +104,6 @@ export default function DashboardPage() {
     return () => window.removeEventListener('storage', loadData);
   }, [user]);
 
-  if (!user) return null;
-
   const getBillDueDate = (bill: Bill): Date => {
     if (bill.dueDate) return new Date(bill.dueDate);
     const d = new Date(bill.date);
@@ -127,7 +124,7 @@ export default function DashboardPage() {
     let customerName = user?.name || 'Customer';
     let meterNumber = user?.meterNumber || 'N/A';
     
-    if (user.role !== 'CUSTOMER') {
+    if (user?.role !== 'CUSTOMER') {
       const found = allUsers.find(u => u.id === bill.customerId);
       if (found) {
         customerName = found.name;
@@ -155,8 +152,6 @@ export default function DashboardPage() {
   };
 
   const handleDeleteTransaction = (id: string) => {
-    const updated = allTransactions.filter(t => t.id !== id);
-    setAllTransactions(updated);
     const stored = JSON.parse(localStorage.getItem('mywater_all_transactions') || '[]');
     const newStored = stored.filter((t: any) => t.id !== id);
     localStorage.setItem('mywater_all_transactions', JSON.stringify(newStored));
@@ -165,8 +160,6 @@ export default function DashboardPage() {
   };
 
   const handleBulkDeleteTransactions = () => {
-    const updated = allTransactions.filter(t => !selectedTxIds.includes(t.id));
-    setAllTransactions(updated);
     const stored = JSON.parse(localStorage.getItem('mywater_all_transactions') || '[]');
     const newStored = stored.filter((t: any) => !selectedTxIds.includes(t.id));
     localStorage.setItem('mywater_all_transactions', JSON.stringify(newStored));
@@ -176,19 +169,19 @@ export default function DashboardPage() {
   };
 
   // SUPER ADMIN VIEW
-  if (user.role === 'SUPER_ADMIN') {
+  if (user?.role === 'SUPER_ADMIN') {
     const globalRevenue = allBills.filter(b => b.status === 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
     const totalConsumption = allBills.reduce((sum, b) => sum + (b.consumption || 0), 0);
     const totalCustomers = allUsers.filter(u => u.role === 'CUSTOMER').length;
     
-    // Chart Data Generation
+    // Dynamic Chart Data Generation
     const analyticsData = [
       { name: 'Dec', val: 1200 },
       { name: 'Jan', val: 3800 },
       { name: 'Feb', val: 2400 },
       { name: 'Mar', val: 3100 },
       { name: 'Apr', val: 2800 },
-      { name: 'May', val: 5200 },
+      { name: 'May', val: totalConsumption > 0 ? totalConsumption : 5200 },
     ];
 
     const ledgerDistData = [
@@ -197,13 +190,29 @@ export default function DashboardPage() {
       { name: 'Overdue', value: allBills.filter(b => b.status === 'OVERDUE' || isBillOverdue(b)).length, color: '#ef4444' },
     ].filter(d => d.value > 0);
 
-    const zoneMetrics = [
-      { name: 'Chirimba', val: 2250, total: 3000 },
-      { name: 'Ndirande', val: 0, total: 3000 },
-      { name: 'Kanjedza', val: 0, total: 3000 },
-      { name: 'Chilomoni', val: 0, total: 3000 },
-      { name: 'Limbe', val: 0, total: 3000 },
-    ];
+    // Dynamic Zone Metrics by Area
+    const zoneMetrics = useMemo(() => {
+      const areas: Record<string, { val: number, customers: number, arrears: number }> = {};
+      const targetDistrict = settings?.districtName || 'Blantyre';
+      
+      allUsers.filter(u => u.role === 'CUSTOMER' && (settings?.appLevel !== 'district' || u.district === targetDistrict)).forEach(u => {
+        const areaName = u.area || 'Unknown';
+        if (!areas[areaName]) areas[areaName] = { val: 0, customers: 0, arrears: 0 };
+        
+        areas[areaName].customers++;
+        const userBills = allBills.filter(b => b.customerId === u.id);
+        areas[areaName].val += userBills.reduce((s, b) => s + (b.consumption || 0), 0);
+        areas[areaName].arrears += userBills.filter(b => b.status !== 'PAID').reduce((s, b) => s + b.totalAmount, 0);
+      });
+
+      return Object.entries(areas).map(([name, data]) => ({
+        name,
+        val: data.val,
+        customers: data.customers,
+        arrears: data.arrears,
+        total: Math.max(data.val * 1.5, 1000) // Adaptive scale
+      })).sort((a, b) => b.val - a.val);
+    }, [allUsers, allBills, settings]);
 
     return (
       <div className="space-y-6">
@@ -211,13 +220,12 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <ShieldCheck className="h-6 w-6 text-primary" />
-              <h2 className="text-3xl font-black tracking-tight text-white uppercase">Operational Hub</h2>
+              <h2 className="text-3xl font-black tracking-tight text-white uppercase tracking-tighter">Operational Hub</h2>
             </div>
-            <p className="text-slate-400 font-medium tracking-tight">Utility management.</p>
+            <p className="text-slate-400 font-medium tracking-tight text-[11px] uppercase tracking-widest opacity-70">Utility Management & Global Oversight</p>
           </div>
         </div>
 
-        {/* Top Stats Grid */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px]">
             <CardHeader className="pt-4 pb-1 px-5">
@@ -225,7 +233,7 @@ export default function DashboardPage() {
               <div className="mt-1">
                 <CardTitle className="text-3xl font-black text-white">MK {format2Dec(globalRevenue)}</CardTitle>
                 <div className="flex items-center gap-1 text-green-500 text-[9px] font-black uppercase mt-1">
-                  <ArrowUp className="h-2.5 w-2.5" /> Real-time
+                  <ArrowUp className="h-2.5 w-2.5" /> Real-time Audit
                 </div>
               </div>
             </CardHeader>
@@ -249,15 +257,12 @@ export default function DashboardPage() {
               </div>
               <CardTitle className="text-3xl font-black text-white mt-1">{(totalConsumption / 1000).toFixed(1)}K L</CardTitle>
               <div className="mt-3">
-                <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden">
-                  <div className="h-full bg-primary" style={{ width: '65%' }} />
-                </div>
+                <Progress value={Math.min((totalConsumption / 20000) * 100, 100)} className="h-1.5 bg-slate-950" />
               </div>
             </CardHeader>
           </Card>
         </div>
 
-        {/* Middle Grid: Analytics & Zone Metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[420px]">
           <Card className="lg:col-span-2 shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col">
             <CardHeader className="px-6 py-4 flex flex-row items-center justify-between border-b border-white/5 shrink-0">
@@ -298,31 +303,35 @@ export default function DashboardPage() {
           <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col">
             <CardHeader className="px-6 py-4 border-b border-white/5 shrink-0">
               <CardTitle className="text-xs font-black uppercase tracking-widest text-white">Zone Metrics</CardTitle>
-              <CardDescription className="text-[9px] font-bold text-slate-500 mt-0.5">Consumption by area — District scope.</CardDescription>
+              <CardDescription className="text-[9px] font-bold text-slate-500 mt-0.5">Consumption by area — {settings?.appLevel === 'national' ? 'National' : settings?.appLevel === 'region' ? 'Region' : 'District'} scope.</CardDescription>
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-y-auto custom-scrollbar">
               <div className="divide-y divide-white/5">
-                {zoneMetrics.map((zone, idx) => (
+                {zoneMetrics.length > 0 ? zoneMetrics.slice(0, 5).map((zone, idx) => (
                   <div key={idx} className="px-6 py-3.5">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-black text-white uppercase">{zone.name}</span>
-                      <span className="text-[10px] font-black text-primary">{zone.val > 0 ? zone.val.toLocaleString() + ' m³' : '-- m³'}</span>
+                      <span className="text-[10px] font-black text-primary">{zone.val.toLocaleString()} m³</span>
                     </div>
-                    <div className="h-1 w-full bg-slate-950 rounded-full overflow-hidden">
-                      <div className={cn("h-full", idx === 0 ? "bg-primary" : "bg-slate-800")} style={{ width: `${(zone.val / zone.total) * 100}%` }} />
-                    </div>
+                    <Progress value={(zone.val / zone.total) * 100} className="h-1 bg-slate-950" />
                   </div>
-                ))}
+                )) : (
+                  <div className="flex items-center justify-center h-full text-slate-700 text-[10px] font-black uppercase italic">No Zone Data Found</div>
+                )}
               </div>
             </CardContent>
             <div className="p-3 border-t border-white/5 flex items-center justify-between bg-slate-950/20 shrink-0">
-               <div className="text-[7px] font-black uppercase text-slate-600 tracking-widest">Scope: <span className="text-primary">District - By Area</span></div>
-               <button className="text-[8px] font-black uppercase text-primary flex items-center gap-1 hover:underline">See More <TrendingUp className="h-2 w-2" /></button>
+               <div className="text-[7px] font-black uppercase text-slate-600 tracking-widest px-2">Scope: <span className="text-primary">{settings?.appLevel?.toUpperCase() || 'DISTRICT'} - BY AREA</span></div>
+               <button 
+                onClick={() => setZoneMetricsOpen(true)}
+                className="text-[8px] font-black uppercase text-primary flex items-center gap-1 hover:underline cursor-pointer px-2"
+               >
+                See More <TrendingUp className="h-2 w-2" />
+               </button>
             </div>
           </Card>
         </div>
 
-        {/* Bottom Ledger Section */}
         <Card className="shadow-2xl border-white/5 bg-slate-900/50 rounded-[5px] flex flex-col">
           <CardHeader className="px-6 py-3 border-b border-white/5 shrink-0">
              <CardTitle className="text-[9px] font-black uppercase tracking-widest text-slate-500">Ledger Distribution</CardTitle>
@@ -359,12 +368,59 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Zone Metrics Detailed Dialog */}
+        <Dialog open={zoneMetricsOpen} onOpenChange={setZoneMetricsOpen}>
+          <DialogContent className="max-w-4xl bg-slate-950 border-white/10 text-white rounded-[5px] p-0 overflow-hidden shadow-2xl">
+            <DialogHeader className="p-6 bg-slate-900 border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/20 p-2 rounded-[5px]">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <DialogTitle className="text-sm font-black uppercase tracking-tight">Territorial Audit Analytics</DialogTitle>
+                  <DialogDescription className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Complete consumption breakdown by area and meter registry.</DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+              <Table>
+                <TableHeader className="bg-slate-900 sticky top-0 z-10">
+                  <TableRow className="border-b border-white/5 hover:bg-transparent">
+                    <TableHead className="text-[10px] font-black uppercase text-slate-500 h-10">Area / Territory</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-500 h-10 text-center">Active Meters</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-500 h-10 text-center">Total Consumption</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-500 h-10 text-right">Outstanding Arrears</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {zoneMetrics.map((zone, i) => (
+                    <TableRow key={i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <TableCell className="text-xs font-black text-white uppercase">{zone.name}</TableCell>
+                      <TableCell className="text-xs font-bold text-slate-300 text-center">{zone.customers}</TableCell>
+                      <TableCell className="text-xs font-black text-primary text-center">{zone.val.toLocaleString()} m³</TableCell>
+                      <TableCell className="text-xs font-black text-red-500 text-right">MK {format2Dec(zone.arrears)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <DialogFooter className="p-4 bg-slate-900 border-t border-white/5">
+              <Button 
+                onClick={() => setZoneMetricsOpen(false)}
+                className="w-full bg-slate-800 hover:bg-slate-700 text-white font-black uppercase text-[10px] rounded-[5px] h-10"
+              >
+                Close Audit View
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
 
   // DISTRICT STAFF VIEW
-  if (user.role === 'DISTRICT_STAFF') {
+  if (user?.role === 'DISTRICT_STAFF') {
     const districtCustomers = allUsers.filter(u => u.role === 'CUSTOMER' && u.district === user.district);
     const districtBills = allBills.filter(b => districtCustomers.some(c => c.id === b.customerId));
     
@@ -548,7 +604,7 @@ export default function DashboardPage() {
   }
 
   // CUSTOMER VIEW
-  if (user.role === 'CUSTOMER') {
+  if (user?.role === 'CUSTOMER') {
     const userBills = allBills.filter(b => b.customerId === user.id);
     const pendingBills = userBills.filter(b => b.status !== 'PAID');
     const totalDue = pendingBills.reduce((sum, b) => sum + b.totalAmount, 0);
